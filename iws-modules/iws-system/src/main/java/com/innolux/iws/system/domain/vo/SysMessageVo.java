@@ -1,0 +1,83 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.system.domain.vo;
+
+import io.github.linpeilie.annotations.AutoMapper;
+import lombok.Data;
+import com.innolux.iws.system.domain.SysMessage;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+/**
+ * 消息记录视图对象 sys_message
+ *
+ * @author YONGJIE.PENG
+ */
+@Data
+@AutoMapper(target = SysMessage.class)
+public class SysMessageVo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 消息ID
+     */
+    private Long messageId;
+
+    /**
+     * 消息分组
+     */
+    private String category;
+
+    /**
+     * 消息类型
+     */
+    private String type;
+
+    /**
+     * 消息来源
+     */
+    private String source;
+
+    /**
+     * 标题
+     */
+    private String title;
+
+    /**
+     * 摘要消息
+     */
+    private String message;
+
+    /**
+     * 详细内容
+     */
+    private String content;
+
+    /**
+     * 扩展数据
+     */
+    private Object data;
+
+    /**
+     * 前端跳转路径
+     */
+    private String path;
+
+    /**
+     * 创建时间
+     */
+    private LocalDateTime createTime;
+}

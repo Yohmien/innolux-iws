@@ -1,0 +1,123 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.system.api.domain;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.innolux.iws.common.core.utils.StreamUtils;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.function.Function;
+
+/**
+ * 任务受让人
+ *
+ * @author YONGJIE.PENG
+ */
+@Data
+@NoArgsConstructor
+public class TaskAssigneeDTO implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 总大小
+     */
+    private Long total = 0L;
+
+    /**
+     * 受让人列表。
+     */
+    private List<TaskHandler> list;
+
+    /**
+     * 创建任务受让人分页结果。
+     *
+     * @param total 总大小
+     * @param list  受让人列表
+     */
+    public TaskAssigneeDTO(Long total, List<TaskHandler> list) {
+        this.total = total;
+        this.list = list;
+    }
+
+    /**
+     * 将源列表转换为 TaskHandler 列表
+     *
+     * @param <T>              通用类型
+     * @param sourceCollection 待转换的源列表
+     * @param storageId        提取 storageId 的函数
+     * @param handlerCode      提取 handlerCode 的函数
+     * @param handlerName      提取 handlerName 的函数
+     * @param groupName        提取 groupName 的函数
+     * @param createTimeMapper 提取 createTime 的函数
+     * @return 转换后的 TaskHandler 列表
+     */
+    public static <T> List<TaskHandler> convertToHandlerList(
+        Collection<T> sourceCollection,
+        Function<T, String> storageId,
+        Function<T, String> handlerCode,
+        Function<T, String> handlerName,
+        Function<T, String> groupName,
+        Function<T, LocalDateTime> createTimeMapper) {
+        return StreamUtils.toList(sourceCollection, item ->
+            new TaskHandler(
+                storageId.apply(item),
+                handlerCode.apply(item),
+                handlerName.apply(item),
+                groupName.apply(item),
+                createTimeMapper.apply(item)
+            )
+        );
+    }
+
+    /**
+     * 任务受让人明细对象。
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TaskHandler {
+
+        /**
+         * 主键
+         */
+        private String storageId;
+
+        /**
+         * 权限编码
+         */
+        private String handlerCode;
+
+        /**
+         * 权限名称
+         */
+        private String handlerName;
+
+        /**
+         * 权限分组
+         */
+        private String groupName;
+
+        /**
+         * 创建时间
+         */
+        private LocalDateTime createTime;
+    }
+
+}

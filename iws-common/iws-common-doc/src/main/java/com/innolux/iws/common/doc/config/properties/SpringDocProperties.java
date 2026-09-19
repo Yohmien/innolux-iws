@@ -1,0 +1,105 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.common.doc.config.properties;
+
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.ExternalDocumentation;
+import io.swagger.v3.oas.models.Paths;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.tags.Tag;
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
+
+import java.util.List;
+
+/**
+ * swagger 配置属性
+ *
+ * @author YONGJIE.PENG
+ */
+@Data
+@ConfigurationProperties(prefix = "springdoc")
+public class SpringDocProperties {
+
+    /**
+     * 文档基本信息
+     */
+    @NestedConfigurationProperty
+    private InfoProperties info = new InfoProperties();
+
+    /**
+     * 扩展文档地址
+     */
+    @NestedConfigurationProperty
+    private ExternalDocumentation externalDocs;
+
+    /**
+     * 标签
+     */
+    private List<Tag> tags = null;
+
+    /**
+     * 路径
+     */
+    @NestedConfigurationProperty
+    private Paths paths = null;
+
+    /**
+     * 组件
+     */
+    @NestedConfigurationProperty
+    private Components components = null;
+
+    /**
+     * <p>
+     * 文档的基础属性信息
+     * </p>
+     *
+     * @see io.swagger.v3.oas.models.info.Info
+     * <p>
+     * 为了 springboot 自动生产配置提示信息，所以这里复制一个类出来
+     */
+    @Data
+    public static class InfoProperties {
+
+        /**
+         * 标题
+         */
+        private String title = null;
+
+        /**
+         * 描述
+         */
+        private String description = null;
+
+        /**
+         * 联系人信息
+         */
+        @NestedConfigurationProperty
+        private Contact contact = null;
+
+        /**
+         * 许可证
+         */
+        @NestedConfigurationProperty
+        private License license = null;
+
+        /**
+         * 版本
+         */
+        private String version = null;
+
+    }
+
+}

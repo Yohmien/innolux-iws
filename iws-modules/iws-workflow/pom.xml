@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ - @Date         : 2026-09-19
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : IWS 智能仓储管理系统
+ - @Version      : V1.0
+ - @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ - @ModifyRecord : V1.0 新建；
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.innolux.iws</groupId>
+        <artifactId>iws-modules</artifactId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>iws-workflow</artifactId>
+
+    <description>
+        工作流模块
+    </description>
+
+    <dependencies>
+
+        <!-- 消息推送模块 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-push</artifactId>
+        </dependency>
+
+        <!-- 接口模块 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-doc</artifactId>
+        </dependency>
+
+        <!-- 邮件服务 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-mail</artifactId>
+        </dependency>
+
+        <!-- 短信模块 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-sms</artifactId>
+        </dependency>
+
+        <!-- 数据库服务 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-mybatis</artifactId>
+        </dependency>
+
+        <!-- web服务 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-web</artifactId>
+        </dependency>
+
+        <!-- 日志记录 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-log</artifactId>
+        </dependency>
+
+        <!-- excel -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-excel</artifactId>
+        </dependency>
+
+        <!-- 翻译模块 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-translation</artifactId>
+        </dependency>
+
+        <!-- 安全模块 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-security</artifactId>
+        </dependency>
+
+        <!-- api模块 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-api</artifactId>
+        </dependency>
+
+        <!-- Warm-Flow 工作流引擎 -->
+        <dependency>
+            <groupId>org.dromara.warm</groupId>
+            <artifactId>warm-flow-mybatis-plus-sb4-starter</artifactId>
+        </dependency>
+
+        <!-- Warm-Flow UI 插件 -->
+        <dependency>
+            <groupId>org.dromara.warm</groupId>
+            <artifactId>warm-flow-plugin-ui-sb-web</artifactId>
+        </dependency>
+
+        <!-- LiteFlow 规则编排 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-liteflow</artifactId>
+        </dependency>
+
+    </dependencies>
+
+</project>

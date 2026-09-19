@@ -1,0 +1,52 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.common.web.config.properties;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 跨域配置属性。
+ */
+@Data
+@ConfigurationProperties(prefix = "web.cors")
+public class CorsProperties {
+
+    /**
+     * 是否允许携带凭证。
+     */
+    private Boolean allowCredentials = true;
+
+    /**
+     * 允许的来源匹配规则。
+     */
+    private List<String> allowedOriginPatterns = new ArrayList<>(List.of("*"));
+
+    /**
+     * 允许的请求头。
+     */
+    private List<String> allowedHeaders = new ArrayList<>(List.of("*"));
+
+    /**
+     * 允许的请求方法。
+     */
+    private List<String> allowedMethods = new ArrayList<>(List.of("*"));
+
+    /**
+     * 预检请求缓存时间，单位秒。
+     */
+    private Long maxAge = 1800L;
+
+}

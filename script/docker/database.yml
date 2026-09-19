@@ -1,0 +1,68 @@
+# @Date         : 2026-09-19
+# @Author       : YONGJIE.PENG
+# @Email        : YONGJIE.PENG@INNOLUX.COM
+# @Job          : INNOLUX IWS 标准化重构
+# @Module       : IWS 智能仓储管理系统
+# @Version      : V1.0
+# @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+# @ModifyRecord : V1.0 新建；
+
+services:
+  # 此镜像仅用于测试 正式环境需自行安装数据库
+  # SID: XE user: system password: oracle
+  oracle:
+    image: tekintian/oracle12c:latest
+    container_name: oracle
+    environment:
+      # 时区上海
+      TZ: Asia/Shanghai
+      DBCA_TOTAL_MEMORY: 16192
+    ports:
+      - "11580:8080"
+      - "1521:1521"
+    volumes:
+      # 数据挂载
+      - "/docker/oracle/data:/u01/app/oracle"
+    network_mode: "host"
+
+  # 此镜像仅用于测试 正式环境需自行安装数据库
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2017-latest
+    container_name: sqlserver
+    environment:
+      # 时区上海
+      TZ: Asia/Shanghai
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "iws@123"
+    ports:
+      - "1433:1433"
+    volumes:
+      # 数据挂载
+      - "/docker/sqlserver/data:/var/opt/mssql"
+    network_mode: "host"
+
+  postgres:
+    image: postgres:14.2
+    container_name: postgres
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - /docker/postgres/data:/var/lib/postgresql/data
+    network_mode: "host"
+
+  postgres13:
+    image: postgres:13.6
+    container_name: postgres13
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - /docker/postgres13/data:/var/lib/postgresql/data
+    network_mode: "host"

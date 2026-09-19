@@ -1,0 +1,3 @@
+com.innolux.iws.common.push.config.MessageAutoConfiguration
+com.innolux.iws.common.push.config.MessageSseConfiguration
+com.innolux.iws.common.push.config.MessageWebSocketConfiguration

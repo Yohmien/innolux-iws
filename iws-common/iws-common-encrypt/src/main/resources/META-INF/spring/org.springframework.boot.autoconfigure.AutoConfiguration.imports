@@ -1,0 +1,3 @@
+com.innolux.iws.common.encrypt.config.EncryptorAutoConfiguration
+com.innolux.iws.common.encrypt.config.ApiDecryptAutoConfiguration
+

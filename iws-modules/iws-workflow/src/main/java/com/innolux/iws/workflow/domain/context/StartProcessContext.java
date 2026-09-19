@@ -1,0 +1,81 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.workflow.domain.context;
+
+import lombok.Data;
+import org.dromara.warm.flow.core.entity.Definition;
+import org.dromara.warm.flow.core.entity.Instance;
+import org.dromara.warm.flow.core.entity.Task;
+import org.dromara.warm.flow.orm.entity.FlowInstance;
+import com.innolux.iws.workflow.api.domain.StartProcessReturnDTO;
+import com.innolux.iws.workflow.domain.FlowInstanceBizExt;
+import com.innolux.iws.workflow.domain.bo.StartProcessBo;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 启动流程 LiteFlow 上下文。
+ * <p>
+ * 链路内保存启动参数、流程定义、流程实例和首个任务等中间结果。
+ *
+ * @author YONGJIE.PENG
+ */
+@Data
+public class StartProcessContext {
+
+    /**
+     * 启动流程入参。
+     */
+    private final StartProcessBo startProcessBo;
+
+    /**
+     * 业务唯一标识。
+     */
+    private String businessId;
+
+    /**
+     * 流程变量。
+     */
+    private Map<String, Object> variables;
+
+    /**
+     * 流程实例业务扩展信息。
+     */
+    private FlowInstanceBizExt bizExt;
+
+    /**
+     * 已存在的流程实例，非空时走续提交逻辑。
+     */
+    private FlowInstance existingInstance;
+
+    /**
+     * 已发布的流程定义。
+     */
+    private Definition definition;
+
+    /**
+     * 新启动的流程实例。
+     */
+    private Instance instance;
+
+    /**
+     * 当前流程实例下生成的任务列表。
+     */
+    private List<Task> taskList;
+
+    /**
+     * 启动流程返回结果。
+     */
+    private StartProcessReturnDTO startProcessReturn;
+
+}

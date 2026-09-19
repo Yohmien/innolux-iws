@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ - @Date         : 2026-09-19
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : IWS 智能仓储管理系统
+ - @Version      : V1.0
+ - @Description  : IDEA 主服务启动配置；
+ - @ModifyRecord : V1.0 新建；
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="IWS+ Main Service" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="false">
+    <module name="iws-admin" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.innolux.iws.IwsApplication" />
+    <option name="ACTIVE_PROFILES" value="dev" />
+    <option name="PROGRAM_PARAMETERS" value="--spring.profiles.active=dev" />
+    <option name="VM_PARAMETERS" value="-Dfile.encoding=UTF-8" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

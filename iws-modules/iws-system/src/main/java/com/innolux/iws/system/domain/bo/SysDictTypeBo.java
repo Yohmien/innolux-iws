@@ -1,0 +1,64 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.system.domain.bo;
+
+import io.github.linpeilie.annotations.AutoMapper;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+import com.innolux.iws.common.core.constant.RegexConstants;
+import com.innolux.iws.system.domain.SysDictType;
+
+import java.io.Serial;
+import java.io.Serializable;
+
+/**
+ * 字典类型业务对象 sys_dict_type
+ *
+ * @author YONGJIE.PENG
+ */
+
+@Data
+@AutoMapper(target = SysDictType.class, reverseConvertGenerate = false)
+public class SysDictTypeBo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 字典主键
+     */
+    private Long dictId;
+
+    /**
+     * 字典名称
+     */
+    @NotBlank(message = "字典名称不能为空")
+    @Size(min = 0, max = 100, message = "字典类型名称长度不能超过{max}个字符")
+    private String dictName;
+
+    /**
+     * 字典类型
+     */
+    @NotBlank(message = "字典类型不能为空")
+    @Size(min = 0, max = 100, message = "字典类型类型长度不能超过{max}个字符")
+    @Pattern(regexp = RegexConstants.DICTIONARY_TYPE, message = "字典类型必须以字母开头，且只能为（小写字母，数字，下滑线）")
+    private String dictType;
+
+    /**
+     * 备注
+     */
+    private String remark;
+
+
+}

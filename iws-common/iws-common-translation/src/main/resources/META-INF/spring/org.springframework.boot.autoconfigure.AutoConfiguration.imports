@@ -1,0 +1,6 @@
+com.innolux.iws.common.translation.config.TranslationConfig
+com.innolux.iws.common.translation.core.impl.DeptNameTranslationImpl
+com.innolux.iws.common.translation.core.impl.DictTypeTranslationImpl
+com.innolux.iws.common.translation.core.impl.OssUrlTranslationImpl
+com.innolux.iws.common.translation.core.impl.UserNameTranslationImpl
+com.innolux.iws.common.translation.core.impl.NicknameTranslationImpl

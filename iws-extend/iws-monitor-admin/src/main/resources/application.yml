@@ -1,0 +1,60 @@
+# @Date         : 2026-09-19
+# @Author       : YONGJIE.PENG
+# @Email        : YONGJIE.PENG@INNOLUX.COM
+# @Job          : INNOLUX IWS 标准化重构
+# @Module       : IWS 智能仓储管理系统
+# @Version      : V1.0
+# @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+# @ModifyRecord : V1.0 新建；
+
+server:
+  port: 18090
+spring:
+  application:
+    name: iws-monitor-admin
+  profiles:
+    active: dev
+
+logging:
+  config: classpath:logback-plus.xml
+
+--- # 监控中心服务端配置
+spring:
+  security:
+    user:
+      name: iws
+      password: 123456
+  boot:
+    admin:
+      ui:
+        title: IWS+服务监控中心
+      context-path: /admin
+  # 忽略无用警告
+  thymeleaf:
+    check-template-location: false
+
+--- # Actuator 监控端点的配置项
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: ALWAYS
+    logfile:
+      external-file: ./logs/iws-monitor-admin.log
+
+--- # 监控配置
+spring.boot.admin.client:
+  # 增加客户端开关
+  enabled: true
+  # 设置 Spring Boot Admin Server 地址
+  url: http://localhost:18090/admin
+  instance:
+    service-host-type: IP
+    metadata:
+      username: ${spring.boot.admin.client.username}
+      userpassword: ${spring.boot.admin.client.password}
+  username: iws
+  password: 123456

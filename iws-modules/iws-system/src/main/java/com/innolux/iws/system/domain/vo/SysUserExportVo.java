@@ -1,0 +1,105 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.system.domain.vo;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.apache.fesod.sheet.annotation.ExcelProperty;
+import com.innolux.iws.common.excel.annotation.ExcelDictFormat;
+import com.innolux.iws.common.excel.convert.ExcelDictConvert;
+import com.innolux.iws.system.listener.DeptExcelConverter;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+/**
+ * 用户对象导出VO
+ *
+ * @author YONGJIE.PENG
+ */
+@Data
+@NoArgsConstructor
+public class SysUserExportVo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 用户ID
+     */
+    @ExcelProperty(value = "用户序号")
+    private Long userId;
+
+    /**
+     * 用户账号
+     */
+    @ExcelProperty(value = "用户账号")
+    private String userName;
+
+    /**
+     * 部门ID
+     */
+    @ExcelProperty(value = "部门名称", converter = DeptExcelConverter.class)
+    private Long deptId;
+
+    /**
+     * 用户昵称
+     */
+    @ExcelProperty(value = "用户昵称")
+    private String nickName;
+
+    /**
+     * 用户邮箱
+     */
+    @ExcelProperty(value = "用户邮箱")
+    private String email;
+
+    /**
+     * 手机号码
+     */
+    @ExcelProperty(value = "手机号码")
+    private String phoneNumber;
+
+    /**
+     * 用户性别（0男 1女 2未知）
+     */
+    @ExcelProperty(value = "用户性别", converter = ExcelDictConvert.class)
+    @ExcelDictFormat(dictType = "sys_user_gender")
+    private String gender;
+
+    /**
+     * 账号状态（0正常 1停用）
+     */
+    @ExcelProperty(value = "账号状态", converter = ExcelDictConvert.class)
+    @ExcelDictFormat(dictType = "sys_normal_disable")
+    private String status;
+
+    /**
+     * 最后登录IP
+     */
+    @ExcelProperty(value = "最后登录IP")
+    private String loginIp;
+
+    /**
+     * 最后登录时间
+     */
+    @ExcelProperty(value = "最后登录时间")
+    private LocalDateTime loginDate;
+
+    /**
+     * 负责人
+     */
+    @ExcelProperty(value = "部门负责人")
+    private String leaderName;
+
+}

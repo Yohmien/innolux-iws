@@ -1,0 +1,80 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.workflow.domain.vo;
+
+import io.github.linpeilie.annotations.AutoMapper;
+import lombok.Data;
+import org.apache.fesod.sheet.annotation.ExcelIgnoreUnannotated;
+import org.apache.fesod.sheet.annotation.ExcelProperty;
+import com.innolux.iws.common.translation.annotation.Translation;
+import com.innolux.iws.workflow.common.constant.FlowConstant;
+import com.innolux.iws.workflow.domain.FlowCategory;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+/**
+ * 流程分类视图对象 wf_category
+ *
+ * @author YONGJIE.PENG
+ * @date 2023-06-27
+ */
+@Data
+@ExcelIgnoreUnannotated
+@AutoMapper(target = FlowCategory.class)
+public class FlowCategoryVo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 流程分类ID
+     */
+    @ExcelProperty(value = "流程分类ID")
+    private Long categoryId;
+
+    /**
+     * 父级分类id
+     */
+    private Long parentId;
+
+    /**
+     * 父级分类名称
+     */
+    @Translation(type = FlowConstant.CATEGORY_ID_TO_NAME, mapper = "parentId")
+    private String parentName;
+
+    /**
+     * 祖级列表
+     */
+    private String ancestors;
+
+    /**
+     * 流程分类名称
+     */
+    @ExcelProperty(value = "流程分类名称")
+    private String categoryName;
+
+    /**
+     * 显示顺序
+     */
+    @ExcelProperty(value = "显示顺序")
+    private Long orderNum;
+
+    /**
+     * 创建时间
+     */
+    @ExcelProperty(value = "创建时间")
+    private LocalDateTime createTime;
+
+}

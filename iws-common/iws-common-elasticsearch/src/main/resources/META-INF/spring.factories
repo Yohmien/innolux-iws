@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+  com.innolux.iws.common.elasticsearch.config.ActuatorEnvironmentPostProcessor

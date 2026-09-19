@@ -1,0 +1,101 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.system.domain.vo;
+
+import lombok.Data;
+import com.innolux.iws.common.translation.annotation.Translation;
+import com.innolux.iws.common.translation.constant.TransConstant;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+
+/**
+ * 用户信息视图对象 sys_user
+ *
+ * @author YONGJIE.PENG
+ */
+@Data
+public class ProfileUserVo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 用户ID
+     */
+    private Long userId;
+
+    /**
+     * 部门ID
+     */
+    private Long deptId;
+
+    /**
+     * 用户账号
+     */
+    private String userName;
+
+    /**
+     * 用户昵称
+     */
+    private String nickName;
+
+    /**
+     * 用户类型（sys_user系统用户）
+     */
+    private String userType;
+
+    /**
+     * 用户邮箱
+     */
+    private String email;
+
+    /**
+     * 手机号码
+     */
+    private String phoneNumber;
+
+    /**
+     * 用户性别（0男 1女 2未知）
+     */
+    private String gender;
+
+    /**
+     * 头像 OSS ID
+     */
+    private Long avatar;
+
+    /**
+     * 头像地址
+     */
+    @Translation(type = TransConstant.OSS_ID_TO_URL, mapper = "avatar")
+    private String avatarUrl;
+
+    /**
+     * 最后登录IP
+     */
+    private String loginIp;
+
+    /**
+     * 最后登录时间
+     */
+    private LocalDateTime loginDate;
+
+    /**
+     * 部门名
+     */
+    @Translation(type = TransConstant.DEPT_ID_TO_NAME, mapper = "deptId")
+    private String deptName;
+
+}

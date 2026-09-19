@@ -1,0 +1,98 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.common.oss.model;
+
+import java.util.Optional;
+
+/**
+ * 处理异步结果
+ *
+ * @param result 结果
+ * @param error  异常错误
+ * @param <T>    结果类型
+ * @author YONGJIE.PENG
+ */
+public record HandleAsyncResult<T>(
+    T result,
+    Throwable error
+) {
+
+    /**
+     * 获取异步处理结果。
+     *
+     * @return 异步处理结果
+     */
+    public Optional<T> getResult() {
+        return Optional.ofNullable(result);
+    }
+
+    /**
+     * 获取异步处理异常。
+     *
+     * @return 异步处理异常
+     */
+    public Optional<Throwable> getError() {
+        return Optional.ofNullable(error);
+    }
+
+    /**
+     * 是否处理成功。
+     *
+     * @return true 成功 false 失败
+     */
+    public boolean isSuccess() {
+        return getError().isEmpty();
+    }
+
+    /**
+     * 是否处理失败。
+     *
+     * @return true 失败 false 成功
+     */
+    public boolean isFailure() {
+        return getError().isPresent();
+    }
+
+    /**
+     * 构建异步处理结果。
+     *
+     * @param result 结果
+     * @param error  异常
+     * @param <T>    结果类型
+     * @return 异步处理结果
+     */
+    public static <T> HandleAsyncResult<T> of(T result, Throwable error) {
+        return new HandleAsyncResult<>(result, error);
+    }
+
+    /**
+     * 构建成功的异步处理结果。
+     *
+     * @param result 结果
+     * @param <T>    结果类型
+     * @return 异步处理结果
+     */
+    public static <T> HandleAsyncResult<T> success(T result) {
+        return new HandleAsyncResult<>(result, null);
+    }
+
+    /**
+     * 构建失败的异步处理结果。
+     *
+     * @param error 异常
+     * @param <T>   结果类型
+     * @return 异步处理结果
+     */
+    public static <T> HandleAsyncResult<T> failure(Throwable error) {
+        return new HandleAsyncResult<>(null, error);
+    }
+}

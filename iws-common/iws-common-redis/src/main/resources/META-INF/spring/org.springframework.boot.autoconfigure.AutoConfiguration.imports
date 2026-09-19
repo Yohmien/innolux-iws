@@ -1,0 +1,5 @@
+com.innolux.iws.common.redis.config.RedisConfig
+com.innolux.iws.common.redis.config.CacheConfig
+com.innolux.iws.common.redis.config.IdempotentConfig
+com.innolux.iws.common.redis.config.RateLimiterConfig
+com.innolux.iws.common.redis.config.Lock4jConfig

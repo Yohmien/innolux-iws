@@ -1,0 +1,130 @@
+/*
+ * @Date         : 2026-09-19
+ * @Author       : YONGJIE.PENG
+ * @Email        : YONGJIE.PENG@INNOLUX.COM
+ * @Job          : INNOLUX IWS 标准化重构
+ * @Module       : IWS 智能仓储管理系统
+ * @Version      : V1.0
+ * @Description  : 统一前后端命名、基础架构、数据库脚本与智能仓储业务入口；
+ * @ModifyRecord : V1.0 新建；
+ */
+
+package com.innolux.iws.demo.domain.vo;
+
+import io.github.linpeilie.annotations.AutoMapper;
+import lombok.Data;
+import org.apache.fesod.sheet.annotation.ExcelIgnoreUnannotated;
+import org.apache.fesod.sheet.annotation.ExcelProperty;
+import org.apache.fesod.sheet.annotation.format.DateTimeFormat;
+import com.innolux.iws.common.excel.annotation.ExcelNotation;
+import com.innolux.iws.common.excel.annotation.ExcelRequired;
+import com.innolux.iws.common.translation.annotation.Translation;
+import com.innolux.iws.common.translation.constant.TransConstant;
+import com.innolux.iws.demo.domain.TestDemo;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+
+/**
+ * 测试单表视图对象 test_demo
+ *
+ * @author YONGJIE.PENG
+ * @date 2021-07-26
+ */
+@Data
+@ExcelIgnoreUnannotated
+@AutoMapper(target = TestDemo.class)
+public class TestDemoVo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 主键
+     */
+    @ExcelProperty(value = "主键")
+    private Long id;
+
+    /**
+     * 部门id
+     */
+    @ExcelRequired
+    @ExcelProperty(value = "部门id")
+    private Long deptId;
+
+    /**
+     * 用户id
+     */
+    @ExcelRequired
+    @ExcelProperty(value = "用户id", index = 5)
+    private Long userId;
+
+    /**
+     * 排序号
+     */
+    @ExcelRequired
+    @ExcelProperty(value = "排序号")
+    private Integer orderNum;
+
+    /**
+     * key键
+     */
+    @ExcelNotation(value = "测试key")
+    @ExcelProperty(value = "key键")
+    private String testKey;
+
+    /**
+     * 值
+     */
+    @ExcelNotation(value = "测试value")
+    @ExcelProperty(value = "值")
+    private String value;
+
+    /**
+     * 创建时间
+     */
+    @ExcelRequired
+    @DateTimeFormat("yyyy-MM-dd HH:mm:ss")
+    @ExcelProperty(value = "创建时间")
+    private LocalDateTime createTime;
+
+    /**
+     * 创建人
+     */
+    @ExcelProperty(value = "创建人")
+    private Long createBy;
+
+    /**
+     * 创建人账号
+     */
+    @Translation(type = TransConstant.USER_ID_TO_NAME, mapper = "createBy")
+    @ExcelProperty(value = "创建人账号")
+    private String createByName;
+
+    /**
+     * 更新时间
+     */
+    @ExcelProperty(value = "更新时间")
+    private LocalDateTime updateTime;
+
+    /**
+     * 更新人
+     */
+    @ExcelProperty(value = "更新人")
+    private Long updateBy;
+
+    /**
+     * 更新人账号
+     */
+    @Translation(type = TransConstant.USER_ID_TO_NAME, mapper = "updateBy")
+    @ExcelProperty(value = "更新人账号")
+    private String updateByName;
+
+    /**
+     * 版本
+     */
+    private Long version;
+
+}
