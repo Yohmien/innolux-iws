@@ -440,6 +440,13 @@
                 <version>${revision}</version>
             </dependency>
 
+            <!-- WMS标准业务模块 -->
+            <dependency>
+                <groupId>com.innolux.iws</groupId>
+                <artifactId>iws-wms</artifactId>
+                <version>${revision}</version>
+            </dependency>
+
             <!-- 代码生成模块 -->
             <dependency>
                 <groupId>com.innolux.iws</groupId>

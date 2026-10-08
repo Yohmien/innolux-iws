@@ -109,7 +109,9 @@ public class TemplateEngineUtils {
 
         context.put("tplCategory", genTable.getTplCategory());
         context.put("frontendType", resolveFrontendType(genTable.getFrontendType()));
+        context.put("iwsStandardFrontend", isIwsStandardFrontend(genTable.getFrontendType()));
         context.put("tableName", genTable.getTableName());
+        context.put("tableCode", genTable.getTableName());
         context.put("functionName", StringUtils.isNotEmpty(functionName) ? functionName : "【请填写功能名称】");
         context.put("ClassName", genTable.getClassName());
         context.put("className", StringUtils.uncapitalize(genTable.getClassName()));
@@ -298,6 +300,10 @@ public class TemplateEngineUtils {
      * @return 模板列表
      */
     public static List<PathNamedTemplate> getTemplateList(String tplCategory, String dsName, String frontendType) {
+        boolean iwsStandardFrontend = isIwsStandardFrontend(frontendType);
+        if (iwsStandardFrontend && !GenConstants.TPL_CRUD.equals(tplCategory)) {
+            throw new ServiceException("IWS 标准 Vue 模板仅支持单表 CRUD，不支持树表模板");
+        }
         List<PathNamedTemplate> templates = new ArrayList<>();
         // 后端源码模板
         templates.add(TEMPLATE_MAPPER.get(GenConstants.JAVA_DOMAIN_TEMPLATE_PATH));
@@ -309,9 +315,11 @@ public class TemplateEngineUtils {
         templates.add(TEMPLATE_MAPPER.get(GenConstants.JAVA_CONTROLLER_TEMPLATE_PATH));
         // MyBatis MapperXML 模板
         templates.add(TEMPLATE_MAPPER.get(GenConstants.XML_MAPPER_TEMPLATE_PATH));
-        // 前端 API 与类型模板
-        templates.add(getTemplate(getFrontendApiTemplatePath(frontendType)));
-        templates.add(getTemplate(getFrontendTypesTemplatePath(frontendType)));
+        // 标准 IWS 平铺页复用 /wms/crud 通用前端 API，避免每张表重复生成一套散接口。
+        if (!iwsStandardFrontend) {
+            templates.add(getTemplate(getFrontendApiTemplatePath(frontendType)));
+            templates.add(getTemplate(getFrontendTypesTemplatePath(frontendType)));
+        }
         // 数据库模板
         DataBaseType dataBaseType = DataBaseHelper.getDataBaseType(dsName);
         if (dataBaseType.isOracle()) {
@@ -411,6 +419,9 @@ public class TemplateEngineUtils {
      * @return 前端输出目录
      */
     private static String getFrontendPath(String frontendType) {
+        if (isIwsStandardFrontend(frontendType)) {
+            return GenConstants.FRONTEND_TYPE_VUE;
+        }
         return resolveFrontendType(frontendType);
     }
 
@@ -466,6 +477,10 @@ public class TemplateEngineUtils {
             throw new ServiceException("前端模板类型仅支持字母、数字、下划线和中划线");
         }
         return type;
+    }
+
+    private static boolean isIwsStandardFrontend(String frontendType) {
+        return GenConstants.FRONTEND_TYPE_IWS_VUE.equals(resolveFrontendType(frontendType));
     }
 
     private static String getFrontendTemplatePath(String frontendType, String templateName) {

@@ -97,6 +97,14 @@ public interface GenConstants {
     String FRONTEND_TYPE_VUE = "vue";
 
     /**
+     * IWS 标准 Vue 前端模板。
+     *
+     * <p>用于标准化表数据页，只生成 IwsCrudPage 平铺入口，页面能力由字段元数据和
+     * /wms/crud 通用接口驱动。输出目录仍然是 vue，模板目录为 fm/iws-vue。</p>
+     */
+    String FRONTEND_TYPE_IWS_VUE = "iws-vue";
+
+    /**
      * React 前端模板类型，对应模板根目录下的 react 目录。
      */
     String FRONTEND_TYPE_REACT = "react";

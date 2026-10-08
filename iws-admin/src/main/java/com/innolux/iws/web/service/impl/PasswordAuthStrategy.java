@@ -30,7 +30,6 @@ import com.innolux.iws.common.core.utils.ValidatorUtils;
 import com.innolux.iws.common.json.utils.JsonUtils;
 import com.innolux.iws.common.redis.utils.RedisUtils;
 import com.innolux.iws.common.satoken.utils.LoginHelper;
-import com.innolux.iws.common.web.config.properties.CaptchaProperties;
 import com.innolux.iws.system.api.model.LoginUser;
 import com.innolux.iws.system.api.model.PasswordLoginBody;
 import com.innolux.iws.system.domain.SysUser;
@@ -39,6 +38,7 @@ import com.innolux.iws.system.domain.vo.SysUserVo;
 import com.innolux.iws.system.mapper.SysUserMapper;
 import com.innolux.iws.web.domain.vo.LoginVo;
 import com.innolux.iws.web.service.IAuthStrategy;
+import com.innolux.iws.web.service.LoginSecurityConfigService;
 import com.innolux.iws.web.service.SysLoginService;
 import org.springframework.stereotype.Service;
 
@@ -52,7 +52,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class PasswordAuthStrategy implements IAuthStrategy {
 
-    private final CaptchaProperties captchaProperties;
+    private final LoginSecurityConfigService loginSecurityConfigService;
     private final SysLoginService loginService;
     private final SysUserMapper userMapper;
 
@@ -72,9 +72,9 @@ public class PasswordAuthStrategy implements IAuthStrategy {
         String code = loginBody.getCode();
         String uuid = loginBody.getUuid();
 
-        boolean captchaEnabled = captchaProperties.getEnable();
-        // 验证码开关
-        if (captchaEnabled) {
+        boolean captchaEnabled = loginSecurityConfigService.isCaptchaEnabled();
+        // 扫码枪登录传入的是“账号-密码”二维码内容，仍执行密码校验，但跳过人工图形验证码。
+        if (captchaEnabled && !Boolean.TRUE.equals(loginBody.getScanLogin())) {
             validateCaptcha(username, code, uuid);
         }
         SysUserVo user = loadUserByUsername(username);

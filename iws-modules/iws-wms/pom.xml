@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ - @Date         : 2026-09-22
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : IWS 智能仓储管理系统
+ - @Version      : V1.0
+ - @Description  : WMS 标准业务模块，承载 SMT 电子仓标准表数据页与后续业务能力；
+ - @ModifyRecord : V1.0 新建；
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.innolux.iws</groupId>
+        <artifactId>iws-modules</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>iws-wms</artifactId>
+
+    <description>
+        WMS智能仓储标准业务模块
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-doc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-mybatis</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-log</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-excel</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-web</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

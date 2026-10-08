@@ -41,4 +41,9 @@ public class PasswordLoginBody extends LoginBody {
 //    @Pattern(regexp = RegexConstants.PASSWORD, message = "{user.password.format.valid}")
     private String password;
 
+    /**
+     * 扫码枪快捷登录标识。
+     */
+    private Boolean scanLogin;
+
 }

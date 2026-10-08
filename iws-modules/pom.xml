@@ -33,6 +33,7 @@
         <module>iws-system</module>
         <module>iws-workflow</module>
         <module>iws-ai</module>
+        <module>iws-wms</module>
     </modules>
 
 </project>

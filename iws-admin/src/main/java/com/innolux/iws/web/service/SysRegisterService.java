@@ -27,7 +27,6 @@ import com.innolux.iws.common.core.utils.StringUtils;
 import com.innolux.iws.common.log.event.LoginInfoEvent;
 import com.innolux.iws.common.redis.utils.RedisUtils;
 import com.innolux.iws.common.satoken.utils.LoginHelper;
-import com.innolux.iws.common.web.config.properties.CaptchaProperties;
 import com.innolux.iws.system.api.model.RegisterBody;
 import com.innolux.iws.system.domain.SysUser;
 import com.innolux.iws.system.domain.bo.SysUserBo;
@@ -46,7 +45,7 @@ public class SysRegisterService {
 
     private final ISysUserService userService;
     private final SysUserMapper userMapper;
-    private final CaptchaProperties captchaProperties;
+    private final LoginSecurityConfigService loginSecurityConfigService;
 
     /**
      * 注册
@@ -59,7 +58,7 @@ public class SysRegisterService {
         // 校验用户类型是否存在
         String userType = UserType.getUserType(registerBody.getUserType()).getUserType();
 
-        boolean captchaEnabled = captchaProperties.getEnable();
+        boolean captchaEnabled = loginSecurityConfigService.isCaptchaEnabled();
         // 验证码开关
         if (captchaEnabled) {
             validateCaptcha(username, registerBody.getCode(), registerBody.getUuid());

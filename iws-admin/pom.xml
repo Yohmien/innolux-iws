@@ -103,6 +103,12 @@
             <artifactId>iws-ai</artifactId>
         </dependency>
 
+        <!-- WMS标准业务模块 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-wms</artifactId>
+        </dependency>
+
         <!--  demo模块  -->
         <dependency>
             <groupId>com.innolux.iws</groupId>

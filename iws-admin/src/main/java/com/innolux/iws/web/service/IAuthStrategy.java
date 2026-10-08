@@ -74,6 +74,7 @@ public interface IAuthStrategy {
         model.setExtra(LoginHelper.CLIENT_KEY, client.getClientId());
         model.setExtra(LoginHelper.CLIENT_ACCESS_PATH_KEY, client.getAccessPath());
         model.setExtra(LoginHelper.CLIENT_IP_WHITELIST_KEY, client.getIpWhitelist());
+        SpringUtils.getBean(LoginSecurityConfigService.class).applyTokenTimeout(model);
         if (ObjectUtil.isNotNull(customizer)) {
             customizer.accept(model);
         }

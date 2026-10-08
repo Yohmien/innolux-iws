@@ -34,6 +34,7 @@ import com.innolux.iws.common.redis.enums.LimitType;
 import com.innolux.iws.common.redis.utils.RedisUtils;
 import com.innolux.iws.common.web.config.properties.CaptchaProperties;
 import com.innolux.iws.common.web.core.WaveAndCircleCaptcha;
+import com.innolux.iws.web.service.LoginSecurityConfigService;
 import org.dromara.sms4j.api.SmsBlend;
 import org.dromara.sms4j.api.entity.SmsResponse;
 import org.dromara.sms4j.core.factory.SmsFactory;
@@ -62,6 +63,7 @@ public class CaptchaController {
 
     private final CaptchaProperties captchaProperties;
     private final MailProperties mailProperties;
+    private final LoginSecurityConfigService loginSecurityConfigService;
 
     /**
      * 发送短信验证码。
@@ -139,7 +141,7 @@ public class CaptchaController {
      */
     @GetMapping("/auth/code")
     public R<CaptchaVo> getCode() {
-        boolean captchaEnabled = captchaProperties.getEnable();
+        boolean captchaEnabled = loginSecurityConfigService.isCaptchaEnabled();
         if (!captchaEnabled) {
             return R.ok(new CaptchaVo(false, null, null));
         }
