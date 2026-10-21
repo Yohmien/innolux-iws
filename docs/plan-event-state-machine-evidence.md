@@ -154,6 +154,10 @@ javap -classpath $taskClasspath -c -p 'com.aizuda.snailjob.common.core.enums.Sta
 - 页面防重复：`@RepeatSubmit` 仅用于重复点击保护；
 - 真正幂等：数据库状态、版本条件和唯一业务键。
 
+接口权限并非缺失：`iws-common-security/.../SecurityConfig.java:92-116` 已注册 Sa-Token `SaInterceptor` 并执行登录/客户端校验；当前 `iws-modules` 静态检索有 217 处 `@SaCheckPermission`，工作流定义、实例、任务和系统控制器均按“模块:资源:动作”校验；通用 WMS CRUD 使用 `StpUtil.checkPermission`，MyBatis 公共层提供 `@DataPermission`。新模块沿用同一机制，不增加第二套权限框架或启动扫描器。
+
+当前源码未发现 `iws-common-tenant`、`TenantEntity`，目标库也没有 `sys_tenant`/`sys_tenant_package`；只有 Warm-Flow `flow_*` 表保留历史 `tenant_id` 列。因此当前按单租户设计，不预造租户字段。
+
 现有操作日志更适合记录 HTTP 入口、登录用户、请求结果和耗时；它不能单独证明定时 worker、分支选择、跳过、外部调用前后检查点或系统自动恢复。因此新增领域动作审计表是必要扩展，并与现有操作日志通过请求 ID/实例/事件键关联。
 
 ### 3.3 字典
