@@ -32,7 +32,7 @@
 - `docs/iws-standard-crud-page-design.md`
 - `docs/wms-smt-standard-data-model.md`
 
-文档工作树仅保留本次交接文档的状态说明校正。不要 `git add .`、不要 reset/checkout 主工作树这三个文件。
+文档工作树在本交接提交后应为干净；若存在修改，先核对是否属于后续未完成工作。不要 `git add .`、不要 reset/checkout 主工作树这三个文件。
 
 本地项目规约已补充到被忽略的 `C:\code\company\innolux-iws\AGENTS.md`，不会进入任何远端。
 
@@ -81,7 +81,7 @@
 - 方案文档：17 张 Mermaid 图全部解析/渲染成功，页面错误为 0。
 - 文档编码、链接、代码围栏、尾随空格和 `git diff --check` 已通过。
 - `git sync-personal` 与 `git sync-all-code` 均已实际执行成功（当前均为 no-op）；推送文档分支到 upstream 的 dry-run 被保护钩子拒绝。
-- 当前没有运行中的子代理。
+- 交接时未发现仍在写入本任务的子代理；接续前按现场重新核验，不把本快照当作当前状态。
 - 未修改后端/前端业务代码，未执行数据库 DDL/DML，未启动应用或真实过账。
 
 ## 9. 待确认与下一步
