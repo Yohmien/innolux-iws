@@ -110,7 +110,6 @@
 
 直接复用后，无需新建调度平台、审批引擎、权限/菜单/字典、请求客户端、通用分页和操作日志。主要新增仅是领域表、状态/事件执行、审计、移动端零散 API 适配和必要展示组件。Warm-Flow 与 SnailJob 不能替代领域检查点，因为它们不保存外部发送意图、幂等键、事件分支 token 和本地收口事实；该部分必须由新模块承担。
 
-+
 ## 9. 设计模式选型
 
 参考目录：[重构大师设计模式目录](https://refactoringguru.cn/design-patterns/catalog)。选型原则是围绕已经出现的扩展点和变化轴使用模式；不把模式名写进类名来制造层次，也不新增无实际变化的抽象。Spring 容器、事务 AOP、MyBatis-Plus 和现有框架能力优先于自建实现。
@@ -154,4 +153,75 @@
 - 自行实现单例、代理、缓存框架、消息总线或规则解释器。
 - 为只有一两个实现的接口提前拆 Factory/Abstract Factory/Bridge；等到真实变化轴出现再引入。
 
-模式落点只服务于当前需求；后续若新增同类变化，扩展策略/注册表，不复制模板、命令和审计链。
+## 10. 权限复用与租户边界
+
+### 10.1 当前事实与结论
+
+当前 `innolux-iws` 源码未发现 `iws-common-tenant`、`TenantEntity` 或可用的租户上下文实现，`MybatisPlusConfig` 仅保留租户插件注释；目标库 `localhost:3306/innolux_iws` 未发现 `sys_tenant`、`sys_tenant_package`，没有 `sys_user.tenant_id` 等业务租户隔离基础。Warm-Flow 的 `flow_*` 表虽有历史 `tenant_id` 列，不能据此宣称 IWS 已启用多租户。
+
+结论：本模块按当前单租户系统设计，不新增 `tenant_id`、租户选择器、跨租户过滤或租户套餐逻辑。未来若正式引入多租户模块，再按下节扩展；在此之前不把 Warm-Flow 的遗留字段当作隔离依据。
+
+### 10.2 后端权限矩阵
+
+所有 Controller 继续使用 `@SaCheckPermission`、`@Log`、`@RepeatSubmit`；权限字符串统一定义在 Java 常量中，菜单 SQL 使用同一字符串。禁止信任前端传入的权限、操作者或租户信息。
+
+| 资源 | 权限码 | 默认角色 |
+| --- | --- | --- |
+| 业务调度查询 | `process:schedule:list`、`process:schedule:query` | 计划管理员、运行人员、审计只读 |
+| 业务调度维护 | `process:schedule:add`、`process:schedule:edit`、`process:schedule:remove` | 计划管理员 |
+| 计划定义查询/版本切换 | `process:definition:list`、`process:definition:query` | 计划管理员、运行人员 |
+| 计划草稿编辑 | `process:definition:add`、`process:definition:edit`、`process:definition:copy` | 计划管理员 |
+| 发布/删除草稿 | `process:definition:publish`、`process:definition:remove` | 计划管理员；删除只限最新未引用草稿 |
+| 执行总览/实例/计划链 | `process:execution:list`、`process:instance:query`、`process:instance:chain` | 运行人员、审计只读 |
+| 任务补挂/首次确认 | `process:instance:attach`、`process:instance:confirm` | 运行人员 |
+| 暂停/恢复/取消 | `process:instance:pause`、`process:instance:resume`、`process:instance:cancel` | 运行主管 |
+| 事件查询 | `process:event:query` | 运行人员、审计只读 |
+| 事件重试/重新校验 | `process:event:retry`、`process:event:revalidate` | 运行人员 |
+| 事件最终失败 | `process:event:finalize` | 运行主管 |
+| 事件插队 | `process:event:priority` | 运行主管 |
+| 请求报文 | `process:event:request` | 审计/管理员，默认不授予普通运行人员 |
+| 审计时间线 | `process:audit:query` | 审计、运行主管 |
+
+对象级校验与接口权限同时执行：即使拥有 `instance:confirm`，也只能确认当前业务范围内、状态允许且未确认的实例系统；拥有 `event:retry` 也只能恢复指定失败事件，不能借路径参数访问其他实例。分页、导出和详情使用同一数据范围与字段白名单。
+
+建议角色：`计划管理员`负责定义/发布，`运行人员`负责确认与事件重试，`运行主管`负责暂停/取消/最终失败/插队，`审计只读`仅查询链路与审计；权限可叠加，不把“能看”直接等同“能操作”。
+
+### 10.3 后端接口权限兜底
+
+前端菜单和按钮只负责可见性，后端采用“接口权限 + 对象权限 + 默认拒绝”三层兜底：
+
+1. 每个 `/process/**` Controller 方法必须有 `@SaCheckPermission`，或者显式标记 `@ProcessInternal`/`@ProcessPublic`；启动扫描发现缺失标记时直接启动失败，避免新增接口漏授权。
+2. 接口权限通过后，Service 必须重新加载目标实例/事件/token，并验证业务范围、状态、版本、命令前置和允许字段；不能只依赖前端传来的 ID、action 或 `tenantId`。
+3. 更新在同一事务中使用版本/租约条件；权限校验和状态变更之间不能存在可通过重放绕过的窗口。并发竞争返回明确冲突，不执行副作用。
+4. 系统 worker 使用独立受信身份，只调用运行服务，不调用管理端接口；人工命令不得伪造系统身份。
+5. 未登录返回 401，权限不足或跨业务对象返回 403/明确业务错误；不降级为匿名、超级管理员或默认处理器。
+6. 权限拒绝由命令拦截器写审计；拒绝信息不泄露其他业务对象的敏感摘要。
+
+验收必须覆盖：无 token、错误权限、只有菜单权限无 API 权限、直接构造 URL、越权访问其他实例、旧版本写入、重复提交、并发租约竞争、系统 worker 冒充人工操作。Mock 通过不能替代 Spring MVC + Sa-Token 的真实鉴权测试。
+
+### 10.4 前端权限复用
+
+前端继续使用 `useUserStore().permissions`、`v-hasPermi`、`auth.hasPermi/hasPermiOr/hasPermiAnd` 和后端动态菜单。按钮显示只是体验层，API 注解和对象级校验才是最终授权。
+
+| 页面/控件 | 默认展示条件 | 无权限行为 |
+| --- | --- | --- |
+| 菜单与路由 | 后端 `getRouters()` 返回且角色拥有权限 | 不注册页面路由 |
+| 计划编辑/事件编辑 | `definition:edit` 且版本为最新草稿 | 编辑器只读，不渲染保存控件 |
+| 发布/复制/删除草稿 | `definition:publish`/`copy`/`remove` | 隐藏对应操作，服务端仍拒绝 |
+| 首次确认 | `instance:confirm` 且当前系统可确认 | 不显示勾选框，提示无权限 |
+| 事件重试/重新校验 | `event:retry`/`event:revalidate` 且 `canRetry`/`canRevalidate` | 隐藏按钮并显示后端原因 |
+| 暂停/恢复/取消 | 对应实例权限与计划状态 | 隐藏或明确禁用，不推断成功 |
+| 审计/请求报文 | `audit:query` / `event:request` | 审计入口或报文详情不可见 |
+
+所有 403 页面显示“无权限执行该动作”，不把 403 当网络错误重试；请求拦截器已经提示的错误不重复弹出。前端不得通过隐藏按钮允许未授权用户执行命令。
+
+### 10.5 若后续引入多租户
+
+只有现有项目真正装配租户上下文、`TenantEntity`、租户插件和 `sys_tenant` 后才启用以下规则，不在当前单租户版本预先增加空字段：
+
+1. 计划定义、业务调度、实例、token、事件、attempt、schedule control、action audit 全部纳入租户实体；唯一键包含 `tenant_id`，例如 `(tenant_id, plan_code, version)` 和 `(tenant_id, task_key)`。
+2. 租户来自登录上下文或受信调度上下文，绝不接受客户端可改的 `tenantId`；所有关联写入校验同一租户，防止跨租户引用。
+3. MyBatis-Plus 租户插件自动过滤所有新表；确需全局表的表必须显式加入忽略清单并说明理由。缓存键、菜单、角色和审计全部带租户范围。
+4. 调度任务持久化租户 ID，worker 在认领时恢复租户上下文，任务结束后清理 ThreadLocal；监督控制、优先级队列和资源组按租户或业务调度范围隔离。
+5. 超级管理员可跨租户查询和运维；租户管理员仅管理本租户；跨租户命令返回明确拒绝并审计。租户停用停止新认领，不删除历史实例和审计。
+6. 多租户版本需要独立迁移与隔离测试，不能用当前 `flow_*` 的遗留 `tenant_id` 列代替正式租户契约。
