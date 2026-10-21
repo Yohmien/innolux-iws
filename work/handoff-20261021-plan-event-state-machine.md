@@ -15,14 +15,14 @@
 | 代码工作树 | `C:\code\company\innolux-iws` |
 | 代码分支 | `main`，`57391dd`，跟踪 `origin/main` |
 | 文档工作树 | `C:\code\company\innolux-iws-plan-event-docs` |
-| 文档分支 | `personal/plan-event-state-machine-design`，本地 `23110a9` |
+| 文档分支 | `personal/plan-event-state-machine-design`，以文档工作树当前 HEAD 为准 |
 | Gitee 个人远端 | `origin` → `https://gitee.com/yumuing/innolux-iws.git` |
 | GitHub 个人远端 | `github` → `https://github.com/Yohmien/innolux-iws.git` |
 | 来源远端 | `upstream` → `https://gitee.com/July-Yongjie/innolux-iws.git` |
 
 三仓 `main` 已统一为 `57391dd`。个人仓库原有 `6.X` 分支保留，未改写；两个个人仓库的服务端默认分支仍是 `6.X`，`main` 和文档分支已额外建立。
 
-文档分支内容已发布到个人 Gitee 和个人 GitHub，未发布到 `upstream`。Gitee 文档分支提交为 `23110a9`；GitHub 因 HTTPS 连接间歇失败，通过 GitHub Git Data API 同步为内容等价的 `35dce6c`，两者内容一致但提交哈希不同。网络恢复正常后可用本地 Gitee 分支做一次 `--force-with-lease` 对齐 GitHub 文档分支；不要推送到 `upstream`。
+文档分支内容已发布到个人 Gitee 和个人 GitHub，未发布到 `upstream`。GitHub HTTPS 曾间歇失败，部分文档提交通过 GitHub Git Data API 同步；远端内容等价，但提交哈希可能不同。网络恢复正常后可用本地 Gitee 分支做一次 `--force-with-lease` 对齐 GitHub 文档分支；不要推送到 `upstream`。
 
 ## 3. 用户已有修改
 
@@ -32,7 +32,7 @@
 - `docs/iws-standard-crud-page-design.md`
 - `docs/wms-smt-standard-data-model.md`
 
-文档工作树当前干净。不要 `git add .`、不要 reset/checkout 这三个文件。
+文档工作树仅保留本次交接文档的状态说明校正。不要 `git add .`、不要 reset/checkout 主工作树这三个文件。
 
 本地项目规约已补充到被忽略的 `C:\code\company\innolux-iws\AGENTS.md`，不会进入任何远端。
 
