@@ -33,6 +33,7 @@ import com.innolux.iws.system.mapper.SysMenuMapper;
 import com.innolux.iws.system.mapper.SysRoleMapper;
 import com.innolux.iws.system.mapper.SysRoleMenuMapper;
 import com.innolux.iws.system.service.ISysMenuService;
+import com.innolux.iws.system.service.menu.MenuDeploymentFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +52,7 @@ public class SysMenuServiceImpl implements ISysMenuService {
     private final SysMenuMapper menuMapper;
     private final SysRoleMapper roleMapper;
     private final SysRoleMenuMapper roleMenuMapper;
+    private final MenuDeploymentFilter menuDeploymentFilter;
 
     /**
      * 根据用户查询系统菜单列表
@@ -134,6 +136,7 @@ public class SysMenuServiceImpl implements ISysMenuService {
         } else {
             menus = menuMapper.selectMenuTreeByUserId(userId);
         }
+        menus = menuDeploymentFilter.filter(menus);
         if (CollUtil.isEmpty(menus)) {
             return CollUtil.newArrayList();
         }

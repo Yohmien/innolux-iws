@@ -40,6 +40,19 @@
             <artifactId>iws-common-job</artifactId>
         </dependency>
 
+        <!-- 计划事件调度端口；依赖方向固定为 job -> process。 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-process</artifactId>
+        </dependency>
+
+        <!-- 单元测试与装配条件测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
 </project>
