@@ -103,6 +103,16 @@
             <artifactId>iws-ai</artifactId>
         </dependency>
 
+        <!-- 系统端点与计划事件模块；部署开关默认关闭 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-endpoint</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-process</artifactId>
+        </dependency>
+
         <!-- WMS标准业务模块 -->
         <dependency>
             <groupId>com.innolux.iws</groupId>

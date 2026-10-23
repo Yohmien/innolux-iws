@@ -204,6 +204,19 @@ xss:
     - /system/notice
     - /warm-flow/save-json
 
+--- # 系统接入目录与计划事件按需装配
+iws:
+  endpoint:
+    enabled: false
+    # 启用 process 前必须配置已登记且启用的环境码
+    current-environment: ''
+  process:
+    enabled: false
+    scheduler:
+      enabled: false
+    workflow:
+      enabled: false
+
 --- # 分布式锁 lock4j 全局配置
 lock4j:
   # 获取分布式锁超时时间，默认为 3000 毫秒

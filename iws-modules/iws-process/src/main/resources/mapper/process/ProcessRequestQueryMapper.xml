@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+ - @Date         : 2026-10-23
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : IWS 计划执行查询
+ - @Version      : V1.0
+ - @Description  : 请求记录来源范围与关联对象可见范围查询；
+ - @ModifyRecord : V1.0 新建；
+-->
+<mapper namespace="com.innolux.iws.process.mapper.ProcessRequestQueryMapper">
+
+    <sql id="RequestFilters">
+        <if test="q.requestId != null and q.requestId != ''">
+          AND r.request_id = #{q.requestId}
+        </if>
+        <if test="q.direction != null and q.direction != ''">
+          AND r.direction = #{q.direction}
+        </if>
+        <if test="q.purpose != null and q.purpose != ''">
+          AND r.purpose = #{q.purpose}
+        </if>
+        <if test="q.contractKey != null and q.contractKey != ''">
+          AND r.contract_key = #{q.contractKey}
+        </if>
+        <if test="q.resultCode != null and q.resultCode != ''">
+          AND r.result_code = #{q.resultCode}
+        </if>
+        <if test="q.effectResult != null and q.effectResult != ''">
+          AND r.effect_result = #{q.effectResult}
+        </if>
+        <if test="q.instanceId != null and q.instanceId != ''">
+          AND r.instance_id = #{q.instanceId}
+        </if>
+        <if test="q.eventId != null and q.eventId != ''">
+          AND r.event_id = #{q.eventId}
+        </if>
+        <if test="q.correlationId != null and q.correlationId != ''">
+          AND r.correlation_id = #{q.correlationId}
+        </if>
+        <if test="q.businessScheduleCode != null and q.businessScheduleCode != ''">
+          AND i.business_schedule_code = #{q.businessScheduleCode}
+        </if>
+        <if test="q.businessId != null and q.businessId != ''">
+          AND i.business_id = #{q.businessId}
+        </if>
+        <if test="q.taskKey != null and q.taskKey != ''">
+          AND i.task_key = #{q.taskKey}
+        </if>
+        <if test="q.linked != null">
+          <choose>
+            <when test="q.linked">
+              AND (r.instance_id IS NOT NULL OR r.event_id IS NOT NULL)
+            </when>
+            <otherwise>
+              AND r.instance_id IS NULL AND r.event_id IS NULL
+            </otherwise>
+          </choose>
+        </if>
+        <if test="q.startedFrom != null and q.startedFrom != ''">
+          AND r.started_at &gt;= #{q.startedFrom}
+        </if>
+        <if test="q.startedTo != null and q.startedTo != ''">
+          AND r.started_at &lt;= #{q.startedTo}
+        </if>
+    </sql>
+
+    <select id="selectRequestInstanceIds" resultType="long">
+        SELECT DISTINCT r.instance_id
+        FROM iws_process_request_detail r
+        LEFT JOIN iws_process_instance i ON i.id = r.instance_id
+        WHERE r.instance_id IS NOT NULL
+          AND r.event_id IS NULL
+        <include refid="RequestFilters"/>
+        ORDER BY r.instance_id
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectRequestEventIds" resultType="long">
+        SELECT DISTINCT r.event_id
+        FROM iws_process_request_detail r
+        LEFT JOIN iws_process_instance i ON i.id = r.instance_id
+        WHERE r.event_id IS NOT NULL
+        <include refid="RequestFilters"/>
+        ORDER BY r.event_id
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectVisibleInstanceScopes"
+            resultType="com.innolux.iws.process.api.query.ProcessRequestAccessScopeRow">
+        SELECT i.id AS instance_id, i.schedule_id, i.business_type, i.business_id, i.task_key,
+               i.schedule_scope
+        FROM iws_process_instance i
+        WHERE i.id IN
+        <foreach collection="instanceIds" item="instanceId" open="(" separator="," close=")">
+          #{instanceId}
+        </foreach>
+        ORDER BY i.id
+    </select>
+
+    <select id="selectVisibleEventScopes"
+            resultType="com.innolux.iws.process.api.query.ProcessRequestAccessScopeRow">
+        SELECT i.id AS instance_id, e.id AS event_id, i.schedule_id, i.business_type, i.business_id,
+               i.task_key, i.schedule_scope
+        FROM iws_process_event e
+        JOIN iws_process_instance i ON i.id = e.instance_id
+        WHERE e.id IN
+        <foreach collection="eventIds" item="eventId" open="(" separator="," close=")">
+          #{eventId}
+        </foreach>
+        ORDER BY e.id
+    </select>
+
+    <sql id="RequestSafeColumns">
+        r.id, r.request_id, r.direction, r.purpose, r.source_request_id, r.correlation_id,
+        r.parent_request_id, r.peer_request_id, r.caller_system_code, r.receiver_system_code,
+        r.module_code, r.contract_key, r.contract_version, r.effect_key, r.instance_id, r.event_id,
+        r.attempt_id, r.receipt_id, r.http_status, r.result_code, r.effect_result, r.sent, r.started_at,
+        r.ended_at, r.evidence_at, r.create_time, i.business_schedule_code, i.plan_type, i.business_id,
+        i.task_key
+    </sql>
+
+    <sql id="RequestObjectScope">
+        AND (
+          (r.event_id IS NULL AND r.instance_id IS NULL)
+          <if test="visibleEventIds != null and visibleEventIds.size() > 0">
+            OR r.event_id IN
+            <foreach collection="visibleEventIds" item="eventId" open="(" separator="," close=")">
+              #{eventId}
+            </foreach>
+          </if>
+          <if test="visibleInstanceIds != null and visibleInstanceIds.size() > 0">
+            OR (r.event_id IS NULL AND r.instance_id IN
+            <foreach collection="visibleInstanceIds" item="instanceId" open="(" separator="," close=")">
+              #{instanceId}
+            </foreach>)
+          </if>
+        )
+    </sql>
+
+    <select id="selectRequestPage" resultType="com.innolux.iws.process.api.query.ProcessRequestRecordRow">
+        SELECT
+        <include refid="RequestSafeColumns"/>
+        FROM iws_process_request_detail r
+        LEFT JOIN iws_process_instance i ON i.id = r.instance_id
+        WHERE 1 = 1
+        <include refid="RequestFilters"/>
+        <include refid="RequestObjectScope"/>
+        ORDER BY COALESCE(r.evidence_at, r.ended_at, r.started_at, r.create_time) DESC, r.id DESC
+    </select>
+
+    <select id="selectVisibleRequest"
+            resultType="com.innolux.iws.process.api.query.ProcessRequestRecordRow">
+        SELECT
+        <include refid="RequestSafeColumns"/>
+        FROM iws_process_request_detail r
+        LEFT JOIN iws_process_instance i ON i.id = r.instance_id
+        WHERE r.request_id = #{requestId}
+        ORDER BY r.id DESC
+        LIMIT 1
+    </select>
+
+</mapper>

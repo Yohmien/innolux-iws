@@ -34,6 +34,8 @@
         <module>iws-workflow</module>
         <module>iws-ai</module>
         <module>iws-wms</module>
+        <module>iws-endpoint</module>
+        <module>iws-process</module>
     </modules>
 
 </project>

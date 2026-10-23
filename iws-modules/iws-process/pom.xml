@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ - @Date         : 2026-10-22
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : IWS 智能仓储管理系统
+ - @Version      : V1.0
+ - @Description  : 计划事件编排、状态校验、检查点恢复与长期监督公共模块；
+ - @ModifyRecord : V1.0 新建；
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.innolux.iws</groupId>
+        <artifactId>iws-modules</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>iws-process</artifactId>
+
+    <description>
+        计划事件定义、运行时、监督调度与查询公共模块
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-doc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-log</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-web</artifactId>
+        </dependency>
+        <!-- 宿主显式装配目录实现；optional 只控制下游传递，不省略本模块编译依赖。 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-endpoint</artifactId>
+            <version>${revision}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

@@ -440,6 +440,18 @@
                 <version>${revision}</version>
             </dependency>
 
+            <!-- 系统端点与计划事件模块 -->
+            <dependency>
+                <groupId>com.innolux.iws</groupId>
+                <artifactId>iws-endpoint</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.innolux.iws</groupId>
+                <artifactId>iws-process</artifactId>
+                <version>${revision}</version>
+            </dependency>
+
             <!-- WMS标准业务模块 -->
             <dependency>
                 <groupId>com.innolux.iws</groupId>

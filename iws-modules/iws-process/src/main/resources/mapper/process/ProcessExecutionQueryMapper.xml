@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+ - @Date         : 2026-10-22
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : IWS 计划执行查询
+ - @Version      : V1.0
+ - @Description  : 计划执行与请求记录只读查询及数据范围关联；
+ - @ModifyRecord : V1.0 新建；
+-->
+<mapper namespace="com.innolux.iws.process.mapper.ProcessExecutionQueryMapper">
+
+    <sql id="OverviewFilters">
+        <if test="businessId != null and businessId != ''">
+          AND i.business_id = #{businessId}
+        </if>
+        <if test="taskKey != null and taskKey != ''">
+          AND i.task_key = #{taskKey}
+        </if>
+        <if test="planType != null and planType != ''">
+          AND i.plan_type = #{planType}
+        </if>
+        <if test="instanceId != null and instanceId != ''">
+          AND i.id = #{instanceId}
+        </if>
+    </sql>
+
+    <select id="selectVisibleInstance" resultType="com.innolux.iws.process.domain.ProcessInstance">
+        SELECT i.*
+        FROM iws_process_instance i
+        WHERE i.id = #{instanceId}
+    </select>
+
+    <select id="selectExecutedOverviewPage" resultType="com.innolux.iws.process.domain.ProcessInstance">
+        SELECT i.*
+        FROM iws_process_instance i
+        WHERE i.plan_role = 'BUSINESS'
+          AND i.business_schedule_code = #{scheduleCode}
+          AND i.plan_status IN ('COMPLETED', 'FAILED_FINAL', 'CANCELLED')
+        <include refid="OverviewFilters"/>
+        ORDER BY i.ended_at DESC, i.id DESC
+    </select>
+
+    <select id="selectPendingOverviewPage"
+            resultType="com.innolux.iws.process.api.query.ProcessInstanceQueryRow">
+        SELECT i.*
+        FROM (
+          SELECT base.*,
+                 SUM(CASE WHEN COALESCE(base.hold_start, 0) = 0 THEN 1 ELSE 0 END) OVER (
+                   PARTITION BY base.supervisor_instance_id
+                   ORDER BY
+                     CASE WHEN COALESCE(sd.fairness_window_size, 0) &gt; 0
+                               AND MOD(COALESCE(c.fairness_count, 0) + 1, sd.fairness_window_size) = 0
+                          THEN base.id ELSE NULL END ASC,
+                     CASE WHEN COALESCE(sd.fairness_window_size, 0) &gt; 0
+                               AND MOD(COALESCE(c.fairness_count, 0) + 1, sd.fairness_window_size) = 0
+                          THEN NULL ELSE base.instance_priority END DESC,
+                     base.id ASC
+                   ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                 ) AS queue_rank,
+                 COALESCE(pt.priority, 0) AS plan_type_priority
+          FROM iws_process_instance base
+          LEFT JOIN iws_process_instance sup ON sup.id = base.supervisor_instance_id
+          LEFT JOIN iws_process_definition sd ON sd.id = sup.definition_version_id
+          LEFT JOIN iws_process_schedule_control c
+            ON c.supervisor_instance_id = base.supervisor_instance_id
+           AND c.duty = 'DISPATCH'
+          LEFT JOIN iws_business_schedule_plan_type pt
+            ON pt.schedule_id = base.schedule_id
+           AND pt.plan_type = base.plan_type
+          WHERE base.plan_role = 'BUSINESS'
+            AND base.business_schedule_code = #{scheduleCode}
+            AND base.plan_status = 'CREATED'
+        ) i
+        WHERE 1 = 1
+        <include refid="OverviewFilters"/>
+        ORDER BY CASE WHEN COALESCE(i.hold_start, 0) = 1 THEN 1 ELSE 0 END ASC,
+                 i.plan_type_priority DESC,
+                 i.instance_priority DESC,
+                 i.create_time ASC,
+                 i.id ASC
+    </select>
+
+    <select id="selectRunningOverviewPage" resultType="com.innolux.iws.process.domain.ProcessInstance">
+        SELECT i.*
+        FROM iws_process_instance i
+        WHERE i.plan_role = 'BUSINESS'
+          AND i.business_schedule_code = #{scheduleCode}
+          AND i.plan_status = 'RUNNING'
+        <include refid="OverviewFilters"/>
+        ORDER BY i.started_at DESC, i.id DESC
+    </select>
+
+    <select id="selectExceptionOverviewPage" resultType="com.innolux.iws.process.domain.ProcessInstance">
+        SELECT i.*
+        FROM iws_process_instance i
+        WHERE i.plan_role = 'BUSINESS'
+          AND i.business_schedule_code = #{scheduleCode}
+          AND i.plan_status IN ('EXCEPTION_HOLD', 'MANUAL_PENDING', 'PAUSED')
+        <include refid="OverviewFilters"/>
+        ORDER BY i.started_at DESC, i.id DESC
+    </select>
+
+    <select id="selectPendingRank" resultType="java.lang.Integer">
+        SELECT i.queue_rank
+        FROM (
+          SELECT base.id, base.hold_start, base.create_dept, base.create_by,
+                 SUM(CASE WHEN COALESCE(base.hold_start, 0) = 0 THEN 1 ELSE 0 END) OVER (
+                   PARTITION BY base.supervisor_instance_id
+                   ORDER BY
+                     CASE WHEN COALESCE(sd.fairness_window_size, 0) &gt; 0
+                               AND MOD(COALESCE(c.fairness_count, 0) + 1, sd.fairness_window_size) = 0
+                          THEN base.id ELSE NULL END ASC,
+                     CASE WHEN COALESCE(sd.fairness_window_size, 0) &gt; 0
+                               AND MOD(COALESCE(c.fairness_count, 0) + 1, sd.fairness_window_size) = 0
+                          THEN NULL ELSE base.instance_priority END DESC,
+                     base.id ASC
+                   ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                 ) AS queue_rank
+          FROM iws_process_instance base
+          LEFT JOIN iws_process_instance sup ON sup.id = base.supervisor_instance_id
+          LEFT JOIN iws_process_definition sd ON sd.id = sup.definition_version_id
+          LEFT JOIN iws_process_schedule_control c
+            ON c.supervisor_instance_id = base.supervisor_instance_id
+           AND c.duty = 'DISPATCH'
+          WHERE base.plan_role = 'BUSINESS'
+            AND base.business_schedule_code = #{scheduleCode}
+            AND base.plan_status = 'CREATED'
+        ) i
+        WHERE i.id = #{instanceId}
+          AND COALESCE(i.hold_start, 0) = 0
+    </select>
+
+    <select id="selectVisibleEvent" resultType="com.innolux.iws.process.domain.ProcessEvent">
+        SELECT e.*
+        FROM iws_process_event e
+        JOIN iws_process_instance i ON i.id = e.instance_id
+        WHERE e.id = #{eventId}
+    </select>
+
+    <sql id="RequestFilters">
+        <if test="q.requestId != null and q.requestId != ''">
+          AND r.request_id = #{q.requestId}
+        </if>
+        <if test="q.direction != null and q.direction != ''">
+          AND r.direction = #{q.direction}
+        </if>
+        <if test="q.purpose != null and q.purpose != ''">
+          AND r.purpose = #{q.purpose}
+        </if>
+        <if test="q.contractKey != null and q.contractKey != ''">
+          AND r.contract_key = #{q.contractKey}
+        </if>
+        <if test="q.resultCode != null and q.resultCode != ''">
+          AND r.result_code = #{q.resultCode}
+        </if>
+        <if test="q.effectResult != null and q.effectResult != ''">
+          AND r.effect_result = #{q.effectResult}
+        </if>
+        <if test="q.instanceId != null and q.instanceId != ''">
+          AND r.instance_id = #{q.instanceId}
+        </if>
+        <if test="q.eventId != null and q.eventId != ''">
+          AND r.event_id = #{q.eventId}
+        </if>
+        <if test="q.correlationId != null and q.correlationId != ''">
+          AND r.correlation_id = #{q.correlationId}
+        </if>
+        <if test="q.businessScheduleCode != null and q.businessScheduleCode != ''">
+          AND i.business_schedule_code = #{q.businessScheduleCode}
+        </if>
+        <if test="q.businessId != null and q.businessId != ''">
+          AND i.business_id = #{q.businessId}
+        </if>
+        <if test="q.taskKey != null and q.taskKey != ''">
+          AND i.task_key = #{q.taskKey}
+        </if>
+        <if test="q.linked != null">
+          <choose>
+            <when test="q.linked">
+              AND (r.instance_id IS NOT NULL OR r.event_id IS NOT NULL)
+            </when>
+            <otherwise>
+              AND r.instance_id IS NULL AND r.event_id IS NULL
+            </otherwise>
+          </choose>
+        </if>
+        <if test="q.startedFrom != null and q.startedFrom != ''">
+          AND r.started_at &gt;= #{q.startedFrom}
+        </if>
+        <if test="q.startedTo != null and q.startedTo != ''">
+          AND r.started_at &lt;= #{q.startedTo}
+        </if>
+    </sql>
+
+    <sql id="RequestSafeColumns">
+        r.id, r.request_id, r.direction, r.purpose, r.source_request_id, r.correlation_id,
+        r.parent_request_id, r.peer_request_id, r.caller_system_code, r.receiver_system_code,
+        r.module_code, r.contract_key, r.contract_version, r.effect_key, r.instance_id, r.event_id,
+        r.attempt_id, r.receipt_id, r.http_status, r.result_code, r.effect_result, r.sent, r.started_at,
+        r.ended_at, r.evidence_at, r.create_time, i.business_schedule_code, i.plan_type, i.business_id,
+        i.task_key
+    </sql>
+
+    <select id="selectRequestPage" resultType="com.innolux.iws.process.api.query.ProcessRequestRecordRow">
+        SELECT
+        <include refid="RequestSafeColumns"/>
+        FROM iws_process_request_detail r
+        LEFT JOIN iws_process_instance i ON i.id = r.instance_id
+        WHERE 1 = 1
+        <include refid="RequestFilters"/>
+        ORDER BY COALESCE(r.evidence_at, r.ended_at, r.started_at, r.create_time) DESC, r.id DESC
+    </select>
+
+    <select id="selectVisibleRequest"
+            resultType="com.innolux.iws.process.api.query.ProcessRequestRecordRow">
+        SELECT
+        <include refid="RequestSafeColumns"/>
+        FROM iws_process_request_detail r
+        LEFT JOIN iws_process_instance i ON i.id = r.instance_id
+        WHERE r.request_id = #{requestId}
+        ORDER BY r.id DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectAuditPage" resultType="com.innolux.iws.process.domain.ProcessActionAudit">
+        SELECT a.*
+        FROM iws_process_action_audit a
+        JOIN iws_process_instance i
+          ON i.id = COALESCE(a.instance_id, a.child_instance_id, a.supervisor_instance_id)
+        WHERE 1 = 1
+        <if test="q.businessScheduleCode != null and q.businessScheduleCode != ''">
+          AND i.business_schedule_code = #{q.businessScheduleCode}
+        </if>
+        <if test="q.instanceId != null and q.instanceId != ''">
+          AND (a.instance_id = #{q.instanceId} OR a.child_instance_id = #{q.instanceId}
+               OR a.supervisor_instance_id = #{q.instanceId})
+        </if>
+        <if test="q.eventId != null and q.eventId != ''">
+          AND a.event_id = #{q.eventId}
+        </if>
+        <if test="q.operator != null and q.operator != ''">
+          AND (a.actor_name LIKE CONCAT('%', #{q.operator}, '%')
+               OR a.actor_user_id LIKE CONCAT('%', #{q.operator}, '%'))
+        </if>
+        <if test="q.action != null and q.action != ''">
+          AND a.action_code = #{q.action}
+        </if>
+        <if test="q.result != null and q.result != ''">
+          AND a.result = #{q.result}
+        </if>
+        <if test="q.occurredFrom != null and q.occurredFrom != ''">
+          AND a.occurred_at &gt;= #{q.occurredFrom}
+        </if>
+        <if test="q.occurredTo != null and q.occurredTo != ''">
+          AND a.occurred_at &lt;= #{q.occurredTo}
+        </if>
+        ORDER BY a.occurred_at DESC, a.id DESC
+    </select>
+</mapper>
