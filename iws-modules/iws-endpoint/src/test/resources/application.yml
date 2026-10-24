@@ -1,0 +1,38 @@
+server:
+  address: 127.0.0.1
+  port: 0
+
+spring:
+  main:
+    banner-mode: off
+  jmx:
+    enabled: false
+
+springdoc:
+  api-docs:
+    enabled: false
+
+xss:
+  enabled: false
+
+iws:
+  endpoint:
+    enabled: true
+    current-environment: HTTP_ENV
+
+sa-token:
+  token-name: Authorization
+  is-concurrent: true
+  is-share: false
+  token-prefix: Bearer
+  jwt-secret-key: endpoint-http-fixture-secret
+
+security:
+  excludes:
+    - /auth/**
+    - /test-auth/**
+    - /error
+
+logging:
+  level:
+    root: warn
