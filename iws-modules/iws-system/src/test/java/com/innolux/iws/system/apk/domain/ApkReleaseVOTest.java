@@ -11,6 +11,7 @@
 
 package com.innolux.iws.system.apk.domain;
 
+import com.innolux.iws.common.core.domain.R;
 import com.innolux.iws.system.apk.domain.vo.ApkReleaseVO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -35,6 +36,7 @@ class ApkReleaseVOTest {
         release.setProcessInstanceId(3L);
         release.setVersionCode(4L);
         release.setPackageName("com.demo.app");
+        release.setForceUpdate(false);
 
         String json = new ObjectMapper().writeValueAsString(ApkReleaseVO.from(release));
 
@@ -42,5 +44,16 @@ class ApkReleaseVOTest {
         assertTrue(json.contains("\"ossId\":\"2\""));
         assertTrue(json.contains("\"processInstanceId\":\"3\""));
         assertTrue(json.contains("\"versionCode\":\"4\""));
+        assertTrue(json.contains("\"forceUpdate\":false"));
+    }
+
+    @Test
+    @DisplayName("最新版本为空时成功响应显式输出 data:null")
+    void serializesNullLatestReleaseData() throws Exception {
+        R<ApkReleaseVO> response = R.ok((ApkReleaseVO) null);
+
+        String json = new ObjectMapper().writeValueAsString(response);
+
+        assertTrue(json.contains("\"data\":null"));
     }
 }

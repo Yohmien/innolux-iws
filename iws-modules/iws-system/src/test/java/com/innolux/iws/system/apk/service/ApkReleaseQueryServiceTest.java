@@ -32,6 +32,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 import java.io.IOException;
 import java.util.List;
@@ -40,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -98,6 +100,52 @@ class ApkReleaseQueryServiceTest {
     }
 
     @Test
+    @DisplayName("packageName 无已发布版本时成功返回空")
+    void returnsNullWhenPackageHasNoPublishedRelease() {
+        when(releaseMapper.selectPage(any(Page.class), any())).thenReturn(releasePage(0));
+
+        assertNull(service.queryLatestPublished("com.demo.missing", null));
+    }
+
+    @Test
+    @DisplayName("appName 无已发布版本时成功返回空")
+    void returnsNullWhenAppNameHasNoPublishedRelease() {
+        when(releaseMapper.countDistinctPackagesByAppName("Missing", "PUBLISHED")).thenReturn(0L);
+
+        assertNull(service.queryLatestPublished(null, "Missing"));
+    }
+
+    @Test
+    @DisplayName("packageName 与 appName 不匹配仍视为非法查询")
+    void rejectedMismatchedPackageAndAppNameForLatest() {
+        when(releaseMapper.selectCount(any())).thenReturn(0L);
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> service.queryLatestPublished("com.demo.missing", "Shared"));
+
+        assertTrue(error.getMessage().contains("不匹配"));
+    }
+
+    @Test
+    @DisplayName("同包同应用只有待发布版本时返回空且不泄漏")
+    void returnsNullForUnpublishedHistory() {
+        when(releaseMapper.selectCount(any())).thenReturn(1L);
+        when(releaseMapper.selectPage(any(Page.class), any())).thenReturn(releasePage(0));
+
+        assertNull(service.queryLatestPublished("com.demo", "Demo"));
+    }
+
+    @Test
+    @DisplayName("最新版本查询不吞数据库异常")
+    void propagatesRepositoryFailureFromLatest() {
+        DataAccessResourceFailureException failure = new DataAccessResourceFailureException("database unavailable");
+        when(releaseMapper.selectPage(any(Page.class), any())).thenThrow(failure);
+
+        assertSame(failure, assertThrows(DataAccessResourceFailureException.class,
+            () -> service.queryLatestPublished("com.demo", null)));
+    }
+
+    @Test
     @DisplayName("包名与应用名不属于同包历史时拒绝")
     void rejectsMismatchedPackageAndAppName() throws IOException {
         when(releaseMapper.selectCount(any())).thenReturn(0L);
@@ -131,10 +179,10 @@ class ApkReleaseQueryServiceTest {
     @DisplayName("默认版本查询按 versionCode 降序并限一行")
     void selectsLatestPublishedByVersionCode() {
         ApkRelease latest = release(3L, "Demo", "com.demo", "3.0", 30L, "PUBLISHED");
-        when(releaseMapper.selectCount(any())).thenReturn(1L);
+        latest.setForceUpdate(false);
         when(releaseMapper.selectPage(any(Page.class), any())).thenReturn(releasePage(1, latest));
 
-        service.queryLatestPublished("com.demo", null);
+        assertFalse(service.queryLatestPublished("com.demo", null).getForceUpdate());
 
         ArgumentCaptor<Page<ApkRelease>> pageCaptor = ArgumentCaptor.forClass(Page.class);
         ArgumentCaptor<Wrapper<ApkRelease>> wrapperCaptor = ArgumentCaptor.forClass(Wrapper.class);
@@ -188,6 +236,7 @@ class ApkReleaseQueryServiceTest {
         release.setStatus(status);
         release.setOssId(10L);
         release.setFileSize(100L);
+        release.setForceUpdate(true);
         return release;
     }
 

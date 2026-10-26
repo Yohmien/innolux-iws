@@ -11,7 +11,9 @@
 
 package com.innolux.iws.system.apk.service;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.innolux.iws.common.core.exception.ServiceException;
+import com.innolux.iws.common.oss.exception.S3StorageException;
 import com.innolux.iws.system.apk.domain.ApkRelease;
 import com.innolux.iws.system.apk.domain.vo.ApkReleaseVO;
 import com.innolux.iws.system.apk.mapper.ApkReleaseMapper;
@@ -28,9 +30,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -39,10 +43,14 @@ import java.util.HexFormat;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -115,6 +123,126 @@ class ApkReleaseCommandServiceTest {
 
         assertThrows(ServiceException.class, () -> service.upload(apkFile(), null));
         verify(ossService, never()).upload(any(MultipartFile.class), any(SysOssExt.class), anyString());
+    }
+
+    @Test
+    @DisplayName("对象存储管理端口错误转换为可操作的 APK 上传提示")
+    void translatesS3ApiPortError() throws Exception {
+        S3StorageException storageFailure = new S3StorageException("S3 upload failed",
+            S3Exception.builder()
+                .message("S3 API Requests must be made to API port.")
+                .statusCode(400)
+                .build());
+        when(metadataParser.parse(any(File.class))).thenReturn(metadata());
+        when(releaseMapper.selectOne(any())).thenReturn(null);
+        when(ossService.upload(any(MultipartFile.class), any(SysOssExt.class), anyString()))
+            .thenThrow(storageFailure);
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> service.upload(apkFile(), null));
+
+        assertEquals("APK 上传失败：对象存储访问站点指向了 MinIO 管理端口，请在对象存储配置中改为 S3 API 端口"
+            + "（通常为 9000），并检查反向代理转发。", exception.getMessage());
+        assertSame(storageFailure, exception.getCause());
+        verify(metadataWriter, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("其他对象存储错误使用安全通用提示")
+    void translatesOtherStorageError() throws Exception {
+        S3StorageException storageFailure = new S3StorageException("connection refused");
+        when(metadataParser.parse(any(File.class))).thenReturn(metadata());
+        when(releaseMapper.selectOne(any())).thenReturn(null);
+        when(ossService.upload(any(MultipartFile.class), any(SysOssExt.class), anyString()))
+            .thenThrow(storageFailure);
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> service.upload(apkFile(), null));
+
+        assertEquals("APK 上传失败：对象存储写入失败，请检查存储服务连接、访问凭证和桶权限。", exception.getMessage());
+        assertSame(storageFailure, exception.getCause());
+        verify(metadataWriter, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("两参上传默认启用强制更新")
+    void defaultsForceUpdateToTrueOnUpload() throws Exception {
+        SysOssVo ownOss = oss(55L);
+        when(metadataParser.parse(any(File.class))).thenReturn(metadata());
+        when(releaseMapper.selectOne(any())).thenReturn(null);
+        when(ossService.upload(any(MultipartFile.class), any(SysOssExt.class), anyString())).thenReturn(ownOss);
+        when(releaseMapper.selectById(10L)).thenReturn(existing(sha256(CONTENT)));
+
+        service.upload(apkFile(), null);
+
+        ArgumentCaptor<ApkRelease> releaseCaptor = ArgumentCaptor.forClass(ApkRelease.class);
+        verify(metadataWriter).insert(releaseCaptor.capture());
+        assertTrue(releaseCaptor.getValue().getForceUpdate());
+    }
+
+    @Test
+    @DisplayName("三参上传保存关闭强制更新")
+    void storesExplicitForceUpdateOnUpload() throws Exception {
+        SysOssVo ownOss = oss(55L);
+        when(metadataParser.parse(any(File.class))).thenReturn(metadata());
+        when(releaseMapper.selectOne(any())).thenReturn(null);
+        when(ossService.upload(any(MultipartFile.class), any(SysOssExt.class), anyString())).thenReturn(ownOss);
+        when(releaseMapper.selectById(10L)).thenReturn(existing(sha256(CONTENT)));
+
+        service.upload(apkFile(), null, false);
+
+        ArgumentCaptor<ApkRelease> releaseCaptor = ArgumentCaptor.forClass(ApkRelease.class);
+        verify(metadataWriter).insert(releaseCaptor.capture());
+        assertFalse(releaseCaptor.getValue().getForceUpdate());
+    }
+
+    @Test
+    @DisplayName("按版本 ID 修改强制更新策略")
+    void updatesForceUpdateByReleaseId() {
+        when(releaseMapper.update(isNull(), any())).thenReturn(1);
+
+        service.updateForceUpdate(10L, false);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<ApkRelease>> wrapperCaptor =
+            ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(releaseMapper).update(isNull(), wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().contains("release_id"));
+        assertTrue(wrapperCaptor.getValue().getSqlSet().contains("force_update"));
+        verify(releaseMapper, never()).selectById(anyLong());
+    }
+
+    @Test
+    @DisplayName("策略未变化时按成功处理")
+    void treatsUnchangedForceUpdateAsSuccess() {
+        when(releaseMapper.update(isNull(), any())).thenReturn(0);
+        when(releaseMapper.selectById(10L)).thenReturn(existing(sha256(CONTENT)));
+
+        service.updateForceUpdate(10L, true);
+
+        verify(releaseMapper).selectById(10L);
+    }
+
+    @Test
+    @DisplayName("回读策略与目标不一致时明确失败")
+    void rejectsUnappliedForceUpdate() {
+        when(releaseMapper.update(isNull(), any())).thenReturn(0);
+        when(releaseMapper.selectById(10L)).thenReturn(existing(sha256(CONTENT)));
+
+        ServiceException exception = assertThrows(ServiceException.class,
+            () -> service.updateForceUpdate(10L, false));
+
+        assertTrue(exception.getMessage().contains("强制更新设置未生效"));
+    }
+
+    @Test
+    @DisplayName("修改不存在的版本明确报错")
+    void rejectsMissingReleaseOnForceUpdate() {
+        when(releaseMapper.update(isNull(), any())).thenReturn(0);
+        when(releaseMapper.selectById(10L)).thenReturn(null);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+            () -> service.updateForceUpdate(10L, false));
+
+        assertTrue(exception.getMessage().contains("APK 发布版本不存在"));
     }
 
     @Test
@@ -202,6 +330,7 @@ class ApkReleaseCommandServiceTest {
         release.setOssId(20L);
         release.setFileSize((long) CONTENT.length);
         release.setStatus("UPLOADED");
+        release.setForceUpdate(true);
         return release;
     }
 
