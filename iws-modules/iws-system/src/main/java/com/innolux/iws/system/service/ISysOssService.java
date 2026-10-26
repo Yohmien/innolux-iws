@@ -65,6 +65,16 @@ public interface ISysOssService {
     SysOssVo upload(MultipartFile file, SysOssExt ossExt);
 
     /**
+     * 使用服务端业务目录上传文件，复用现有文件记录与存储配置。
+     *
+     * @param file 文件
+     * @param ossExt 扩展信息
+     * @param businessPrefix 由业务服务校验生成的目录前缀
+     * @return 文件信息
+     */
+    SysOssVo upload(MultipartFile file, SysOssExt ossExt, String businessPrefix);
+
+    /**
      * 上传文件到对象存储服务，并保存文件信息到数据库
      *
      * @param file 要上传的文件对象

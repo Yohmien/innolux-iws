@@ -1,0 +1,20 @@
+# @Date         : 2026-10-26
+# @Author       : YONGJIE.PENG
+# @Email        : YONGJIE.PENG@INNOLUX.COM
+# @Job          : INNOLUX IWS 标准化重构
+# @Module       : APK 应用管理
+# @Version      : V1.0
+# @Description  : 显式启用 APK 发布所需的计划事件平台；先在目录管理创建并启用环境。
+# @ModifyRecord : V1.0 新建；
+
+iws:
+  endpoint:
+    enabled: true
+    current-environment: ${IWS_APK_ENVIRONMENT:dev}
+  process:
+    enabled: true
+    scheduler:
+      enabled: false
+    immediate:
+      max-concurrency: ${IWS_APK_MAX_CONCURRENCY:4}
+      response-reserve-ms: ${IWS_APK_RESPONSE_RESERVE_MS:500}
