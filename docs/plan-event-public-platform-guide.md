@@ -28,10 +28,11 @@
 2. 部署包含 endpoint/process 代码的应用构建，继续保持 `iws.endpoint.enabled=false`、`iws.process.enabled=false`、`iws.process.scheduler.enabled=false`，确认原有功能不受影响。
 3. 启用 `iws.endpoint.enabled=true`，保持 process 和调度关闭，检查系统定义、环境配置和系统地址页面。
 4. 创建并启用目标环境，把部署配置 `iws.endpoint.current-environment` 设置为该环境码，然后重启应用。页面选择或编辑环境不会切换运行时环境。
+   空库初始化已登记 `TEST`（测试环境），也可直接把当前环境设为 `TEST` 先完成联调；已有库缺少默认环境时，在环境配置补一行 `TEST` 并启用。
 5. 启用 `iws.process.enabled=true`，继续关闭 `iws.process.scheduler.enabled`。启动时会校验 endpoint Reader 和当前环境；环境缺失、停用或 endpoint 实现缺失时直接拒绝启动。
 6. 为岗位授权，并接通对象范围、入站身份和业务能力。对象范围策略缺失时，普通用户即使有页面权限也会被拒绝；`process:object:all` 仅用于独立的管理员全范围授权。
 7. 配置业务调度和计划定义，完成发布检查与空数据检查后，再按业务窗口启动作业。
-8. 只有 `iws.process.enabled=true`、`iws.process.scheduler.enabled=true`、`snail-job.enabled=true` 同时成立，job 侧才注册监督执行器和 `QUEUE` 事件 worker。此时还必须为正数配置 `iws.process.scheduler.control-batch-limit` 和 `iws.process.scheduler.control-poll-interval-ms`。
+8. 只有 `iws.process.enabled=true`、`iws.process.scheduler.enabled=true`、`snail-job.enabled=true` 同时成立，job 侧才注册监督执行器和 `QUEUE` 事件 worker。`iws.process.scheduler.control-batch-limit` 与 `control-poll-interval-ms` 已在 `application.yml` 提供正数默认值，按部署规模调整即可。空库初始化已建好命名空间 `dev`/`prod` 与组 `iws_group`，组令牌与 `snail-job.token` 一致；已有库需在 SnailJob 后台组管理补建，否则执行器注册失败、任务无法分派。
 
 `IMMEDIATE` 另需正数 `iws.process.immediate.max-concurrency` 和 `iws.process.immediate.response-reserve-ms`；缺少任一项时即时执行返回 `NOT_READY`，不会自动转为排队执行。
 

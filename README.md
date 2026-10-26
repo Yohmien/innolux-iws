@@ -142,6 +142,16 @@ WMS SMT 电子仓标准数据模型详见 `docs/wms-smt-standard-data-model.md`�
 
 标准表数据页设计详见 `docs/iws-standard-crud-page-design.md`，其中定义了前端标准 CRUD 页面、字段元数据、搜索、列控制、导入导出、权限、后端白名单查询、注释风格与性能边界。
 
+## 计划事件平台首次启用
+
+空库初始化已登记默认环境 `TEST`（测试环境），`application.yml` 的 `iws.endpoint.current-environment` 也默认指向 `TEST`，两个模块开关保持 `false`。首次启用按以下顺序操作，开关位于同一文件的 `iws.endpoint`、`iws.process` 段。
+
+1. 保持 `iws.process.enabled=false`，只打开 `iws.endpoint.enabled=true`，启动主服务，确认 `系统接入配置` 的环境、系统定义、系统地址三个页面可用。
+2. 需要接正式环境时，在 `环境配置` 新增对应环境码（例如 `PROD`）并设为启用，把 `iws.endpoint.current-environment` 改成该码后重启。当前环境只来自部署配置，页面上的选择不会切换运行时环境；`TEST` 行可保留或停用。
+3. 确认 endpoint 页面正常，再打开 `iws.process.enabled=true`。`iws.process.scheduler.enabled` 继续保持 `false`；需要后台队列与监督任务时，连同 `snail-job.enabled=true` 一起开启，`control-batch-limit`、`control-poll-interval-ms` 已有正数默认值，空库初始化也已建好 SnailJob 命名空间与 `iws_group` 组。APK 发布走 IMMEDIATE，不需要调度和该组。
+
+`iws.process.enabled=true` 启动时会校验当前环境已登记且启用：环境未配置报 `iws.process.enabled=true 需要配置 iws.endpoint.current-environment 并指向已启用环境`，环境不存在或已停用报 `iws.process.enabled=true 的当前环境不存在或未启用: <环境码>`。把 `current-environment` 指向没登记的环境码同样会命中。已有库缺少默认环境时，在 `环境配置` 补一行 `TEST` 并启用后再启动。
+
 ## 代码文件头规范
 
 所有可注释的前后端代码与配置文件顶部必须保留统一开发基础信息。新增文件时按当前文件注释语法套用以下字段：
@@ -192,6 +202,10 @@ JSON、lockfile、二进制资源等不支持注释或不适合写头的文件�
 本机安装目录约定为 `C:\tool\minio`。需要文件或图片上传时手动运行 `C:\tool\minio\start-minio.bat`，不注册 Windows 服务，也不设置开机自启；关闭该手动进程即停止 MinIO。API 地址为 `http://127.0.0.1:9000`，控制台地址为 `http://127.0.0.1:9001`。
 
 本机安装使用与 Compose 同版的社区维护版 `RELEASE.2026-04-17T00-00-00Z`，Windows 包来自 `pgsty/silo`（原 `pgsty/minio`）发布页，已按发布资产 SHA256 校验。数据保存在 `C:\tool\minio\data`，停止进程后保留。
+
+**官方 MinIO 版本限定：需要通过 Web 控制台管理用户、策略和 Access Keys 时，固定使用 `RELEASE.2025-04-22T22-12-26Z`（2025 年 4 月 22 日），这是官方社区版最后保留完整管理控制台的版本，不使用 `latest`。** 官方从 [`RELEASE.2025-05-24T17-08-30Z`](https://github.com/minio/minio/releases/tag/RELEASE.2025-05-24T17-08-30Z) 起将内置控制台改为对象浏览器，移除了用户与密钥的 Web 管理入口；S3 的 Access Key / Secret Key 认证仍然存在，新版需通过 `mc admin` 等方式管理。上述 `pgsty/silo` 是独立社区分支，不能与官方版本按日期混用。本次提供的 Windows ZIP 固定为官方 2025 年 4 月 22 日版，不替换本机已有安装或数据。
+
+解压 ZIP 后运行 `start-minio.bat`。首次运行会从 `minio.env.example.bat` 复制独立的 `minio.env.bat`，默认账号为 `innolux`，默认密码为 `innolux123456`；这些默认凭据仅用于本机开发，其他环境应修改密码。使用该账号登录 `http://127.0.0.1:9001`，创建私有桶 `innolux-iws`，并在 `Access Keys` 中创建应用密钥；将生成的 Access Key 和 Secret Key 分别填写到 IWS“系统管理 -> 文件配置管理”的 `accessKey`、`secretKey`，访问站点填写 API 地址 `127.0.0.1:9000`，不要填写控制台端口 `9001`。`Identity -> Users` 用于管理普通用户；需要快速本机验证时，`MINIO_ROOT_USER` 和 `MINIO_ROOT_PASSWORD` 也可分别作为这两个配置值。应用优先使用单独授权的密钥；默认凭据不用于生产或共享环境。
 
 本机 MinIO 用户名和密码保存在仓库外的 `C:\tool\minio\minio.env.bat`，不得写入仓库中的 SQL 或前端配置。桶统一使用 `innolux-iws`，桶策略保持私有。
 
