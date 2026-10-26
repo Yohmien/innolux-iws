@@ -170,8 +170,8 @@ spring.data:
 
 # redisson 配置
 redisson:
-  # redis key前缀
-  keyPrefix:
+  # 应用级 redis key 前缀
+  keyPrefix: ${IWS_REDIS_KEY_PREFIX:innolux-iws}
   # 线程池数量
   threads: 4
   # Netty线程池数量
