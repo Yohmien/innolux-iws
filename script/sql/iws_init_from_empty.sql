@@ -26,7 +26,8 @@
 --   3. endpoint 结构（6 张表）与唯一 CATALOG 控制行
 --   4. process 结构（16 张表）
 --   5. endpoint/process 菜单和按钮权限（53 行）
--- 共 123 张表。
+--   6. APK 发布记录表（1 张表）与系统管理菜单（5 行）
+-- 共 124 张表。
 --
 -- 种子只保留系统运行所需的默认模板配置：部门/岗位/角色/菜单/字典/参数、
 -- 默认管理员、SnailJob 初始管理员、默认客户端、OSS 模板、流程分类和流程表达式、AI 模型提供者。
@@ -2990,11 +2991,11 @@ INSERT INTO `sys_config` (`config_id`, `config_name`, `config_key`, `config_valu
 INSERT INTO `sys_config` (`config_id`, `config_name`, `config_key`, `config_value`, `config_type`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761700000000000007,'界面体验-标准提示自动关闭秒数','sys.ui.messageCloseSeconds','30','Y',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',NULL,NULL,'标准消息提示自动关闭时间，单位秒；默认30秒，可手动关闭');
 INSERT INTO `sys_client` (`id`, `client_id`, `client_key`, `client_secret`, `grant_type`, `device_type`, `access_path`, `ip_whitelist`, `active_timeout`, `timeout`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1762000000000000001,'e5cd7e4891bf95d1d19206ce24a7b32e','pc','pc123','password,social','pc',NULL,NULL,1800,604800,'0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:55',1761100000000000001,'2026-10-23 21:05:55');
 INSERT INTO `sys_client` (`id`, `client_id`, `client_key`, `client_secret`, `grant_type`, `device_type`, `access_path`, `ip_whitelist`, `active_timeout`, `timeout`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1762000000000000002,'428a8310cd442757ae699df5d894f051','app','app123','password,sms,social','android','/app/**',NULL,1800,604800,'0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:55',1761100000000000001,'2026-10-23 21:05:55');
-INSERT INTO `sys_oss_config` (`oss_config_id`, `config_key`, `access_key`, `secret_key`, `bucket_name`, `prefix`, `endpoint`, `domain_url`, `is_https`, `region`, `access_policy`, `status`, `ext1`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761900000000000001,'minio','innolux','innolux123','innolux-wms','','127.0.0.1:9000','','N','','1','Y','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',1761100000000000001,'2026-10-23 21:05:54',NULL);
+INSERT INTO `sys_oss_config` (`oss_config_id`, `config_key`, `access_key`, `secret_key`, `bucket_name`, `prefix`, `endpoint`, `domain_url`, `is_https`, `region`, `access_policy`, `status`, `ext1`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761900000000000001,'minio','<MINIO_ACCESS_KEY>','<MINIO_SECRET_KEY>','innolux-iws','','127.0.0.1:9000','','N','','0','Y','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',1761100000000000001,'2026-10-23 21:05:54',NULL);
 INSERT INTO `sys_oss_config` (`oss_config_id`, `config_key`, `access_key`, `secret_key`, `bucket_name`, `prefix`, `endpoint`, `domain_url`, `is_https`, `region`, `access_policy`, `status`, `ext1`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761900000000000002,'qiniu','XXXXXXXXXXXXXXX','XXXXXXXXXXXXXXX','innolux-wms','','s3-cn-north-1.qiniucs.com','','N','','1','N','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',1761100000000000001,'2026-10-23 21:05:54',NULL);
 INSERT INTO `sys_oss_config` (`oss_config_id`, `config_key`, `access_key`, `secret_key`, `bucket_name`, `prefix`, `endpoint`, `domain_url`, `is_https`, `region`, `access_policy`, `status`, `ext1`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761900000000000003,'aliyun','XXXXXXXXXXXXXXX','XXXXXXXXXXXXXXX','innolux-wms','','oss-cn-beijing.aliyuncs.com','','N','','1','N','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',1761100000000000001,'2026-10-23 21:05:54',NULL);
 INSERT INTO `sys_oss_config` (`oss_config_id`, `config_key`, `access_key`, `secret_key`, `bucket_name`, `prefix`, `endpoint`, `domain_url`, `is_https`, `region`, `access_policy`, `status`, `ext1`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761900000000000004,'qcloud','XXXXXXXXXXXXXXX','XXXXXXXXXXXXXXX','innolux-wms-1240000000','','cos.ap-beijing.myqcloud.com','','N','ap-beijing','1','N','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',1761100000000000001,'2026-10-23 21:05:54',NULL);
-INSERT INTO `sys_oss_config` (`oss_config_id`, `config_key`, `access_key`, `secret_key`, `bucket_name`, `prefix`, `endpoint`, `domain_url`, `is_https`, `region`, `access_policy`, `status`, `ext1`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761900000000000005,'image','innolux','innolux123','innolux-wms','image','127.0.0.1:9000','','N','','1','N','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',1761100000000000001,'2026-10-23 21:05:54',NULL);
+INSERT INTO `sys_oss_config` (`oss_config_id`, `config_key`, `access_key`, `secret_key`, `bucket_name`, `prefix`, `endpoint`, `domain_url`, `is_https`, `region`, `access_policy`, `status`, `ext1`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761900000000000005,'image','<MINIO_ACCESS_KEY>','<MINIO_SECRET_KEY>','innolux-iws','image','127.0.0.1:9000','','N','','0','N','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',1761100000000000001,'2026-10-23 21:05:54',NULL);
 INSERT INTO `flow_category` (`category_id`, `parent_id`, `ancestors`, `category_name`, `order_num`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1762300000000000100,0,'0','OA审批',0,'0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:56',NULL,NULL);
 INSERT INTO `flow_category` (`category_id`, `parent_id`, `ancestors`, `category_name`, `order_num`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1762300000000000101,1762300000000000100,'0,1762300000000000100','假勤管理',0,'0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:56',NULL,NULL);
 INSERT INTO `flow_category` (`category_id`, `parent_id`, `ancestors`, `category_name`, `order_num`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1762300000000000102,1762300000000000100,'0,1762300000000000100','人事管理',1,'0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:56',NULL,NULL);
@@ -5415,6 +5416,38 @@ DROP TEMPORARY TABLE IF EXISTS tmp_iws_menu_expected;
 DROP TEMPORARY TABLE IF EXISTS tmp_iws_menu_sys_columns;
 
 -- ----------------------------------------------------------------------------
+-- APK 应用版本管理：发布记录表与系统管理菜单
+-- ----------------------------------------------------------------------------
+CREATE TABLE `sys_apk_release` (
+  `release_id` bigint NOT NULL,
+  `app_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `package_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `version_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `version_code` bigint NOT NULL,
+  `sha256` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `file_size` bigint NOT NULL,
+  `oss_id` bigint NOT NULL,
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'UPLOADED',
+  `process_instance_id` bigint DEFAULT NULL,
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `create_dept` bigint DEFAULT NULL,
+  `create_by` bigint DEFAULT NULL,
+  `create_time` datetime DEFAULT NULL,
+  `update_by` bigint DEFAULT NULL,
+  `update_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`release_id`),
+  UNIQUE KEY `uk_apk_package_version` (`package_name`,`version_code`),
+  KEY `idx_apk_name` (`app_name`),
+  KEY `idx_apk_published` (`package_name`,`status`,`version_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040000,'APK管理',1761400000000000001,12,'apk','system/apk/index','','N','Y','C','0','0','','upload','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'APK发布管理菜单');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040001,'APK查询',1761400000000040000,1,'',NULL,NULL,'N','Y','F','0','0','system:apk:list','#','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040002,'APK上传',1761400000000040000,2,'',NULL,NULL,'N','Y','F','0','0','system:apk:upload','#','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040003,'发布/初始化',1761400000000040000,3,'',NULL,NULL,'N','Y','F','0','0','system:apk:publish','#','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040004,'APK下载',1761400000000040000,4,'',NULL,NULL,'N','Y','F','0','0','system:apk:download','#','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'');
+
+-- ----------------------------------------------------------------------------
 -- 最终验收：结构数量、必要种子和空业务表不变量
 -- ----------------------------------------------------------------------------
 SET @init_final_table_count = (
@@ -5500,8 +5533,8 @@ SET @init_final_demo_rows = (
 );
 SET @init_final_ok = (
     @init_preflight_ok = 1
-    AND @init_final_table_count = 123
-    AND @init_final_menu_count = 225
+    AND @init_final_table_count = 124
+    AND @init_final_menu_count = 230
     AND @init_final_event_menu_count = 53
     AND @init_final_role_menu_count = 133
     AND @init_final_user_count = 1

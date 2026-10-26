@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+ - @Date         : 2026-10-26
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : IWS 智能仓储管理系统
+ - @Version      : V1.0
+ - @Description  : APK 发布版本分组查询；
+ - @ModifyRecord : V1.0 新建；
+-->
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.innolux.iws.system.apk.mapper.ApkReleaseMapper">
+
+    <select id="selectApplicationPage" resultType="com.innolux.iws.system.apk.domain.vo.ApkApplicationRow">
+        SELECT grouped.package_name,
+               latest.app_name,
+               grouped.version_count,
+               latest.release_id AS latest_release_id
+        FROM (
+            SELECT package_name, COUNT(*) AS version_count
+            FROM sys_apk_release
+            <where>
+                <if test="packageName != null and packageName != ''">
+                    AND package_name = #{packageName}
+                </if>
+            </where>
+            GROUP BY package_name
+        ) grouped
+        INNER JOIN sys_apk_release latest ON latest.release_id = (
+            SELECT candidate.release_id
+            FROM sys_apk_release candidate
+            WHERE candidate.package_name = grouped.package_name
+            ORDER BY CASE WHEN candidate.status = 'PUBLISHED' THEN 0 ELSE 1 END,
+                     candidate.version_code DESC,
+                     candidate.release_id DESC
+            LIMIT 1
+        )
+        <where>
+            <if test="appName != null and appName != ''">
+                AND EXISTS (
+                    SELECT 1
+                    FROM sys_apk_release named
+                    WHERE named.package_name = grouped.package_name
+                      AND named.app_name = #{appName}
+                )
+            </if>
+        </where>
+        ORDER BY latest.version_code DESC, grouped.package_name ASC
+    </select>
+
+    <select id="countDistinctPackagesByAppName" resultType="long">
+        SELECT COUNT(DISTINCT package_name)
+        FROM sys_apk_release
+        WHERE app_name = #{appName}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+    </select>
+
+</mapper>

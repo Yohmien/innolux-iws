@@ -39,6 +39,18 @@
             <artifactId>iws-api</artifactId>
         </dependency>
 
+        <!-- APK 发布复用计划事件运行时，不依赖应用启动模块 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-process</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-endpoint</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
         <!-- 接口模块 -->
         <dependency>
             <groupId>com.innolux.iws</groupId>
@@ -111,9 +123,21 @@
             <artifactId>iws-common-push</artifactId>
         </dependency>
 
+        <!-- APK 元数据解析 -->
+        <dependency>
+            <groupId>net.dongliu</groupId>
+            <artifactId>apk-parser</artifactId>
+            <version>2.6.10</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>test</scope>
         </dependency>
 

@@ -242,13 +242,27 @@ public class SysOssServiceImpl implements ISysOssService, OssService {
      */
     @Override
     public SysOssVo upload(MultipartFile file, SysOssExt ossExt) {
+        return upload(file, ossExt, null);
+    }
+
+    /**
+     * 按业务目录上传，原上传调用保持原有默认目录。
+     *
+     * @param file 文件
+     * @param ossExt 扩展信息
+     * @param businessPrefix 服务端业务目录
+     * @return 文件信息
+     */
+    @Override
+    public SysOssVo upload(MultipartFile file, SysOssExt ossExt, String businessPrefix) {
         if (ObjectUtil.isNull(file) || file.isEmpty()) {
             throw new ServiceException("上传文件不能为空");
         }
         String originalfileName = file.getOriginalFilename();
         String suffix = StringUtils.substring(originalfileName, originalfileName.lastIndexOf("."), originalfileName.length());
         OssClient instance = OssFactory.instance();
-        String pathKey = instance.buildPathKey(originalfileName);
+        String pathKey = StringUtils.isBlank(businessPrefix)
+            ? instance.buildPathKey(originalfileName) : instance.buildPathKey(businessPrefix, originalfileName);
         try (InputStream inputStream = file.getInputStream()) {
             PutObjectResult result = instance.upload(pathKey, inputStream, file.getSize(), Options.builder().setContentType(file.getContentType()));
             ossExt = ossExt == null ? new SysOssExt() : ossExt;
@@ -316,10 +330,16 @@ public class SysOssServiceImpl implements ISysOssService, OssService {
      */
     @Override
     public Boolean deleteWithValidByIds(Collection<Long> ids, Boolean isValid) {
-        if (isValid) {
-            // 做一些业务上的校验,判断是否需要校验
-        }
         List<SysOss> list = ossMapper.selectByIds(ids);
+        if (Boolean.TRUE.equals(isValid)) {
+            for (SysOss file : list) {
+                SysOssExt ext = JsonUtils.isJsonObject(file.getExt1())
+                    ? JsonUtils.parseObject(file.getExt1(), SysOssExt.class) : null;
+                if (ext != null && "APK_RELEASE".equals(ext.getBizType())) {
+                    throw new ServiceException("APK 安装包由应用包管理维护，不能通过文件管理删除");
+                }
+            }
+        }
         for (SysOss sysOss : list) {
             OssFactory.instance(sysOss.getService()).delete(sysOss.getFileName());
         }
