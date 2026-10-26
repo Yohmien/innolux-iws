@@ -14,6 +14,8 @@ package com.innolux.iws;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.metrics.buffering.BufferingApplicationStartup;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 启动程序
@@ -24,6 +26,8 @@ import org.springframework.boot.context.metrics.buffering.BufferingApplicationSt
 @SpringBootApplication
 public class IwsApplication {
 
+    private static final Logger LOG = LoggerFactory.getLogger(IwsApplication.class);
+
     /**
      * 应用启动入口。
      *
@@ -33,7 +37,7 @@ public class IwsApplication {
         SpringApplication application = new SpringApplication(IwsApplication.class);
         application.setApplicationStartup(new BufferingApplicationStartup(2048));
         application.run(args);
-        System.out.println("IWS+ 启动成功");
+        LOG.info("IWS+ 启动成功");
     }
 
 }

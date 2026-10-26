@@ -10,10 +10,13 @@
  - @ModifyRecord : V1.0 新建；
 -->
 
-<configuration debug="false" scan="true" scanPeriod="1 seconds">
+<configuration debug="false">
 
     <contextName>logback</contextName>
-    <property name="log.path" value="./logs/iws-monitor-admin"/>
+    <property name="log.root" value="${LOG_ROOT:-./logs}"/>
+    <property name="log.path" value="${log.root}/iws-monitor-admin"/>
+    <property name="log.maxFileSize" value="${LOG_MAX_FILE_SIZE:-50MB}"/>
+    <property name="log.maxHistory" value="${LOG_MAX_HISTORY:-60}"/>
     <property name="console.log.pattern"
               value="%cyan(%d{yyyy-MM-dd HH:mm:ss}) %green([%thread]) %highlight(%-5level) %boldMagenta(%logger{36}%n) - %msg%n"/>
     <property name="log.pattern" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"/>
@@ -25,21 +28,23 @@
         </encoder>
     </appender>
 
-    <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${log.path}.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${log.path}.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <!-- 日志最大的历史 60天 -->
-            <maxHistory>60</maxHistory>
+    <!-- 本进程全量汇总日志：所有 logger 与所有已启用级别 -->
+    <appender name="file_all" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log.path}/all.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${log.path}/all.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${log.maxFileSize}</maxFileSize>
+            <maxHistory>${log.maxHistory}</maxHistory>
         </rollingPolicy>
         <encoder>
             <pattern>${log.pattern}</pattern>
+            <charset>utf-8</charset>
         </encoder>
     </appender>
 
     <root level="info">
         <appender-ref ref="console"/>
-        <appender-ref ref="file"/>
+        <appender-ref ref="file_all"/>
     </root>
 
 </configuration>

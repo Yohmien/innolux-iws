@@ -238,7 +238,7 @@ management:
     health:
       show-details: ALWAYS
     logfile:
-      external-file: ./logs/sys-console.log
+      external-file: ${LOG_ROOT:./logs}/iws-admin/all.log
 
 --- # 统一消息推送配置
 message:
