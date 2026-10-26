@@ -2456,8 +2456,19 @@ VALUES ('OpenAI', 'openai', 'OpenAI官方模型 (GPT-4, GPT-3.5等)', 1),
 
 INSERT INTO sai_model_config VALUES (1, 5, 'glm-5.1', 'glm-5.1', 'CHAT', 'openai-compatible', '', '', 'https://dashscope.aliyuncs.com/compatible-mode/v1', '{\"frequencyPenalty\":0.0,\"maxTokens\":20000,\"presencePenalty\":0.0,\"stopSequences\":[],\"stream\":true,\"temperature\":0.7,\"timeoutMs\":300000,\"topK\":1,\"topP\":1.0}', NULL, 'GLOBAL', 1, 1, NOW(), NOW());
 
-INSERT INTO sai_agent VALUES (1, '智测先锋专家', '智测先锋专家是一款专注于软件测试与质量保障领域的智能助手。它能够高效生成覆盖全面的测试用例，深度分析Bug根因并提供修复建议，支持编写自动化测试脚本，以及解读复杂的测试报告。适用于软件开发周期的各个QA阶段，包括单元测试、接口测试、UI自动化及回归测试规划。其核心特点是逻辑严密、注重边界与异常场景，帮助团队大幅提升测试效率与软件质量。', NULL, '你是一位资深的软件测试与质量保障（QA）专家，名为“智测先锋专家”。\\n\\n【角色定位】你是开发团队的最后一道防线，致力于保障软件产品的卓越质量。\\n\\n【专业领域】精通黑盒与白盒测试、自动化测试框架（如Selenium、Pytest）、接口与性能测试、安全测试及CI/CD持续集成流程。\\n\\n【回答风格】逻辑严密、条理清晰、客观专业。善于使用结构化排版（如Markdown列表、代码块、表格）呈现测试用例和步骤，语言精炼，直击痛点。\\n\\n【行为指南】\\n1. 生成测试用例：必须覆盖正常流、异常流、边界值和兼容性等方面，确保测试的全面性与无遗漏。\\n2. 分析Bug根因：从代码逻辑、数据状态、环境配置等多维度推导，不仅给出修复建议，更要提供预防性的测试策略。\\n3. 编写自动化脚本：确保代码规范、包含必要注释与断言（Assert），并明确说明运行依赖与环境配置。\\n4. 需求澄清：若用户提问模糊，主动追问业务背景、技术栈等关键细节，拒绝给出宽泛且无实操价值的答案。\\n5. 风险预警：始终秉持质量第一理念，在解答中适时提示潜在的测试盲区与质量风险。', '你好！我是智测先锋专家，你的专属软件测试与质量保障顾问。无论是编写用例还是排查Bug，我都能为你提供专业支持！', '[\"如何为一个用户登录接口设计全面的测试用例？\",\"帮我分析这个空指针异常Bug的可能根因及修复建议。\",\"请提供一段Python的Pytest接口自动化测试脚本示例。\",\"怎样制定一个高效的回归测试策略？\"]', 2, 0, 0, 0, 0, 0, NULL, 1, 20, 1, 0, 1, 1, NULL, '1', NOW(), NOW());
+-- 默认 AI 助手：显式绑定对话模型 id=1；首次使用只需在 AI 控制台补充 API Key。
+INSERT INTO sai_agent (id, name, description, avatar, instruction, greeting, preset_questions, chat_model_id, memory_enabled, mcp_enabled, skill_enabled, web_search_enabled, rag_enabled, rag_ids, rag_call_mode, short_term_memory_size, creator_id, is_featured, view_count, status, config, app_id, create_dt, update_dt)
+VALUES (1, 'IWS+ 助手', 'IWS+ 默认通用助手，首次使用只需为默认对话模型补充 API Key。', NULL, '你是 IWS+ 的默认通用助手。请用简体中文准确、简洁地回答用户问题，必要时给出操作步骤和示例。你不直接执行仓储、生产或外部系统中的真实操作；涉及实际变更时，请提示用户通过对应业务页面确认和处理。', '你好，我是 IWS+ 助手，可以为你解答系统使用和日常工作中的问题。', '["IWS+ 可以帮我处理哪些工作？","怎么查看指定仓库的库存？","计划事件平台怎么使用？"]', 1, 1, 0, 0, 0, 0, NULL, 1, 20, 1, 1, 0, 1, NULL, '1', NOW(), NOW());
 
 INSERT INTO sai_app VALUES (1, '1', '测试', '', 'SAI_566a6bfbc26e4998b4841cc927d50c5d', 'LEAST_LOAD', 1, NOW(), NOW());
 
 INSERT INTO sai_openapi_user VALUES (1, '1', '46ed53c6a20044c7bbd870848e80f92f', 1, '1', NOW(), NOW());
+
+-- 已存在的 OpenAPI 用户若尚未订阅任何智能体，回填默认助手订阅；不影响用户后续的订阅选择。
+INSERT INTO sai_user_agent (user_id, agent_id, create_dt)
+SELECT u.platform_user_id, 1, NOW()
+FROM sai_openapi_user u
+WHERE u.app_id = '1'
+  AND NOT EXISTS (
+      SELECT 1 FROM sai_user_agent ua WHERE ua.user_id = u.platform_user_id
+  );
