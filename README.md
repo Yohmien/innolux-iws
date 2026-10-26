@@ -16,8 +16,9 @@ INNOLUX IWS 是面向智能仓储场景的前后端一体化系统，当前系�
 | Maven | 使用后端根目录 `mvnw.cmd` / `mvnw` |
 | Node.js | 20.19+ |
 | 包管理 | pnpm |
-| 数据库 | MySQL 8.x，`dev` 环境默认 `localhost:3306/innolux-iws` |
+| 数据库 | MySQL 8.x，当前本机 `dev` 使用 `localhost:3306/innolux-iws` |
 | 缓存 | Redis 6+ |
+| 对象存储（按需） | MinIO，本机约定安装到 `C:\tool\minio`，通过 `start-minio.bat` 手动启动 |
 
 ## 标准端口
 
@@ -34,10 +35,51 @@ INNOLUX IWS 是面向智能仓储场景的前后端一体化系统，当前系�
 | SnailAI gRPC | IWS SnailAI Server | `18189` | 内部通信端口 | 主服务接入 AI 服务 |
 | 主服务 SnailJob 客户端 | IWS+ Main Service | `18280` | 内部通信端口 | 调度中心回调主服务 |
 | 主服务 SnailAI 客户端 | IWS+ Main Service | `18380` | 内部通信端口 | AI 服务回调主服务 |
-| MySQL | 外部服务 | `3306` | `localhost:3306/innolux-iws` | dev 数据库 |
+| MySQL | 外部服务 | `3306` | `localhost:3306/innolux-iws` | 本机 dev 数据库 |
 | Redis | 外部服务 | `6379` | `localhost:6379` | 缓存与分布式锁 |
+| MinIO API | 本地进程 | `9000` | `http://127.0.0.1:9000` | 按需，文件与图片上传 |
+| MinIO 控制台 | 本地进程 | `9001` | `http://127.0.0.1:9001` | 按需，手动启动 |
 
 日常开发只启动 `IWS+ Main Service` 和前端即可。需要监控、任务调度或 AI 能力时，再分别启动 `IWS Monitor Admin`、`IWS SnailJob Server`、`IWS SnailAI Server`。
+
+## 本机开发账号与数据源
+
+以下为本机 `dev` 环境的配置值，用于本地联调和问题定位；共享或生产环境必须替换默认密码与接入令牌。账号、数据库和对象存储配置分散在启动模块与扩展服务的配置文件中。
+
+| 模块 | 配置位置 | 主要配置 |
+| --- | --- | --- |
+| 主服务 `iws-admin` | `iws-admin/src/main/resources/application.yml`、`application-dev.yml` | 端口 `18080`、MySQL、Redis、MQTT、SnailJob/SnailAI 客户端、邮件与短信 |
+| Web `innolux-iws-web` | `.env.development` | 后端 `http://127.0.0.1:18080`、监控/调度/AI 入口、接口加密密钥 |
+| 监控中心 `iws-monitor-admin` | `iws-extend/iws-monitor-admin/src/main/resources/application.yml` | 登录账号、端口 `18090`、被监控客户端凭据 |
+| 调度中心 `iws-snailjob-server` | `iws-extend/iws-snailjob-server/src/main/resources/application.yml`、`application-dev.yml` | 端口 `18088` / `18188`、MySQL、监控客户端 |
+| AI 服务 `iws-snailai-server` | `iws-extend/iws-snailai-server/src/main/resources/application.yml`、`application-dev.yml` | 端口 `18089` / `18189`、MySQL、本地存储或 MinIO、监控客户端 |
+
+| 模块/入口 | 地址 | 账号 | 密码 |
+| --- | --- | --- | --- |
+| IWS+ 业务登录（Web、PDA） | `http://localhost:18000` | `admin` | `admin123` |
+| 监控中心 | `http://localhost:18090/admin` | `iws` | `123456` |
+| SnailJob 控制台 | `http://localhost:18088/snail-job` | `admin` | `admin` |
+| SnailAI 控制台 | `http://localhost:18089/snail-ai` | `admin` | `admin123` |
+| MySQL（主服务、调度、AI 共用） | `localhost:3306` | `root` | `12345` |
+| Redis | `localhost:6379`，库 `0` | 无 | 无认证 |
+| MinIO 控制台 | `http://127.0.0.1:9001` | `innolux` | 见 `C:\tool\minio\minio.env.bat` |
+| MQTT（默认关闭） | `127.0.0.1:1883` | `iws` | `123456` |
+| 邮件（默认关闭）、短信（占位未配置） | 配置内模板地址 | 占位值 | 占位值 |
+
+业务登录、SnailJob 和 SnailAI 的账号来自初始化 SQL 的种子数据；监控中心、MySQL、Redis 和 MQTT 账号来自对应模块的 YAML。MQTT 和邮件默认未启用，短信仍为占位配置，启用前需替换占位凭据。模块间接入令牌（`snail-job.token`、`snail-ai.token`）和各模块连接串以 `application-dev.yml` 为准。
+
+| 项目 | 当前配置 |
+| --- | --- |
+| 标准数据库名 | `innolux_iws` |
+| 本机 `dev` 连接库 | `innolux-iws`（主服务、SnailJob、SnailAI 三处 `application-dev.yml` 一致） |
+| 数据库地址 | `localhost:3306`，账号 `root`，密码 `12345` |
+| 初始化入口 | `script/sql/iws_init_from_empty.ps1`，目标库通过 `-Database` 指定，SQL 不硬编码库名 |
+| MinIO API / 控制台 | `http://127.0.0.1:9000` / `http://127.0.0.1:9001` |
+| 文件与图片桶 | `innolux-iws`（私有）；`minio` 前缀为空且为默认项，`image` 前缀为 `image` 且默认未启用 |
+| AI 资源桶（可选） | `snail-ai`；`iws-snailai-server` 默认 `storage-type: LOCAL`，未使用 MinIO；启用时替换模板凭据 `minioadmin` |
+| 对象存储凭据 | `sys_oss_config` 的 `minio`、`image` 两项与 `C:\tool\minio\minio.env.bat` 保持一致 |
+
+`iws_init_from_empty.sql` 中的 `minio`、`image` 使用占位凭据，只对新建空库生效；已有库需在“系统管理 -> 文件配置管理”中填写真实 `accessKey` 和 `secretKey`。MinIO 密码按原约定保存在仓库外，不写入 README 或初始化 SQL。
 
 ## 后端结构
 
@@ -46,6 +88,7 @@ INNOLUX IWS 是面向智能仓储场景的前后端一体化系统，当前系�
 | `iws-admin` | 后端启动入口、全局配置、登录鉴权、接口入口 |
 | `iws-api` | 跨模块 API、领域模型与事件契约 |
 | `iws-common` | 通用能力，包括 core、web、security、mybatis、redis、oss、excel、doc、log、sms、mqtt、ai 等 |
+| `iws-modules/iws-wms` | WMS 标准表元数据、查询白名单与供应商样板服务 |
 | `iws-modules/iws-system` | 用户、角色、菜单、部门、岗位、字典、参数、通知、日志等系统管理 |
 | `iws-modules/iws-job` | 定时任务与任务调度 |
 | `iws-modules/iws-gen` | 代码生成能力 |
@@ -121,10 +164,10 @@ JSON、lockfile、二进制资源等不支持注释或不适合写头的文件�
 
 ## IDEA 启动
 
-1. 使用 IDEA 打开后端目录 `E:\innolux-iws`。
+1. 使用 IDEA 打开后端目录 `C:\code\company\innolux-iws`。
 2. Project SDK、Maven Runner、Maven Importer 均使用 `JDK 21`。
 3. 右侧 Maven 面板执行 Reload All Maven Projects。
-4. 本地先启动 MySQL `3306` 与 Redis `6379`，并确认数据库已执行 `script/sql/iws_init.sql`。
+4. 本地先启动 MySQL `3306` 与 Redis `6379`，并确认目标数据库已按需准备初始化和 WMS 核心表；使用文件或图片上传时再启动 MinIO。演示数据只在明确允许的环境执行。
 5. Run/Debug 下拉框使用以下四个共享启动项：
 
 | 启动项 | 是否必启 | 说明 |
@@ -134,9 +177,9 @@ JSON、lockfile、二进制资源等不支持注释或不适合写头的文件�
 | `IWS SnailJob Server` | 否 | 任务调度中心，端口 `18088` / `18188` |
 | `IWS SnailAI Server` | 否 | AI 服务中心，端口 `18089` / `18189` |
 
-基础联调启动顺序：MySQL、Redis -> `IWS+ Main Service` -> 前端。
+基础联调启动顺序：按需 MinIO -> MySQL、Redis -> `IWS+ Main Service` -> 前端。
 
-完整能力启动顺序：MySQL、Redis -> `IWS Monitor Admin` -> `IWS SnailJob Server` -> `IWS SnailAI Server` -> `IWS+ Main Service` -> 前端。
+完整能力启动顺序：按需 MinIO -> MySQL、Redis -> `IWS Monitor Admin` -> `IWS SnailJob Server` -> `IWS SnailAI Server` -> `IWS+ Main Service` -> 前端。
 
 ## MinIO 对象存储（按需）
 
@@ -161,7 +204,7 @@ docker compose -f .\script\docker\docker-compose.yml up -d
 后端主服务：
 
 ```powershell
-cd E:\innolux-iws
+cd C:\code\company\innolux-iws
 $env:JAVA_HOME='C:\Program Files\Java\jdk-21'
 $env:Path="$env:JAVA_HOME\bin;$env:Path"
 .\mvnw.cmd -pl iws-admin -am package -DskipTests
@@ -179,7 +222,7 @@ java -jar .\iws-extend\iws-snailai-server\target\iws-snailai-server.jar --spring
 前端：
 
 ```powershell
-cd E:\innolux-iws-web
+cd C:\code\company\ui\innolux-iws-web
 pnpm install
 pnpm dev
 ```
@@ -195,20 +238,20 @@ pnpm dev
 后端完整构建：
 
 ```powershell
-cd E:\innolux-iws
+cd C:\code\company\innolux-iws
 .\mvnw.cmd clean package -DskipTests
 ```
 
 后端主服务本地运行：
 
 ```powershell
-cd E:\innolux-iws
+cd C:\code\company\innolux-iws
 .\mvnw.cmd -pl iws-admin -am spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 前端构建：
 
 ```powershell
-cd E:\innolux-iws-web
+cd C:\code\company\ui\innolux-iws-web
 pnpm build
 ```
