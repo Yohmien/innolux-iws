@@ -15,6 +15,7 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.servers.Server;
 import lombok.RequiredArgsConstructor;
 import com.innolux.iws.common.core.utils.StringUtils;
 import com.innolux.iws.common.doc.config.properties.SpringDocProperties;
@@ -71,6 +72,11 @@ public class SpringDocConfig implements WebMvcConfigurer {
         openApi.externalDocs(properties.getExternalDocs());
         openApi.tags(properties.getTags());
         openApi.paths(properties.getPaths());
+        // 反向代理下页面来源与后端接口前缀不同，显式配置后才能正确定向调试请求
+        List<Server> servers = properties.getServers();
+        if (servers != null && !servers.isEmpty()) {
+            openApi.servers(servers);
+        }
         if (properties.getComponents() != null) {
             openApi.components(properties.getComponents());
             Set<String> keySet = properties.getComponents().getSecuritySchemes().keySet();
