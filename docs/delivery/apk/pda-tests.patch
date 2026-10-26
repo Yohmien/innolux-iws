@@ -1,0 +1,170 @@
+diff --git a/tests/apk-update.test.mjs b/tests/apk-update.test.mjs
+new file mode 100644
+--- /dev/null
++++ b/tests/apk-update.test.mjs
+@@ -0,0 +1,165 @@
++import test from 'node:test'
++import assert from 'node:assert/strict'
++import { readFile } from 'node:fs/promises'
++
++const source = await readFile(new URL('../utils/apk-update.js', import.meta.url), 'utf8')
++const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
++const {
++  INSTALLATION_STATUS,
++  UPDATE_PLATFORM,
++  compareInstallation,
++  getAndroidAppInfo,
++  getDownloadProgress,
++  getUpdatePlatformMode,
++  inspectDownloadedApk,
++  resolveApkDownloadUrl,
++  toUnsignedVersionCode,
++  validateDownloadedApk,
++  validateRelease
++} = await import(moduleUrl)
++
++test('平台模式区分 Android、H5、已知 APP 平台和未知 APP 平台', () => {
++  assert.equal(getUpdatePlatformMode({ isAppPlus: true, platform: 'android' }), UPDATE_PLATFORM.ANDROID)
++  assert.equal(getUpdatePlatformMode({ platform: 'h5' }), UPDATE_PLATFORM.H5)
++  assert.equal(getUpdatePlatformMode({ isAppPlus: true, platform: 'ios' }), UPDATE_PLATFORM.UNSUPPORTED_APP)
++  assert.equal(getUpdatePlatformMode({ isAppPlus: true }), UPDATE_PLATFORM.UNKNOWN_APP)
++})
++
++test('已安装包通过 PackageInfo 读取真实包名和 longVersionCode', () => {
++  const packageInfo = {
++    packageName: 'com.innolux.iws.pda',
++    versionName: '1.0.5',
++    getLongVersionCode: () => ({ toString: () => '9007199254740993' })
++  }
++  const info = getAndroidAppInfo({
++    android: {
++      importClass: (target) => target === 'android.os.Build$VERSION' ? { SDK_INT: 34 } : target,
++      runtimeMainActivity: () => ({
++        getPackageName: () => 'com.innolux.iws.pda',
++        getPackageManager: () => ({ getPackageInfo: () => packageInfo })
++      }),
++      getAttribute: (object, name) => object[name]
++    }
++  })
++
++  assert.deepEqual(info, {
++    packageName: 'com.innolux.iws.pda',
++    versionCode: '9007199254740993',
++    versionName: '1.0.5'
++  })
++})
++
++test('仅版本代码相同放行，已安装更高版本也不能降级', () => {
++  assert.equal(compareInstallation('000105', '105'), INSTALLATION_STATUS.MATCH)
++  assert.equal(compareInstallation('104', '105'), INSTALLATION_STATUS.UPDATE_REQUIRED)
++  assert.equal(compareInstallation('106', '105'), INSTALLATION_STATUS.DOWNGRADE_BLOCKED)
++  assert.equal(compareInstallation('9007199254740993', '9007199254740992'), INSTALLATION_STATUS.DOWNGRADE_BLOCKED)
++  assert.equal(compareInstallation('invalid', '105'), INSTALLATION_STATUS.INVALID)
++})
++
++test('API 28 以下把 signed versionCode 转为无符号十进制', () => {
++  assert.equal(toUnsignedVersionCode(-1), '4294967295')
++  assert.equal(toUnsignedVersionCode('-2147483648'), '2147483648')
++  assert.equal(toUnsignedVersionCode('105'), '105')
++})
++
++test('API 28 以下已安装包读取 legacy versionCode 并转为无符号字符串', () => {
++  const packageInfo = { packageName: 'com.innolux.iws.pda', versionName: '1.0.0', versionCode: -1 }
++  const info = getAndroidAppInfo({
++    android: {
++      importClass: (target) => target === 'android.os.Build$VERSION' ? { SDK_INT: 27 } : target,
++      runtimeMainActivity: () => ({
++        getPackageName: () => 'com.innolux.iws.pda',
++        getPackageManager: () => ({ getPackageInfo: () => packageInfo })
++      }),
++      getAttribute: (object, name) => object[name]
++    }
++  })
++
++  assert.equal(info.versionCode, '4294967295')
++})
++
++test('发布信息必须匹配当前安装包并包含有效版本代码', () => {
++  assert.equal(validateRelease({ packageName: 'com.example.other', versionCode: '105' }, 'com.example.app').valid, false)
++  assert.equal(validateRelease({ packageName: 'com.example.app', versionCode: 'x' }, 'com.example.app').valid, false)
++  assert.equal(validateRelease({ packageName: 'com.example.app', versionCode: '105' }, 'com.example.app').valid, false)
++  assert.equal(validateRelease({ packageName: 'com.example.app', versionCode: '105', fileSize: 2048, versionName: '1.0.5' }, 'com.example.app').valid, true)
++})
++
++test('安装前校验下载文件大小、包名和版本代码', () => {
++  const expected = {
++    expectedPackageName: 'com.example.app',
++    expectedVersionCode: '105',
++    expectedFileSize: 2048
++  }
++  assert.equal(validateDownloadedApk({ ...expected, actualPackageName: 'com.example.app', actualVersionCode: '105', actualFileSize: 2048 }).valid, true)
++  assert.equal(validateDownloadedApk({ ...expected, actualPackageName: 'com.example.app', actualVersionCode: '105', actualFileSize: 2047 }).valid, false)
++  assert.equal(validateDownloadedApk({ ...expected, actualPackageName: 'com.example.other', actualVersionCode: '105', actualFileSize: 2048 }).valid, false)
++  assert.equal(validateDownloadedApk({ ...expected, actualPackageName: 'com.example.app', actualVersionCode: '104', actualFileSize: 2048 }).valid, false)
++})
++
++test('使用 Android PackageManager 读取下载 APK 本身的信息', () => {
++  class FakeFile {
++    constructor(path) {
++      this.path = path
++    }
++    exists() { return true }
++    length() { return 2048 }
++  }
++  const packageInfo = {
++    packageName: 'com.example.app',
++    getLongVersionCode: () => ({ toString: () => '9007199254740993' })
++  }
++  const plusRuntime = {
++    io: { convertLocalFileSystemURL: (path) => `/storage/emulated/0/${path}` },
++    android: {
++      importClass: (name) => {
++        if (name === 'java.io.File') return FakeFile
++        if (name === 'android.os.Build$VERSION') return { SDK_INT: 34 }
++        return name
++      },
++      runtimeMainActivity: () => ({
++        getPackageManager: () => ({
++          getPackageArchiveInfo: () => packageInfo
++        })
++      }),
++      getAttribute: (object, name) => object[name]
++    }
++  }
++
++  assert.deepEqual(inspectDownloadedApk(plusRuntime, 'download/app.apk'), {
++    valid: true,
++    fileSize: 2048,
++    packageName: 'com.example.app',
++    versionCode: '9007199254740993'
++  })
++})
++
++test('后端下载路由在现有 baseUrl 与 innolux 前缀下正确拼接', () => {
++  assert.equal(
++    resolveApkDownloadUrl('/app/apk/download?packageName=a&versionCode=105', 'http://10.0.0.1:8000', 'a', 105),
++    'http://10.0.0.1:8000/innolux/app/apk/download?packageName=a&versionCode=105'
++  )
++  assert.equal(
++    resolveApkDownloadUrl('/innolux/app/apk/download?packageName=a&versionCode=105', 'http://10.0.0.1:8000', 'a', 105),
++    'http://10.0.0.1:8000/innolux/app/apk/download?packageName=a&versionCode=105'
++  )
++  assert.equal(
++    resolveApkDownloadUrl('', 'http://10.0.0.1:8000', 'com.innolux.pda', '105'),
++    'http://10.0.0.1:8000/innolux/app/apk/download?packageName=com.innolux.pda&versionCode=105'
++  )
++  assert.equal(resolveApkDownloadUrl('https://download.example/a.apk', 'http://host', 'a', 1), 'https://download.example/a.apk')
++})
++
++test('下载进度同时处理已知总量和未知总量', () => {
++  assert.deepEqual(getDownloadProgress(512, 1024, 0), {
++    percent: 50,
++    percentText: '50%',
++    bytesText: '512 B / 1.0 KB'
++  })
++  assert.deepEqual(getDownloadProgress(1536, 0, 0), {
++    percent: 0,
++    percentText: '正在下载',
++    bytesText: '已下载 1.5 KB / 总量未知'
++  })
++})
