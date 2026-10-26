@@ -32,6 +32,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.server.autoconfigure.ServerProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +49,7 @@ import java.util.Set;
 @AutoConfiguration(before = SpringDocConfiguration.class)
 @EnableConfigurationProperties(SpringDocProperties.class)
 @ConditionalOnProperty(name = "springdoc.api-docs.enabled", havingValue = "true", matchIfMissing = true)
-public class SpringDocConfig {
+public class SpringDocConfig implements WebMvcConfigurer {
 
     private final ServerProperties serverProperties;
 
@@ -145,6 +147,20 @@ public class SpringDocConfig {
     @Bean
     public JavadocResolver saTokenAnnotationJavadocResolver() {
         return new SaTokenAnnotationMetadataJavadocResolver();
+    }
+
+    /**
+     * 注册 Knife4j 文档页面映射。
+     *
+     * <p>应用把 spring.mvc.static-path-pattern 收窄为 /static/** 后，默认资源处理器不再映射
+     * 根路径下的 doc.html，需要显式指向依赖 jar 的 META-INF/resources 目录。</p>
+     *
+     * @param registry 资源处理器注册表
+     */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/doc.html")
+            .addResourceLocations("classpath:/META-INF/resources/");
     }
 
     /**
