@@ -127,7 +127,8 @@ INSERT INTO tmp_iws_apk_cols
 (14, 'create_by',            'bigint',        'YES', NULL,       '', NULL,      NULL),
 (15, 'create_time',          'datetime',      'YES', NULL,       '', NULL,      NULL),
 (16, 'update_by',            'bigint',        'YES', NULL,       '', NULL,      NULL),
-(17, 'update_time',          'datetime',      'YES', NULL,       '', NULL,      NULL);
+(17, 'update_time',          'datetime',      'YES', NULL,       '', NULL,      NULL),
+(18, 'download_count',       'bigint',        'NO',  '0',        '', NULL,      NULL);
 
 INSERT INTO tmp_iws_apk_idxs
 (index_name, non_unique, seq_in_index, column_name, sub_part, index_type) VALUES
@@ -227,7 +228,7 @@ SET @apk_actual_column_count = (
 );
 INSERT INTO tmp_iws_apk_conflicts (object_key, reason)
 SELECT 'sys_apk_release', CONCAT('列数量与目标不一致：', @apk_actual_column_count)
-WHERE @apk_table_ok = 1 AND @apk_actual_column_count <> 17;
+WHERE @apk_table_ok = 1 AND @apk_actual_column_count <> 18;
 
 INSERT INTO tmp_iws_apk_conflicts (object_key, reason)
 SELECT DISTINCT 'sys_apk_release', CONCAT('索引定义不一致：', e.index_name)
@@ -360,6 +361,7 @@ SET @apk_create_sql = IF(@apk_preflight_ok = 1 AND @apk_named_table_count = 0, C
     '`create_time` datetime DEFAULT NULL,',
     '`update_by` bigint DEFAULT NULL,',
     '`update_time` datetime DEFAULT NULL,',
+    '`download_count` bigint NOT NULL DEFAULT 0,',
     'PRIMARY KEY (`release_id`),',
     'UNIQUE KEY `uk_apk_package_version` (`package_name`,`version_code`),',
     'KEY `idx_apk_name` (`app_name`),',

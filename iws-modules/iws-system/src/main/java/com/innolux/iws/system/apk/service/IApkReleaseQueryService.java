@@ -71,9 +71,12 @@ public interface IApkReleaseQueryService {
      * @param appName     应用名称
      * @param versionCode 版本号
      * @param versionName 版本名称
+     * @param currentVersionCode 客户端当前版本号
+     * @param currentVersionName 客户端当前版本名称
      * @param response    HTTP 响应
      * @throws IOException 读取或写出对象失败
      */
     void downloadPublished(String packageName, String appName, String versionCode, String versionName,
+                           String currentVersionCode, String currentVersionName,
                            HttpServletResponse response) throws IOException;
 }

@@ -78,6 +78,8 @@ public class ApkPublicController {
      * @param appName     应用名称
      * @param versionCode 版本号
      * @param versionName 版本名称
+     * @param currentVersionCode 客户端当前版本号
+     * @param currentVersionName 客户端当前版本名称
      * @param response    HTTP 响应
      * @throws IOException 读取或写出文件失败
      */
@@ -87,7 +89,10 @@ public class ApkPublicController {
         @RequestParam(value = "appName", required = false) String appName,
         @RequestParam(value = "versionCode", required = false) String versionCode,
         @RequestParam(value = "versionName", required = false) String versionName,
+        @RequestParam(value = "currentVersionCode", required = false) String currentVersionCode,
+        @RequestParam(value = "currentVersionName", required = false) String currentVersionName,
         HttpServletResponse response) throws IOException {
-        queryService.downloadPublished(packageName, appName, versionCode, versionName, response);
+        queryService.downloadPublished(packageName, appName, versionCode, versionName,
+            currentVersionCode, currentVersionName, response);
     }
 }

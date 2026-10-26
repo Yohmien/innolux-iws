@@ -88,6 +88,16 @@ public class ProcessRequestDetail extends BaseEntity {
     private String moduleCode;
 
     /**
+     * 来源 IP。
+     */
+    private String clientIp;
+
+    /**
+     * 访问信息摘要。
+     */
+    private String accessSummary;
+
+    /**
      * 接口合同键。
      */
     private String contractKey;

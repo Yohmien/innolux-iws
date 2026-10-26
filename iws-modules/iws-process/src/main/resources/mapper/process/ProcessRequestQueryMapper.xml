@@ -116,7 +116,8 @@
     <sql id="RequestSafeColumns">
         r.id, r.request_id, r.direction, r.purpose, r.source_request_id, r.correlation_id,
         r.parent_request_id, r.peer_request_id, r.caller_system_code, r.receiver_system_code,
-        r.module_code, r.contract_key, r.contract_version, r.effect_key, r.instance_id, r.event_id,
+        r.module_code, r.client_ip, r.access_summary, r.contract_key, r.contract_version, r.effect_key,
+        r.instance_id, r.event_id,
         r.attempt_id, r.receipt_id, r.http_status, r.result_code, r.effect_result, r.sent, r.started_at,
         r.ended_at, r.evidence_at, r.create_time, i.business_schedule_code, i.plan_type, i.business_id,
         i.task_key

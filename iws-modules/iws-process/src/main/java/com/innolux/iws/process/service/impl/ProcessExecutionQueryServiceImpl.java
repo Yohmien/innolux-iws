@@ -157,7 +157,8 @@ public class ProcessExecutionQueryServiceImpl implements ProcessExecutionQuerySe
         Map.entry("PLAN_CANCEL", "计划取消"),
         Map.entry("EVENT_PRIORITY", "事件优先级"),
         Map.entry("SCHEDULE_CONTROL", "调度控制"),
-        Map.entry("COMMAND_REJECTED", "命令拒绝"));
+        Map.entry("COMMAND_REJECTED", "命令拒绝"),
+        Map.entry("APK_DOWNLOAD", "APK 下载"));
 
     private static final Map<AuditResult, String> AUDIT_RESULT_TEXT = Map.of(
         AuditResult.SUCCESS, "成功",
@@ -176,6 +177,7 @@ public class ProcessExecutionQueryServiceImpl implements ProcessExecutionQuerySe
         "EXECUTE_ACTION", "执行业务动作",
         "RESULT_CALLBACK", "结果回调",
         "QUERY", "查询",
+        "APK_DOWNLOAD", "APK 下载",
         "CONTROL", "控制");
 
     private static final Map<String, String> EFFECT_RESULT_TEXT = Map.of(
@@ -1375,6 +1377,7 @@ public class ProcessExecutionQueryServiceImpl implements ProcessExecutionQuerySe
             display(REQUEST_PURPOSE_TEXT, purpose), row.getSourceRequestId(),
             row.getCorrelationId(), row.getParentRequestId(), row.getPeerRequestId(),
             row.getCallerSystemCode(), row.getReceiverSystemCode(), row.getModuleCode(),
+            row.getClientIp(), row.getAccessSummary(),
             row.getContractKey(), row.getContractVersion(), row.getEffectKey(),
             ProcessText.id(row.getInstanceId()), ProcessText.id(row.getEventId()),
             ProcessText.id(row.getAttemptId()), ProcessText.id(row.getReceiptId()),

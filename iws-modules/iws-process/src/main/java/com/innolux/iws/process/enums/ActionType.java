@@ -52,5 +52,7 @@ public enum ActionType {
     /** 调度控制。 */
     SCHEDULE_CONTROL,
     /** 命令拒绝。 */
-    COMMAND_REJECTED
+    COMMAND_REJECTED,
+    /** APK 下载访问。 */
+    APK_DOWNLOAD
 }

@@ -23,6 +23,8 @@ public enum CallPurpose {
     RESULT_CALLBACK,
     /** 查询。 */
     QUERY,
+    /** APK 下载。 */
+    APK_DOWNLOAD,
     /** 控制。 */
     CONTROL
 }

@@ -85,6 +85,11 @@ public class ApkRelease extends BaseEntity {
     private Long processInstanceId;
 
     /**
+     * 下载次数
+     */
+    private Long downloadCount;
+
+    /**
      * 备注
      */
     private String remark;

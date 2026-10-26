@@ -29,6 +29,8 @@ package com.innolux.iws.process.api.query;
  * @param callerSystemCode 调用方系统
  * @param receiverSystemCode 接收方系统
  * @param moduleCode 模块编码
+ * @param clientIp 来源 IP
+ * @param accessSummary 访问信息摘要
  * @param contractKey 调用合同键
  * @param contractVersion 调用合同版本
  * @param effectKey 逻辑效果键
@@ -55,6 +57,7 @@ public record ProcessRequestRecordVO(String requestId, String direction, String 
                                      String purpose, String purposeText, String sourceRequestId,
                                      String correlationId, String parentRequestId, String peerRequestId,
                                      String callerSystemCode, String receiverSystemCode, String moduleCode,
+                                     String clientIp, String accessSummary,
                                      String contractKey, String contractVersion, String effectKey,
                                      String instanceId, String eventId, String attemptId, String receiptId,
                                      String businessScheduleCode, String planType, String businessId,

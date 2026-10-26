@@ -30,9 +30,13 @@ import com.innolux.iws.system.domain.vo.SysOssVo;
 import com.innolux.iws.system.service.ISysOssService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -47,6 +51,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ApkReleaseQueryServiceImpl implements IApkReleaseQueryService {
 
+    private static final Logger log = LoggerFactory.getLogger(ApkReleaseQueryServiceImpl.class);
+
     private static final String PUBLISHED = ApkReleaseStatus.PUBLISHED.name();
 
     private static final int SINGLE_RESULT_PAGE_SIZE = 1;
@@ -56,6 +62,8 @@ public class ApkReleaseQueryServiceImpl implements IApkReleaseQueryService {
     private final ApkReleaseMapper releaseMapper;
 
     private final ISysOssService ossService;
+
+    private final ObjectProvider<ApkDownloadAccessRecorder> accessRecorderProvider;
 
     /**
      * 分页查询应用汇总。
@@ -115,18 +123,103 @@ public class ApkReleaseQueryServiceImpl implements IApkReleaseQueryService {
 
     @Override
     public void downloadPublished(String packageName, String appName, String versionCode,
-                                  String versionName, HttpServletResponse response) throws IOException {
-        String resolvedPackageName = resolvePublishedPackage(packageName, appName);
-        ApkRelease release = resolvePublishedVersion(resolvedPackageName, versionCode, versionName);
-        if (release.getOssId() == null) {
-            throw new ServiceException("APK 版本未关联文件，不能下载");
+                                  String versionName, String currentVersionCode,
+                                  String currentVersionName, HttpServletResponse response) throws IOException {
+        LocalDateTime startedAt = LocalDateTime.now();
+        ApkDownloadAccessRecorder.Source source = ApkDownloadAccessRecorder.currentSource();
+        ApkRelease release = null;
+        boolean success = false;
+        boolean committed = false;
+        String failure = null;
+        int httpStatus = HttpServletResponse.SC_OK;
+        try {
+            String resolvedPackageName = resolvePublishedPackage(packageName, appName);
+            release = resolvePublishedVersion(resolvedPackageName, versionCode, versionName);
+            if (release.getOssId() == null) {
+                throw new ServiceException("APK 版本未关联文件，不能下载");
+            }
+            SysOssVo oss = ossService.getById(release.getOssId());
+            if (oss == null) {
+                throw new ServiceException("APK 文件记录不存在，不能下载");
+            }
+            OssClient client = OssFactory.instance(oss.getService());
+            ApkDownloadWriter.write(response, release, oss, client);
+            success = true;
+        } catch (IOException ex) {
+            failure = ex.getMessage();
+            committed = response.isCommitted();
+            httpStatus = response.getStatus();
+            throw ex;
+        } catch (RuntimeException ex) {
+            failure = ex.getMessage();
+            committed = response.isCommitted();
+            httpStatus = response.getStatus();
+            throw ex;
+        } finally {
+            recordAccess(new ApkDownloadAccessRecorder.Access(
+                release == null ? trimToNull(packageName) : release.getPackageName(),
+                currentVersion(currentVersionName, currentVersionCode),
+                release == null ? targetVersion(versionName, versionCode)
+                    : release.getVersionName() + "(" + release.getVersionCode() + ")",
+                release == null ? null : release.getVersionCode(),
+                release == null ? null : release.getProcessInstanceId(),
+                release == null ? null : release.getFileSize(),
+                success, committed, failure, httpStatus, source.clientIp(), source.userAgent(),
+                startedAt, LocalDateTime.now()));
+            if (success && release != null) {
+                increaseDownloadCount(release.getReleaseId());
+            }
         }
-        SysOssVo oss = ossService.getById(release.getOssId());
-        if (oss == null) {
-            throw new ServiceException("APK 文件记录不存在，不能下载");
+    }
+
+    private void recordAccess(ApkDownloadAccessRecorder.Access access) {
+        ApkDownloadAccessRecorder recorder = accessRecorderProvider.getIfAvailable();
+        if (recorder == null) {
+            return;
         }
-        OssClient client = OssFactory.instance(oss.getService());
-        ApkDownloadWriter.write(response, release, oss, client);
+        try {
+            recorder.record(access);
+        } catch (RuntimeException ex) {
+            log.warn("APK 下载访问记录写入失败: packageName={}, versionCode={}",
+                access.packageName(), access.versionCode(), ex);
+        }
+    }
+
+    private void increaseDownloadCount(Long releaseId) {
+        if (releaseId == null) {
+            return;
+        }
+        try {
+            releaseMapper.update(null, Wrappers.<ApkRelease>lambdaUpdate()
+                .eq(ApkRelease::getReleaseId, releaseId)
+                .setSql("download_count = download_count + 1"));
+        } catch (RuntimeException ex) {
+            log.warn("APK 下载计数更新失败: releaseId={}", releaseId, ex);
+        }
+    }
+
+    private static String currentVersion(String versionName, String versionCode) {
+        String name = trimToNull(versionName);
+        String code = trimToNull(versionCode);
+        if (name == null && code == null) {
+            return null;
+        }
+        if (code == null) {
+            return name;
+        }
+        return name == null ? code : name + "(" + code + ")";
+    }
+
+    private static String targetVersion(String versionName, String versionCode) {
+        String name = trimToNull(versionName);
+        String code = trimToNull(versionCode);
+        if (name == null && code == null) {
+            return "最新已发布版本";
+        }
+        if (code == null) {
+            return name;
+        }
+        return name == null ? code : name + "(" + code + ")";
     }
 
     private String resolvePublishedPackage(String packageName, String appName) {

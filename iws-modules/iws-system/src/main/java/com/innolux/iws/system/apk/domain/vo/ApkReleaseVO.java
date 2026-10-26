@@ -92,6 +92,11 @@ public class ApkReleaseVO implements Serializable {
     private Long processInstanceId;
 
     /**
+     * 下载次数
+     */
+    private Long downloadCount;
+
+    /**
      * 备注
      */
     private String remark;
@@ -130,6 +135,7 @@ public class ApkReleaseVO implements Serializable {
         vo.setStatus(release.getStatus());
         vo.setForceUpdate(release.getForceUpdate());
         vo.setProcessInstanceId(release.getProcessInstanceId());
+        vo.setDownloadCount(release.getDownloadCount());
         vo.setRemark(release.getRemark());
         vo.setCreateTime(release.getCreateTime());
         vo.setUpdateTime(release.getUpdateTime());

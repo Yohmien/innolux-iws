@@ -32,6 +32,8 @@ public class ProcessRequestRecordRow {
     private String callerSystemCode;
     private String receiverSystemCode;
     private String moduleCode;
+    private String clientIp;
+    private String accessSummary;
     private String contractKey;
     private String contractVersion;
     private String effectKey;
