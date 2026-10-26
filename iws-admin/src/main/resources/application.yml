@@ -218,6 +218,10 @@ iws:
     enabled: false
     scheduler:
       enabled: false
+      # 控制意图协调批次上限，须为正数
+      control-batch-limit: 20
+      # 控制意图轮询间隔，单位毫秒，须为正数
+      control-poll-interval-ms: 5000
     workflow:
       enabled: false
 

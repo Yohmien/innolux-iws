@@ -4,13 +4,12 @@
 # @Job          : INNOLUX IWS 标准化重构
 # @Module       : APK 应用管理
 # @Version      : V1.0
-# @Description  : 显式启用 APK 发布所需的计划事件平台；先在目录管理创建并启用环境。
+# @Description  : 显式启用 APK 发布所需的计划事件平台；当前环境继承主配置，不单独定义。
 # @ModifyRecord : V1.0 新建；
 
 iws:
   endpoint:
     enabled: true
-    current-environment: ${IWS_APK_ENVIRONMENT:dev}
   process:
     enabled: true
     scheduler:
