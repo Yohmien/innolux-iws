@@ -16,6 +16,7 @@ import io.swagger.v3.oas.models.ExternalDocumentation;
 import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.tags.Tag;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -60,6 +61,11 @@ public class SpringDocProperties {
      */
     @NestedConfigurationProperty
     private Components components = null;
+
+    /**
+     * 文档展示与调试使用的服务地址；未配置时由 springdoc 按当前请求推断
+     */
+    private List<Server> servers = null;
 
     /**
      * <p>

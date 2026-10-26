@@ -341,3 +341,9 @@ justauth:
 iws:
   endpoint:
     current-environment: ''
+
+--- # 接口文档调试地址：页面在前端域名下，调试请求走同域后端代理前缀
+springdoc:
+  servers:
+    - url: /prod-api
+      description: 正式环境后端接口前缀
