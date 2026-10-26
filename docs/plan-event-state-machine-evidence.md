@@ -11,7 +11,7 @@
 
 IWS 已有可直接复用的调度客户端、执行器注册方式、MyBatis-Plus 条件更新和乐观锁、Sa-Token 权限、数据字典、操作日志及 Warm-Flow 审批能力。本次不需要新建 Quartz、第二套工作流引擎或通用调度平台。
 
-建议只新增一个业务模块 `iws-modules/iws-process`，内部按 `api/definition/runtime/support` 分包；固定执行器复用现有 job 接线，SnailJob 动态管理通过模块内部 `SchedulerAdapter` 薄适配器接入。最终职责按主方案执行，本文的库 API 证据不构成第二份实现规格。
+计划事件归 `iws-modules/iws-process`，系统/IP/环境基础配置归可独立启用的 `iws-modules/iws-endpoint`，按主方案§18装配依赖。固定执行器复用现有job接线，SnailJob动态管理由SchedulerAdapter薄适配；本文的库API证据不构成第二份实现规格。
 
 当前 `iws-admin` 的 dev 配置关闭了 SnailJob 客户端，这不是方案阻断。实施时按部署窗口开启并验证执行器注册即可；本文不改任何配置。
 
@@ -370,3 +370,151 @@ GROUP BY job_status, executor_type;
 | [旧前端部署目录](../../ui/vietnam-pcba-web) | Nginx 部署产物，无 src 和 Git；有界检索仅确认菜单文案，不能验证新页面、路由或状态交互。详见时序图现状基线 |
 
 旧实现还存在需要避免直接复制的恢复边界：出库过期 PROCESSING 恢复未完整区分“请求已发送但结果未知”；入库过期不确定 MID 事件虽有候选 Mapper，静态调用检索未找到消费入口。它们是本轮只读发现，不在旧项目实施修复；新设计使用明确未知结果停留及监督清障协议。
+
+## 12. 本次接续的源码与数据库复核
+
+本节记录 2026-10-21 接续交接后新增的证据；前文未重新运行的历史快照继续按原边界理解。开始时文档分支为 `personal/plan-event-state-machine-design`、HEAD `b6aad43`，工作树干净；后端仍为 `57391dda3e8971cca434791686ebde690a9937b0`，三份既有 README/docs 修改保留，Web 工作树干净。本轮两个只读探索代理与主代理核对以下实现，未修改前后端。
+
+### 12.1 影响编码计划的源码事实
+
+下表路径以列明仓库为根，行号来自当前源码，建议落点不代表已经实现。
+
+| 证据 | 本次确认的事实 | 对实施计划的影响 |
+| --- | --- | --- |
+| 后端 `iws-modules/iws-job/pom.xml:29`；`iws-admin/pom.xml:97` | job 现有依赖为 common-json/common-job，admin 已聚合 job | 本轮明确选择 job 新增单向 process 依赖，接线继续复用现有模块；不声称此依赖已经存在 |
+| 后端 `iws-common/iws-common-mybatis/.../MybatisPlusConfig.java:45`；`.../core/domain/BaseEntity.java:28` | 已启用 Spring 事务代理；BaseEntity 没有并发 version | 短事务通过独立 public Bean 调用，新运行实体显式版本/CAS |
+| 后端 `iws-common/iws-common-security/.../SecurityConfig.java:92` | 鉴权为 MVC SaInterceptor，先于 Controller 方法 | 新拒绝审计需明确拦截顺序/异常接线，Controller AOP 不能覆盖权限拒绝 |
+| 后端 `iws-common/iws-common-log/.../LogAspect.java:76`；`iws-modules/iws-system/.../SysOperLogServiceImpl.java:55` | 操作日志方法结束后发布事件并异步保存 | 正常命令审计必须在领域事务内；不拿入口日志证明状态提交 |
+| 后端 `iws-api/src/main/java/com/innolux/iws/workflow/api/WorkflowService.java:74`；`api/event/ProcessEvent.java:26` | 已有按业务 ID 查询审批实例、启动/办理等合同；ProcessEvent 有审批实例 ID，无办理 taskId | 可选适配消费已有 API，不新增第二套合同；以本地审批意图及审批实例关联去重 |
+| 后端 `iws-modules/iws-workflow/.../FlwTaskServiceImpl.java:139`、`handler/FlowProcessEventHandler.java:46` | 办理在事务方法内同步发布进程事件 | 最新统一 HTTP 要求覆盖此前 REQUIRED 建议：审批提交后持久关联驱动 HTTP 确认，进程事件仅补查提示 |
+| Web `src/utils/request.ts:36`、`:252`；后端 `.../GlobalExceptionHandler.java:71` | Web handled error 仅保存消息/isHandled；普通业务异常返回 R，未要求 HTTP 409 | 计划新增最小保留 code/data 的请求修正；process 结构化冲突映射与现有 R 兼容 |
+| Web `src/hooks/dialog/useFormDialog.ts:26`；`src/layout/components/AppMain.vue:14` | reset 为浅复制；主区有 keep-alive | 单事件用深拷贝草稿；停轮询须覆盖 onDeactivated，不只 unmount |
+| Web `src/directive/permission/index.ts:17`；`src/plugins/auth.ts:38` | 指令 mounted 阶段按权限删除 DOM；已有表达式权限函数 | 异步 canX 与字段能力用 computed 组合，服务端仍最终校验 |
+
+### 12.2 本次目标库只读复核
+
+目标沿用已明确指定的 `jdbc:mysql://localhost:3306/innolux_iws`，通过 `mysql-local`；未改 Spring/MCP 配置。首笔查询为 `SHOW GRANTS`，结果仅 SELECT、SHOW DATABASES、SHOW VIEW，无写入/DDL 授权。`SELECT @@version AS db_version` 返回 `8.0.45`。
+
+用参数 `schemaName=innolux_iws` 查询 information_schema.TABLES，限定 `LEFT(TABLE_NAME,11)='iws_process'`、`LEFT(TABLE_NAME,21)='iws_business_schedule'`，以及 `sys_tenant/sys_tenant_package/wms_inventory_flow/sys_oper_log`。完整返回 2 行，limit=100、truncated=false：`sys_oper_log`、`wms_inventory_flow`。此范围未发现拟议计划事件表或租户基础表，不是全库无其他业务表的结论。
+
+对 `wms_inventory_flow` 执行 db_describe(detail=full)，并按 schema/表名定向核验相关列：
+
+| 对象 | 当前实际结构 | 实现约束 |
+| --- | --- | --- |
+| `wms_inventory_flow.idempotency_key` | VARCHAR(128) NOT NULL；唯一索引 uk_wms_inventory_flow_idem；排序规则 utf8mb4_0900_ai_ci | 可复用本地业务幂等能力，但操作 service 仍需真实实现；键不得依赖大小写差异 |
+| `wms_inventory_flow.change_qty` | DECIMAL(20,6) NOT NULL | 业务数量及输入摘要保留精度，不用浮点生成幂等输入 |
+| `wms_inventory_flow.occurred_at` | DATETIME NOT NULL | 实施时统一业务时区来源，不把数据库列误当自带时区 |
+| `sys_oper_log` | oper_id BIGINT；status INT；error_msg VARCHAR(4000)；oper_time DATETIME | 现有入口日志不能代替领域事实与单调用 checkpoint |
+| `sys_user.tenant_id` | 本次定向字段查询未命中 | 不新增基于不存在字段的租户过滤 |
+
+定向字段查询完整返回 7 行，limit=30、truncated=false；本轮没有读取业务报文、账号凭据或业务明细数据。未运行新模型 DDL、并发写入测试、外部过账或 SnailJob API；本次只读结果不能证明未来 CAS、permit、汇合或恢复协议已经可运行。对应隔离验收见实施计划 D01-D16。
+
+## 13. 统一 HTTP 与出入站记录的参考核验
+
+本节为用户补充统一 HTTP、后端其他模块调用、双向抛账记录和可扩展类型后的定向静态核验。仅读取参考源和目标代码，不修改 PCBA/IWS 业务实现、不发送真实 HTTP；“已有”区分参考源与目标。旧证据中的直接本地 Service 收口由最新统一 HTTP 规格覆盖。
+
+| 参考源路径（相对 vietnam_pcba_avc） | 已核验事实 | 目标复用/边界 |
+| --- | --- | --- |
+| `ruoyi-framework/src/main/java/com/ruoyi/framework/config/RestTemplateConfig.java:25` | RestTemplateBuilder、HC4 池 200/50、连接/取连接 5 秒、读取 120 秒；另有特定通知客户端 | 移植同类配置/连接复用思路；参数集中配置，旧值不是本计划默认承诺 |
+| 同文件 `:78` | DefaultHttpRequestRetryHandler(0,false)，非幂等 HTTP 不自动重试 | 保留单次发送，失败资格归领域事件，不叠加 URL 重试器 |
+| `ruoyi-system/src/main/java/com/ruoyi/system/utils/RequestExternalUtil.java:42`、`:275` | get/post/postForm，postWithRetryability 对状态/连接/JSON 错误分类，当前调用不循环重试 | 沿用具名业务门面+该薄封装，适配 IWS R/结果类型；不照搬 AjaxResult/ApiErrorEvent/配置键 |
+| `ruoyi-framework/src/main/java/com/ruoyi/framework/interceptor/ExternalRestInterceptor.java:20` | ClientHttpRequestInterceptor 只捕获 RestTemplate 出站实际请求，beginHttp/completeHttp；自身不写数据库 | 真实发送边界继续逐请求关联；不是 Servlet 入站采集器，不证明双向覆盖 |
+| `ruoyi-framework/src/main/java/com/ruoyi/framework/aspectj/ExternalApiLogAspect.java:47` | 逐方法 @ExternalApiLog；CALL_EXTERNAL 建请求 scope，其他方向保存普通记录；finally 清理上下文，日志异常不覆盖业务结果 | 参考两向业务日志接线，必要时补入站接线；不将日志成功视作 checkpoint |
+| `ruoyi-common/src/main/java/com/ruoyi/common/enums/ExternalApiDirection.java:6` | CALL_EXTERNAL / CALLED_BY_EXTERNAL 两种方向 | 保留原方向码并映射中文“出站/入站”，不认为所有 Controller 已加注解 |
+| `ruoyi-common/src/main/java/com/ruoyi/common/business/posting/PcbaPostingRequestContext.java:168`；`PcbaPostingRequestDetail.java:19` | executionId/requestSeq/requestId、eventKey/版本/阶段分开，scope 下可记录多次真实请求 | 移植逐请求关系，替换 PCBA 名称/阶段，支持入站早于 attempt、异步 correlation |
+| `ruoyi-framework/src/main/java/com/ruoyi/framework/interceptor/ExternalLogContext.java:10` | 普通上下文只有一个 ThreadLocal 槽位，最后一次请求会覆盖此前值 | 不能作为多次实际请求的唯一明细来源；沿用逐请求 scope 并显式传递关联，线程上下文不自动传播 |
+| `ruoyi-common/src/main/java/com/ruoyi/common/business/domain/po/ExternalApiLogRecord.java:18` | 有方向、requestId/interfaceCode/status；没有本方案 event/attempt/endpointRole/correlation 完整字段 | 兼容已有日志展示，目标必要明细补关联；不把日志表当执行事实表 |
+| `innolux-wms/src/main/java/com/ruoyi/wms/external/local/controller/PcbaExternalQueryController.java:32` | 有 CALLED_BY_EXTERNAL 注解的实际入站查询入口；不证明全部 MID Controller 已覆盖 | 逐入口核验覆盖，不能凭 Controller 名称推断方向记录已存在 |
+| `innolux-wms/src/main/java/com/ruoyi/wms/external/midWms/outbound/service/impl/MidWmsOutboundServiceImpl.java:35`；`external/midWms/common/MidWmsFeedbackBypass.java:28` | 具名 Service 封装四类 MID 调用，屏蔽记录 skipped 后不发 HTTP | 复用发送边界/日志分工；旧全局开关及成功返回不照搬为新模式或真实抛账成功 |
+| `innolux-wms/src/main/java/com/ruoyi/wms/external/sap/workorder/SapWorkOrderClient.java:29` | SAP 工单使用 JCo RFC | 不是 HTTP 实现；目标统一 HTTP 的具体接口在 P1 确定，本轮不改旧 SAP 调用 |
+
+目标 IWS：根 `pom.xml:34` 为 Spring Boot 4.1.0；common-core POM 有 hutool-http 依赖，Web/相关应用源码定向搜索未发现应用级 RestTemplate/WebClient/HttpClient 封装或业务 Bean。参考 HC4/Boot2 的工厂 API不能直接复制到 Boot4；需按目标支持依赖做最小兼容移植，未在本轮编译验证。不增加并行 ProcessHttpClient、Gateway 或 Connector 平台。已有 `SecurityConfig.java:108` 校验 clientId 与 token，可以复用接入原则，但服务身份签发/权限合同仍需实施时对齐，不把未登录自调用当作已授权。
+
+本轮目标库再次以 SHOW GRANTS 首查确认只读授权；定向查询 iws_process/iws_business_schedule 前缀完整返回 0 行，limit=100、truncated=false，拟议类型/触发回执表均未部署。仅核验 sj_job 的相关列返回 3 行：biz_id VARCHAR(64) NOT NULL、job_name VARCHAR(64) NOT NULL、executor_info VARCHAR(255)。中文任务展示名应按 job_name 64 字符约束校验，技术键保持英文；未改任务名称或创建/启停任务。
+
+新增等待状态、双向关联字段、触发回执、HTTP 合同和 EventTypeDescriptor 为拟议设计，不能从以上静态证据声称已有可运行通用平台。全场景模式取舍及 D17-D28 验收见实施计划 §19–§22。
+
+## 14. 一事件一动作的最新约束
+
+用户进一步明确“每个有网络调用的事件仅允许一个 INBOUND 或一个 OUTBOUND；允许无调用、只做内部本地服务的事件，以便事件最小化”。目标模型为 eventDirection=INBOUND/OUTBOUND/INTERNAL：IN/OUT恰一个调用合同，INTERNAL零网络调用、零收发回执/方向记录/CALL permit但恰一个 localActionKey/version/localEffectKey。三类事件均只有一项逻辑动作，不再支持 steps[]/多个操作/多个必需信号槽。多个入站、出站、本地动作、异步提交/回调及查询由独立事件和依赖/汇合组合；原请求 HTTP响应、ACK、可靠重试/重复投递不增加逻辑动作数。
+
+本节是用户决定及目标设计，不是参考源已有实现。前文 PCBA scope能捕获多次HTTP、旧事件可有外呼及本地投影等事实保留为历史参考，只复用逐请求取证、传输/日志及幂等方法，不能由此照搬同事件多动作。IWS旧方案的同事件REMOTE_RESULT/步骤数组已由O_SUBMIT、I_RESULT及INTERNAL独立事件和单动作检查点覆盖。
+
+INTERNAL仅允许同一模块内一个已注册本地动作：不创建HTTP方向记录、requestId、receipt、SEND_INTENT或CALL permit，不进入WAIT_EXTERNAL_TRIGGER；前驱/输入及系统确认满足后执行本地事务/检查点。需要跨模块或外部交互时必须改为OUTBOUND事件；接收HTTP请求并调用自身内部Service仍属于INBOUND实现。该结论为拟议目标，不表示当前IWS已有LocalAction注册表、单动作事件表或执行器。
+
+异步 OUTBOUND 在 completionContract=ACCEPTANCE 且有可信受理证据时可完成“已受理”目标；这不等于业务过账完成。最终结果归属独立 INBOUND，整个计划需结果屏障。source event/调用链只能引用结果证据，不把回调再绑定为出站事件的入站调用；方向观测记录共享查询模型，但每条业务记录只有一个所属事件。
+
+本次再次以SHOW GRANTS首查，授权仍仅SELECT/SHOW DATABASES/SHOW VIEW；按localhost:3306/innolux_iws查询拟议iws_process/iws_business_schedule前缀，完整返回0行，limit=100、truncated=false。未执行DDL/DML、HTTP、任务或业务操作；单动作及INTERNAL约束当前仅固化到方案与验收，需代码实现后的隔离测试证明。
+
+## 15. 2026-10-22 长期监督调度计划补充核验
+
+### 15.1 用户要求与目标规则来源
+
+用户本轮要求各业务各类计划各有独有长期统一监督调度计划，只能用决策和本地事件调度执行、恢复、重启，并展示调度记录；两种模式分别为队列（串并行/先挂起等待/插队）和即时（同时一个计划、成功/失败即时返回）。[主方案§17](plan-event-state-machine-design.md#17-两类长期监督调度计划的实施契约)将此落成角色/轮次/名额/响应/日志/API与页面契约；[实施计划§24](plan-event-state-machine-implementation-plan.md#24-长期监督计划两类模式与实施就绪复核)映射M01-M12和D35-D42；场景27-32为新增定向推演。
+
+`SUPERVISOR/BUSINESS`、`DECISION/LOCAL`、`QUEUE/IMMEDIATE`、有限round、PLAN_SLOT、即时同步驱动及错误码均为本轮提出的目标设计，不是已部署能力；用户明确了需求含义，工程细节待最终审阅。监督只写本库控制意图，平台适配在事务外应用；业务事件仍执行原三方向单动作合同。此边界补充原先“统一配置/逻辑监督扫描”，不能再据旧段落省略监督计划、轮次和事件执行证据。
+
+### 15.2 当前库只读复核
+
+继续使用前轮用户明确的 `localhost:3306/innolux_iws`；当前源码 application.yml 的profile为dev，application-dev.yml仍是3307，未改配置且不改用3307。2026-10-22本轮第一笔MCP查询为 `SHOW GRANTS`，返回只读 `SELECT, SHOW DATABASES, SHOW VIEW ON *.*`，1行，truncated=false。
+
+随后仅定向查询 `information_schema.COLUMNS`：限定 TABLE_SCHEMA=innolux_iws，条件为拟议 `iws_process%`、`iws_business_schedule%`，或 `sj_job` 的 biz_id/job_name/executor_info，limit=100。完整仅返回以下3行、truncated=false；拟议process/schedule字段0行，因此没有可用于证明监督持久化或并发执行的真实数据：
+
+| 表/字段 | 当前类型 | 可空 | 对方案的约束 |
+| --- | --- | --- | --- |
+| sj_job.biz_id | varchar(64) | NO | 稳定技术键生成及长度校验，不能用无限长度scope/中文名拼接 |
+| sj_job.job_name | varchar(64) | NO | 中文监督名需发布/接线前校验长度，不静默截断 |
+| sj_job.executor_info | varchar(255) | YES | 复用固定执行器引用，不为类型/轮次动态生成Java执行器 |
+
+未创建/更改任何表、计划、任务或数据库记录。PLAN_SLOT与CALL分离、监督身份/开放轮次唯一、fencing/命令幂等/安全释放为拟议不变量，后续须MySQL兼容隔离环境验证，不能用这次SELECT或文档图表推演替代。
+
+### 15.3 当前Web响应路径核对
+
+只读核对 `C:/code/company/ui/innolux-iws-web/src/utils/request.ts`：默认timeout在115行为50000毫秒；响应拦截213行起检查R.code，246-254行对业务错误提示并reject createHandledError，返回Error未保留领域data。故即时模式不能设计成“非200错误data包含instanceId但页面直接读取该data”的未实现假设。
+
+主§17.8改为复用现有R.ok(data)传递即时领域结果及关联，明确只有data.resultCode=SUCCEEDED是业务成功，其他结果由process局部hook显示错误/处理中并保留命令/实例查询。参数、鉴权和版本/摘要冲突仍走现有错误处理；全局拦截器不必改造。执行期限通过单次请求timeout与部署代理参数对齐，客户端断线沿原commandKey回查。该响应方案为待实施的契约，不代表本轮已做前端行为测试。
+
+### 15.4 文档验收边界
+
+本轮保存四份开始前dirty文档的字节快照作为增量审阅基线，保留既有修改；统一审阅报告比较该基线与本轮完成内容，不把HEAD以来全部未提交差异归为本轮。检查范围是四文档的角色/术语/旧规则冲突、需求→接口/DTO→页面→验收对应、格式/链接和Mermaid实际渲染。代码编译、事务/并发、业务HTTP、SnailJob真实启停及真实页面联调尚未执行。
+
+公共方案可进入最终审阅；两条真实业务映射及scope/模式/数值/效果去重合同仍按P1补齐。未提交、未推送，不创建业务代码、数据库升级文件或使用Skill。
+
+## 16. 2026-10-22 系统IP目录与一次性屏蔽菜单核验
+
+用户要求系统定义结合参考目录系统IP，并收集计划内全部事件外部系统以一次性逐系统配置屏蔽；菜单明确纳入“计划配置”。[主方案§4.2.1](plan-event-state-machine-design.md#421-外部系统系统ip与一次性抛账配置菜单)为唯一行为契约；[实施计划§25](plan-event-state-machine-implementation-plan.md#25-外部系统引用与计划内一次性屏蔽配置)及场景33记录实现落点/验收。以下为本轮重新读源码与目标库的证据，不假定参考已存在同款菜单。
+
+### 16.1 参考PCBA已有IP解析，目标需最小移植
+
+| 参考源码（相对vietnam_pcba_avc） | 核对事实与使用边界 |
+| --- | --- |
+| `ruoyi-common/src/main/java/com/ruoyi/common/business/domain/po/IpConfig.java:20`、`:67` | 表名ip_config，字段id/name/protocol/ipaddr/port及敏感认证/额外配置；getBaseUrl已支持完整HTTP地址或协议+主机+端口。复用集中解析方式，不返回原实体/toString里的凭据 |
+| `ruoyi-common/src/main/java/com/ruoyi/common/business/state/IpConfigEnum.java:10` | midWms/sap/mes/iwms/pcbaWmsLocal/local为地址目录name键，不等于本方案systemCode |
+| `ruoyi-common/src/main/resources/mapper/IpConfigMapper.xml:86`、`business/service/impl/IpConfigServiceImpl.java:108`（Java路径基于ruoyi-common/src/main/java/com/ruoyi/common） | 按name查询单行，再拼接apiPath；sql/vietnam_pcba_avc_init.sql:898声明uk_ip_config_name。源码索引是参考设计，未查源库部署状态 |
+| `innolux-wms/src/main/java/com/ruoyi/wms/external/midWms/outbound/service/impl/MidWmsOutboundServiceImpl.java:36`、`:80` | MID-WMS注解/业务码通过getMidWmsUrl取midWms地址，不能按大小写或中文名直接JOIN |
+| `innolux-wms/src/main/java/com/ruoyi/wms/external/local/service/impl/LocalInboundClientImpl.java:32` | SAP/MES可通过同一local门面地址访问；一个接入IP不等于一个业务系统 |
+| `innolux-wms/src/main/java/com/ruoyi/wms/outbound/external/wcs/PcbaOutboundWcsGatewayImpl.java:125` | WCS通过getPcbaWmsLocalUrl取pcbaWmsLocal地址，不能把该地址键当作IWS本系统身份 |
+| `innolux-wms/src/main/java/com/ruoyi/wms/external/sap/support/SAPUtils.java:57` | SAP直连也读取sap配置，但采用JCo，IP存在不证明已有可执行HTTP合同 |
+| `innolux-wms/src/main/java/com/ruoyi/wms/outbound/posting/service/PcbaOutboundPostingModeService.java:77`、`posting/controller/PcbaOutboundPostingOrderController.java:47`（均基于innolux-wms/src/main/java/com/ruoyi/wms/outbound） | 当前GET/POST posting/mode只切全局开关，无systemCode批量向量；posting/retry/batch是重试，不能充作配置 |
+
+在参考源码未找到IpConfig对应HTTP Controller/可复用前端源码页；实体/Mapper/Service内部CRUD不等于已上线菜单。本轮不查询参考运行库菜单，因此不对现场动态菜单作断言。目标IWS定向搜索IpConfig/ip_config无同等实现；已有SysConfigController及通用页面只是参数键值管理，sys_client.ip_whitelist是入站身份白名单，OSS/AI/MCP专用endpoint也不适合作为抛账目录。需要补最小系统/环境地址目录和计划内弹窗，不新增网络平台。
+
+### 16.2 目标库只读取证
+
+沿前轮用户明确目标localhost:3306/innolux_iws，本轮第一笔查询仍为SHOW GRANTS，完整1行且仅SELECT/SHOW DATABASES/SHOW VIEW。随后查询information_schema.COLUMNS，限定该schema的 `%ip_config% / %external_system% / %endpoint% / iws_process%` 表名模式，以及sys_config的config_id/config_key/config_value/config_name四字段。limit=100，完整返回4行，truncated=false：sys_config.config_id为bigint不可空，config_name为varchar(100)、config_key为varchar(100)、config_value为varchar(500)，后三项可空。其余所选表名模式0行。
+
+只核验结构，不读取配置值/真实IP/凭据，不执行源库或目标库写入、HTTP探活、过账、任务启停。结果表明本方案系统目录/端点/逐系统批量策略仍待实现，不证明仅凭sys_config能满足唯一性/并发/字段权限。新DDL待实施按实际结构生成，本轮不生成升级脚本。
+
+### 16.3 合并后的明确边界
+
+系统码标识政策对象，环境端点供识别和发送；同IP多个系统不合并，一个系统多个接口/地址统一显示。完整图自动汇总，仅合法OUTBOUND外部抛账可屏蔽；INBOUND/QUERY/CONTROL/INTERNAL仍原规则。屏蔽菜单在计划配置页“系统模式”内，逐系统设BYPASS、其余保留mode并原子保存；取消BYPASS显式选恢复模式。用户随后明确IP/环境独立模块及基础配置可视化页面，目录维护改归独立基础菜单，计划页只给关联摘要/跳转链接，覆盖此前“IP只能嵌套抽屉”的暂定规则。
+
+计划版本/目录变化触发重取选项和影响预览；缺地址不会自动屏蔽，合法BYPASS事件零发送可不需地址，必发调用仍需有效端点。已有SEND_INTENT记录执行目标及配置版本，换IP不允许UNKNOWN重发/自动故障切换；历史模式不变。以上为本轮目标设计及后续D43-D46验收，尚无真实实现/浏览器联调结果。
+
+### 16.4 独立IP环境模块与基础页面增补
+
+IP环境配置独立成模块，按需供iws-process引入，并提供基础配置可视化页面。主方案§18拟定iws-endpoint，提供system/environment/address/关联、独立审计、目录revision和安全只读Reader；基础页面菜单“系统接入配置”，process保留计划屏蔽配置及维护链接，不复制共享地址。
+
+本轮只读检查当前iws-modules/pom.xml，已列模块为demo/gen/job/system/workflow/ai/wms，无endpoint/process；主方案中这些新模块、条件Bean及菜单能力过滤均未实现。目标库沿本任务已确认的只读连接，追加限定TABLE_SCHEMA=innolux_iws且TABLE_NAME LIKE 'iws_endpoint%'查询，完整0行、limit=100、truncated=false。新增独立目录/审计/关联与revision对象都是拟议结构，不把源ip_config或sys_config当作目标已部署同等能力。
+
+独立模块不反依process读取合同/审计：自身维护系统地址关联并展示共享系统影响，process另展示计划合同/事件影响。当前第一版同JVM同库配置Reader为基础设施读取与共享revision门禁，和跨模块业务动作HTTP分开；不支持跨库/远程配置分布式事务。endpoint-only启用/缺process、process缺依赖、各开关组合、可视页面/权限/共享地址/冲突/返回计划回刷均列为D47/D48与场景34的后续实现验收，本轮未启动模块、页面或任何业务请求。
