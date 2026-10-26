@@ -1,10 +1,10 @@
 # IWS 从零初始化
 
-2026-10-24。适用 MySQL 8.0。完整 SQL 为 [iws_init_from_empty.sql](../script/sql/iws_init_from_empty.sql)，建库执行入口为 [iws_init_from_empty.ps1](../script/sql/iws_init_from_empty.ps1)。
+2026-10-26。适用 MySQL 8.0。完整 SQL 为 [iws_init_from_empty.sql](../script/sql/iws_init_from_empty.sql)，建库执行入口为 [iws_init_from_empty.ps1](../script/sql/iws_init_from_empty.ps1)。
 
 ## 执行
 
-在后端仓库根目录执行，目标库名只通过 `-Database` 配置一次，主机、端口、账号和 mysql 路径按实际环境传入：
+在后端仓库根目录执行。入口以 `-Database` 创建或连接目标库，主机、端口、账号和 mysql 路径按实际环境传入；SQL 内不写死库名，目标统一由 `DATABASE()` 取得，无需按环境手改库名：
 
 ```powershell
 $initCredential = Get-Credential -UserName '<部署账号>'
@@ -13,9 +13,9 @@ $initCredential = Get-Credential -UserName '<部署账号>'
     -Credential $initCredential -Mysql '<mysql.exe绝对路径>'
 ```
 
-入口使用专用 mysql 连接，目标不存在时创建 `utf8mb4 / utf8mb4_general_ci` 数据库；已存在时必须完全没有表、视图、存储程序、触发器和事件。账号须有建库、建表、索引、种子写入及元数据读取权限，由部署流程提供。可用 `-SslMode` 选择已有环境要求的 TLS 模式。密码通过凭据对象传入，调用期间临时设置子进程使用的环境变量，结束后恢复，不写入 SQL 或命令行参数。
+入口使用专用 mysql 连接，目标不存在时创建 `utf8mb4 / utf8mb4_general_ci` 数据库。SQL 以 `DATABASE()` 取得当前连接库作为唯一目标，不写死库名；目标 schema 必须按实际大小写存在于 `information_schema.SCHEMATA`，服务器为 MySQL 8.0，`@@lower_case_table_names` 为 `0`、`1` 或 `2`，且库内完全没有表、视图、存储程序、触发器和事件。非空库直接拒绝，不执行 `ALTER DATABASE`。账号须有建库、建表、索引、种子写入及元数据读取权限，以及已有空库调整默认字符集/排序规则所需的 `ALTER` 权限（即执行 `ALTER DATABASE` 的数据库权限），由部署流程提供。可用 `-SslMode` 选择已有环境要求的 TLS 模式。密码通过凭据对象传入，调用期间临时设置子进程使用的环境变量，结束后恢复，不写入 SQL 或命令行参数。
 
-SQL 使用当前连接库作为唯一目标。已有合规空库时，也可按 SQL 头部说明用 `mysql --database=<目标库>` 执行。MySQL 8.0.45 不支持 `PREPARE` 执行 `USE`，因此建库与选择连接库由薄入口承担；SQL 本身包含全部初始化内容，不依赖客户端 `source` 其他文件。
+前置条件全部满足后，SQL 执行 `ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`，省略库名表示当前连接库，与 `DATABASE()` 的唯一目标一致，因此支持含连字符的库名且不需要拼接标识符。随后从 `information_schema.SCHEMATA` 回读默认规则，仍不符合时停止。MySQL 8.0.45 不支持 `PREPARE` 执行 `USE` 或 `ALTER DATABASE`，不能用动态预处理代替；建库与选库由薄入口承担。已有空库也可按头部说明用 `mysql --database=<目标库>` 执行完整 SQL，必须遇错停止，禁止 `--force` 或 GUI 续错。
 
 只支持遇错停止的批处理执行器，禁止 `--force` 或 GUI 续错。入口明确传 `--no-defaults`，不继承默认配置中的续错选项。
 
@@ -40,18 +40,18 @@ SQL 使用当前连接库作为唯一目标。已有合规空库时，也可按 
 
 这是一次性空库初始化，重复执行非空库会拒绝，不宣称可对存量库幂等升级。DDL 会隐式提交，不能保证整个文件回滚。
 
-执行中断后先查明已创建对象和失败点，保留日志。入口会拒绝部分初始化的非空库；应由部署负责人根据实际状态决定修复或另选全新目标。脚本不自动删除、清空或重建已有库。
+执行中断后先查明已创建对象和失败点，保留日志。入口会拒绝部分初始化的非空库，并在 `ALTER DATABASE` 之前停止；应由部署负责人根据实际状态决定修复或另选全新目标。脚本不自动删除、清空或重建已有库。
 
 ## 验证
 
-仅在本任务专用 `127.0.0.1:13308`、MySQL 8.0.45、独立 datadir 验证，没有在真实 3306/3307 写入。
+下表前期结果记录 2026-10-24 在本任务专用 `127.0.0.1:13308`、MySQL 8.0.45、独立 datadir 的历史验证，没有在真实 3306/3307 写入。2026-10-26 另在专用隔离实例 `13309` 验证当前自动调整逻辑，数据目录与业务实例分离：默认 `utf8mb4_0900_ai_ci` 的空库成功调整并完成 124 表、230 菜单初始化；将该非空库默认规则设为 `0900` 后重跑，退出 1，默认规则仍为 `0900`、124 表均保留。测试库名包含连字符，目标仍由连接选库取得。
 
 | 检查 | 结果 |
 | --- | --- |
 | 最终版入口从不存在的库开始执行 | 成功：123 表、225 菜单、53 平台菜单、IWS 与 SnailJob 初始管理员各 1、控制版本 0，WMS 和 process 业务行均为 0 |
 | 入口重跑非空库 | 退出 1；所有表行数快照保持一致 |
 | 直接 SQL 重跑非空库 | 前置校验退出 1；所有表行数快照保持一致 |
-| 已有空库排序为 `utf8mb4_0900_ai_ci` | 拒绝，新增表数为 0 |
+| 2026-10-24 旧行为：已有空库排序为 `utf8mb4_0900_ai_ci` | 拒绝，新增表数为 0；这是历史结果，不代表当前新行为 |
 | 与基础 SQL、WMS 核心及平台升级生成的参考结构比较 | 已有 reference/full 列及索引元数据文件字节一致；本轮新增管理员只改变必要种子 |
 | PowerShell 解析 | 通过 |
 
