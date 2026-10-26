@@ -332,9 +332,3 @@ justauth:
       client-id: 10**********6
       client-secret: 1f7d08**********5b7**********29e
       redirect-uri: ${justauth.address}/social-callback?source=gitea
-
---- # 接口文档调试地址：直接指向本机后端服务，避免调试请求落回前端页面来源
-springdoc:
-  servers:
-    - url: http://127.0.0.1:18080
-      description: 开发环境后端服务
