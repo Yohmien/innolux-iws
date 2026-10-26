@@ -39,8 +39,10 @@ snail-job:
 
 --- # snail-ai 配置
 snail-ai:
-  # 启用客户端模式
-  enabled: false
+  # 启用客户端模式（主服务作为 SnailAI 客户端，聊天必需）
+  enabled: true
+  # 首次注册时自动订阅的默认智能体 ID
+  default-agent-id: 1
   # ==================== Server 连接 ====================
   # Server 端 gRPC 地址（即 snail-ai-starter 的 snail-ai.server.grpc-port）
   server:
@@ -69,6 +71,8 @@ snail-ai:
     compact-input: true
     # 是否锁定当前智能体
     lock-agent: false
+    # 打开 AI 会话时默认选中的智能体
+    default-agent-id: 1
   # ==================== OpenAPI Client 配置 ====================
   open-api:
     # 启用 OpenAPI Client
