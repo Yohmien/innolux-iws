@@ -15,7 +15,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.spring.MybatisSqlSessionFactoryBean;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.mybatis.handler.InjectionMetaObjectHandler;
 import com.innolux.iws.process.runtime.BranchCondition;
 import com.innolux.iws.process.runtime.BranchSelector;
@@ -77,8 +77,8 @@ public class BranchFixtureApplication {
      * @return 映射器
      */
     @Bean
-    ObjectMapper objectMapper() {
-        return new ObjectMapper();
+    JsonMapper objectMapper() {
+        return JsonMapper.builder().build();
     }
 
     /**

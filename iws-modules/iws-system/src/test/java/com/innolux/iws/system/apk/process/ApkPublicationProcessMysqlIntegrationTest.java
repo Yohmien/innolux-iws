@@ -16,7 +16,7 @@ import cn.dev33.satoken.context.mock.SaTokenContextMockUtil;
 import cn.dev33.satoken.dao.SaTokenDaoDefaultImpl;
 import cn.dev33.satoken.stp.StpInterface;
 import cn.dev33.satoken.stp.StpUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.process.api.DefinitionDetailVo;
 import com.innolux.iws.process.api.ImmediateExecutionVO;
@@ -85,7 +85,7 @@ class ApkPublicationProcessMysqlIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private JsonMapper objectMapper;
 
     @Autowired
     private com.innolux.iws.process.runtime.ImmediateExecutionGuard executionGuard;

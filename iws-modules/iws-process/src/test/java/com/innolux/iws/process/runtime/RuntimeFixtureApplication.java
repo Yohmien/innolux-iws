@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.spring.MybatisSqlSessionFactoryBean;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.mybatis.handler.InjectionMetaObjectHandler;
 import com.innolux.iws.process.config.ProcessProperties;
 import com.innolux.iws.process.service.ProcessAuditService;
@@ -44,8 +44,8 @@ public class RuntimeFixtureApplication {
     }
 
     @Bean
-    ObjectMapper objectMapper() {
-        return new ObjectMapper();
+    JsonMapper objectMapper() {
+        return JsonMapper.builder().build();
     }
 
     @Bean

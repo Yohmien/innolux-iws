@@ -18,7 +18,7 @@ import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.spring.MybatisSqlSessionFactoryBean;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.mybatis.handler.InjectionMetaObjectHandler;
 import com.innolux.iws.endpoint.catalog.EndpointCatalogConflictException;
 import com.innolux.iws.endpoint.catalog.EndpointCatalogReader;
@@ -194,8 +194,8 @@ public class ApkPublicationFixtureApplication {
      * @return 映射器
      */
     @Bean
-    ObjectMapper objectMapper() {
-        return new ObjectMapper().findAndRegisterModules();
+    JsonMapper objectMapper() {
+        return JsonMapper.builder().build();
     }
 
     /**

@@ -12,7 +12,7 @@
 package com.innolux.iws.process.query;
 
 import cn.dev33.satoken.context.mock.SaTokenContextMockUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.common.mybatis.core.domain.DataPermissionAccess;
 import com.innolux.iws.common.mybatis.helper.DataPermissionHelper;
@@ -64,7 +64,7 @@ class ProcessExecutionQueryMysqlTest {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private JsonMapper objectMapper;
 
     @Autowired
     private PlanCandidateQueryService candidateQueryService;

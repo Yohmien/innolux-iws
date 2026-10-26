@@ -23,7 +23,7 @@ import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.spring.MybatisSqlSessionFactoryBean;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.doc.config.SpringDocConfig;
 import com.innolux.iws.common.log.aspect.LogAspect;
 import com.innolux.iws.common.mybatis.aspect.DataPermissionPointcutAdvisor;
@@ -232,8 +232,8 @@ public class ProcessHttpFixtureApplication {
     static class FixtureMybatisConfiguration {
 
         @Bean
-        ObjectMapper objectMapper() {
-            return new ObjectMapper().findAndRegisterModules();
+        JsonMapper objectMapper() {
+            return JsonMapper.builder().build();
         }
 
         @Bean

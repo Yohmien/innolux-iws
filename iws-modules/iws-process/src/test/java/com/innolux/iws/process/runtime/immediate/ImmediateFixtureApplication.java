@@ -15,7 +15,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.spring.MybatisSqlSessionFactoryBean;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.mybatis.handler.InjectionMetaObjectHandler;
 import com.innolux.iws.endpoint.catalog.EndpointCatalogReader;
 import com.innolux.iws.endpoint.catalog.EndpointCatalogSnapshot;
@@ -150,8 +150,8 @@ public class ImmediateFixtureApplication {
      * @return 映射器
      */
     @Bean
-    ObjectMapper objectMapper() {
-        return new ObjectMapper().findAndRegisterModules();
+    JsonMapper objectMapper() {
+        return JsonMapper.builder().build();
     }
 
     /**

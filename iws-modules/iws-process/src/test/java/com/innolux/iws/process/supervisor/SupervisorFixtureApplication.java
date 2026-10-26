@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.spring.MybatisSqlSessionFactoryBean;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.mybatis.handler.InjectionMetaObjectHandler;
 import com.innolux.iws.process.config.ProcessProperties;
 import com.innolux.iws.process.runtime.BranchSelector;
@@ -94,8 +94,8 @@ public class SupervisorFixtureApplication {
     }
 
     @Bean
-    ObjectMapper objectMapper() {
-        return new ObjectMapper();
+    JsonMapper objectMapper() {
+        return JsonMapper.builder().build();
     }
 
     @Bean

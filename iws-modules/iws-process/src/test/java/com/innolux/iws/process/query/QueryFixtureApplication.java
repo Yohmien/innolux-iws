@@ -79,8 +79,8 @@ public class QueryFixtureApplication {
     }
 
     @Bean
-    com.fasterxml.jackson.databind.ObjectMapper objectMapper() {
-        return new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+    tools.jackson.databind.json.JsonMapper objectMapper() {
+        return tools.jackson.databind.json.JsonMapper.builder().build();
     }
 
     @Bean

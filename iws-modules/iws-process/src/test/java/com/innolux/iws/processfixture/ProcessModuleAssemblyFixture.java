@@ -11,7 +11,7 @@
 
 package com.innolux.iws.processfixture;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.process.mapper.BusinessScheduleMapper;
 import com.innolux.iws.process.mapper.BusinessSchedulePlanTypeMapper;
 import com.innolux.iws.process.mapper.PlanDefinitionMapper;
@@ -102,8 +102,8 @@ public class ProcessModuleAssemblyFixture {
      * @return 映射器
      */
     @Bean
-    ObjectMapper objectMapper() {
-        return new ObjectMapper();
+    JsonMapper objectMapper() {
+        return JsonMapper.builder().build();
     }
 
     @Bean
