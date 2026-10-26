@@ -35,11 +35,11 @@
 
 下载只返回已发布 APK，通过后端流式读取私有 OSS，携带 APK MIME、长度及下载文件名，不将设备引向本机回环地址，不将整个安装包装入 Java 堆。上传全局 multipart 限额调至适合 APK 的容量，并在业务层再次限制 512MB。
 
-ReleaseVO 包含 releaseId、appName、packageName、versionName、versionCode、fileSize、sha256、ossId、status、processInstanceId、downloadUrl、createTime、remark。ApplicationVO 包含 packageName、appName、versionCount、latestVersion。
+ReleaseVO 包含 releaseId、appName、packageName、versionName、versionCode、fileSize、sha256、ossId、status、processInstanceId、downloadUrl、createTime、remark、forceUpdate。ApplicationVO 包含 packageName、appName、versionCount、latestVersion。版本级强制更新开关、成功空版本及门禁服务设置的增量合同和验收见 [更新策略调整](apk-update-policy-20261026.md)。
 
 ## PDA 登录门禁
 
-Android APP-PLUS 进入登录页或应用恢复时读取已安装应用真实 packageName/versionCode，查询该包最新已发布版本。只有版本代码相同才能进入原登录/自动跳转流程；检查失败、无可用版本、版本不匹配均保持门禁并可重试，不能取消或通过返回键进入业务页。服务器版本低于本机版本时提示不可降级并保持阻止，避免触发无意义安装。
+Android APP-PLUS 进入登录页或应用恢复时读取已安装应用真实 packageName/versionCode，查询该包最新已发布版本。同版本、成功空版本或最新版本关闭强制更新时允许原登录/自动跳转流程；检查失败、强制更新版本不匹配时保持门禁并可重试，不能取消或通过返回键进入业务页。强制更新且服务器版本低于本机版本时提示不可降级并保持阻止，避免触发无意义安装。门禁内允许设置服务器地址和端口，保存后切换基址并重新检查，旧异步结果失效。
 
 下载展示百分比、已下载和总字节；未知总量不能伪造进度。下载失败可重试，成功后自动调起 Android 安装程序。系统安装确认与未知来源权限由 Android 管理，应用不能代用户静默确认；用户取消或安装失败仍保持门禁，恢复时重新读取真实安装版本。H5 开发不调用 Android 安装能力，保留原登录。
 
@@ -47,7 +47,7 @@ Android APP-PLUS 进入登录页或应用恢复时读取已安装应用真实 pa
 
 覆盖合法二进制 APK 解析、无效包、同包多版本、并发重复冲突、最新按 versionCode、同名歧义、公开端点不泄漏未发布包、发布失败安全、计划重复发布和关闭拒绝。PDA 验证同版本放行、异版本阻止、网络失败、下载进度、失败重试及安装恢复；Android 安装必须真机验证，H5/模拟通过不替代真机。
 
-升级新增 `sys_apk_release` 与独立菜单，脚本需可重复执行并检查结构冲突，显式目标库，避免用户变量与字段排序规则冲突。新空库入口同步包含本次结构与菜单。先执行数据库升级，再按环境启用 endpoint/process 与 IMMEDIATE 资源配置，管理员初始化计划，上传首个对应包名版本，最后部署 PDA 门禁版本。启用门禁前须先有可用发布版本。
+升级新增 `sys_apk_release` 与独立菜单，脚本需可重复执行并检查结构冲突，显式目标库，避免用户变量与字段排序规则冲突。新空库入口同步包含本次结构与菜单。先执行数据库升级，再按环境启用 endpoint/process 与 IMMEDIATE 资源配置，管理员初始化计划，上传首个对应包名版本，最后部署 PDA 门禁版本。启用强制更新前须先有可用发布版本；无对应发布版本不阻断初始化登录。
 
 用户确认初始化目标为 `localhost:3306/innolux-iws`，已只读核验 endpoint、process、业务调度与 OSS 表存在，APK 表尚未创建。相关字符串字段采用 `utf8mb4_general_ci`，新 APK 包名与摘要使用精确排序规则。三个服务 dev JDBC 对齐该目标；真实升级与种子写入仍未执行。
 
