@@ -13,8 +13,10 @@ package com.innolux.iws.ai.controller;
 
 import com.aizuda.snail.ai.common.execption.SnailAiException;
 import com.aizuda.snail.ai.common.model.Result;
+import com.aizuda.snail.ai.common.openapi.dto.OpenApiUserAgentRequest;
 import com.aizuda.snail.ai.common.openapi.dto.OpenApiUserRegisterRequest;
 import com.aizuda.snail.ai.common.openapi.dto.OpenApiUserVO;
+import com.aizuda.snail.ai.openapi.client.core.api.OpenApiAgentClient;
 import com.aizuda.snail.ai.openapi.client.core.api.OpenApiUserClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,7 @@ import com.innolux.iws.common.core.domain.R;
 import com.innolux.iws.common.satoken.utils.LoginHelper;
 import com.innolux.iws.common.web.core.BaseController;
 import com.innolux.iws.system.api.model.LoginUser;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,6 +50,13 @@ public class SnailAiController extends BaseController {
      */
     private static final int SNAIL_AI_SUCCESS = 1;
     private final OpenApiUserClient userClient;
+    private final OpenApiAgentClient agentClient;
+
+    /**
+     * 首次注册时自动订阅的默认智能体 ID，与初始化 SQL 的默认助手保持一致。
+     */
+    @Value("${snail-ai.default-agent-id:1}")
+    private Long defaultAgentId;
 
     /**
      * 注册当前登录用户并返回 OpenAPI 用户信息。
@@ -79,6 +89,33 @@ public class SnailAiController extends BaseController {
         if (registerResult.getData() == null) {
             throw new SnailAiException("注册 OpenAPI 用户失败，返回为空");
         }
-        return registerResult.getData();
+        OpenApiUserVO user = registerResult.getData();
+        if (user.isCreated()) {
+            subscribeDefaultAgent(user);
+        }
+        return user;
+    }
+
+    /**
+     * 首次注册自动订阅默认助手，避免用户首次打开 AI 会话时没有可用智能体。
+     * 已有用户再次进入不会重复订阅，因此不会覆盖用户后续取消订阅的选择。
+     * 订阅失败只记录告警，不阻断注册和 AI 页面加载。
+     *
+     * @param user 已注册的 OpenAPI 用户
+     */
+    private void subscribeDefaultAgent(OpenApiUserVO user) {
+        OpenApiUserAgentRequest request = new OpenApiUserAgentRequest();
+        request.setOpenId(user.getOpenId());
+        request.setAgentId(defaultAgentId);
+        try {
+            Result<Void> result = agentClient.subscribeAgent(request);
+            if (result == null || result.getStatus() != SNAIL_AI_SUCCESS) {
+                log.warn("首次注册自动订阅默认智能体失败，agentId={}, status={}",
+                    defaultAgentId, result == null ? null : result.getStatus());
+            }
+        } catch (RuntimeException e) {
+            log.warn("首次注册自动订阅默认智能体异常，agentId={}, error={}",
+                defaultAgentId, e.getClass().getSimpleName());
+        }
     }
 }
