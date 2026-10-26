@@ -83,8 +83,25 @@ public class ApkReleaseQueryServiceImpl implements IApkReleaseQueryService {
 
     @Override
     public ApkReleaseVO queryLatestPublished(String packageName, String appName) {
-        String resolvedPackageName = resolvePublishedPackage(packageName, appName);
-        return ApkReleaseVO.from(findLatestPublished(resolvedPackageName));
+        String normalizedPackageName = trimToNull(packageName);
+        String normalizedAppName = trimToNull(appName);
+        if (normalizedPackageName == null && normalizedAppName == null) {
+            throw new ServiceException("packageName 与 appName 至少提供一个");
+        }
+        if (normalizedPackageName != null) {
+            if (normalizedAppName != null && countReleases(normalizedPackageName, normalizedAppName, null) == 0) {
+                throw new ServiceException("packageName 与 appName 不匹配");
+            }
+            return toRelease(findLatestPublishedOrNull(normalizedPackageName));
+        }
+        long packageCount = releaseMapper.countDistinctPackagesByAppName(normalizedAppName, PUBLISHED);
+        if (packageCount == 0) {
+            return null;
+        }
+        if (packageCount > 1) {
+            throw new ServiceException("应用名称对应多个安装包，请指定 packageName: " + normalizedAppName);
+        }
+        return toRelease(findLatestPublishedOrNull(findPublishedPackageByAppName(normalizedAppName)));
     }
 
     @Override
@@ -141,10 +158,14 @@ public class ApkReleaseQueryServiceImpl implements IApkReleaseQueryService {
     }
 
     private long countPublishedReleases(String packageName, String appName) {
+        return countReleases(packageName, appName, PUBLISHED);
+    }
+
+    private long countReleases(String packageName, String appName, String status) {
         Long count = releaseMapper.selectCount(Wrappers.<ApkRelease>lambdaQuery()
             .eq(ApkRelease::getPackageName, packageName)
             .eq(appName != null, ApkRelease::getAppName, appName)
-            .eq(ApkRelease::getStatus, PUBLISHED));
+            .eq(status != null, ApkRelease::getStatus, status));
         return count == null ? 0 : count;
     }
 
@@ -204,15 +225,20 @@ public class ApkReleaseQueryServiceImpl implements IApkReleaseQueryService {
     }
 
     private ApkRelease findLatestPublished(String packageName) {
+        ApkRelease release = findLatestPublishedOrNull(packageName);
+        if (release == null) {
+            throw new ServiceException("未找到已发布的 APK 安装包: " + packageName);
+        }
+        return release;
+    }
+
+    private ApkRelease findLatestPublishedOrNull(String packageName) {
         Page<ApkRelease> page = selectFixedPage(SINGLE_RESULT_PAGE_SIZE, Wrappers.<ApkRelease>lambdaQuery()
             .eq(ApkRelease::getPackageName, packageName)
             .eq(ApkRelease::getStatus, PUBLISHED)
             .orderByDesc(ApkRelease::getVersionCode)
             .orderByDesc(ApkRelease::getReleaseId));
-        if (page.getRecords().isEmpty()) {
-            throw new ServiceException("未找到已发布的 APK 安装包: " + packageName);
-        }
-        return page.getRecords().getFirst();
+        return page.getRecords().isEmpty() ? null : page.getRecords().getFirst();
     }
 
     private Page<ApkRelease> selectFixedPage(int pageSize, LambdaQueryWrapper<ApkRelease> wrapper) {
@@ -230,6 +256,10 @@ public class ApkReleaseQueryServiceImpl implements IApkReleaseQueryService {
     private static PageResult<ApkReleaseVO> toReleasePage(Page<ApkRelease> page) {
         List<ApkReleaseVO> rows = page.getRecords().stream().map(ApkReleaseVO::from).toList();
         return PageResult.build(rows, page.getTotal());
+    }
+
+    private static ApkReleaseVO toRelease(ApkRelease release) {
+        return release == null ? null : ApkReleaseVO.from(release);
     }
 
     private List<ApkApplicationVO> toApplicationRows(List<ApkApplicationRow> rows) {

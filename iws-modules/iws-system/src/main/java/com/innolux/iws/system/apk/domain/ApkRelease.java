@@ -75,6 +75,11 @@ public class ApkRelease extends BaseEntity {
     private String status;
 
     /**
+     * 是否强制更新
+     */
+    private Boolean forceUpdate;
+
+    /**
      * 计划实例主键
      */
     private Long processInstanceId;
