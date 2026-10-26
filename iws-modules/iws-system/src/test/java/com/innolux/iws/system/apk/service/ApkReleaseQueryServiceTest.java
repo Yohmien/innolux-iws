@@ -20,6 +20,7 @@ import com.innolux.iws.system.apk.domain.ApkRelease;
 import com.innolux.iws.system.apk.domain.vo.ApkApplicationRow;
 import com.innolux.iws.system.apk.domain.vo.ApkApplicationVO;
 import com.innolux.iws.system.apk.mapper.ApkReleaseMapper;
+import com.innolux.iws.system.apk.service.impl.ApkDownloadAccessRecorder;
 import com.innolux.iws.system.apk.service.impl.ApkReleaseQueryServiceImpl;
 import com.innolux.iws.system.service.ISysOssService;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.dao.DataAccessResourceFailureException;
 
@@ -65,6 +67,9 @@ class ApkReleaseQueryServiceTest {
     @Mock
     private ISysOssService ossService;
 
+    @Mock
+    private ObjectProvider<ApkDownloadAccessRecorder> accessRecorderProvider;
+
     private ApkReleaseQueryServiceImpl service;
 
     @BeforeAll
@@ -74,7 +79,7 @@ class ApkReleaseQueryServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ApkReleaseQueryServiceImpl(releaseMapper, ossService);
+        service = new ApkReleaseQueryServiceImpl(releaseMapper, ossService, accessRecorderProvider);
     }
 
     @Test
@@ -152,7 +157,7 @@ class ApkReleaseQueryServiceTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         assertThrows(ServiceException.class,
-            () -> service.downloadPublished("com.demo.other", "Shared", null, null, response));
+            () -> service.downloadPublished("com.demo.other", "Shared", null, null, null, null, response));
 
         assertNoResponse(response);
         verify(ossService, never()).getById(any());
@@ -168,7 +173,7 @@ class ApkReleaseQueryServiceTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         ServiceException error = assertThrows(ServiceException.class,
-            () -> service.downloadPublished("com.demo", "Demo", null, "same", response));
+            () -> service.downloadPublished("com.demo", "Demo", null, "same", null, null, response));
 
         assertTrue(error.getMessage().contains("versionCode"));
         assertNoResponse(response);

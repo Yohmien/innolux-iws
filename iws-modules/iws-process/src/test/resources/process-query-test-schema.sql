@@ -331,6 +331,8 @@ CREATE TABLE iws_process_request_detail (
     caller_system_code varchar(64) NULL,
     receiver_system_code varchar(64) NULL,
     module_code varchar(64) NULL,
+    client_ip varchar(64) NULL,
+    access_summary varchar(500) NULL,
     contract_key varchar(128) NULL,
     contract_version varchar(32) NULL,
     effect_key varchar(256) NULL,
