@@ -78,8 +78,14 @@ INNOLUX IWS 是面向智能仓储场景的前后端一体化系统，当前系�
 | 文件与图片桶 | `innolux-iws`（私有）；`minio` 前缀为空且为默认项，`image` 前缀为 `image` 且默认未启用 |
 | AI 资源桶（可选） | `snail-ai`；`iws-snailai-server` 默认 `storage-type: LOCAL`，未使用 MinIO；启用时替换模板凭据 `minioadmin` |
 | 对象存储凭据 | `sys_oss_config` 的 `minio`、`image` 两项与 `C:\tool\minio\minio.env.bat` 保持一致 |
+| SnailAI 默认应用 | `sai_app.app_id=1`，由空库初始化创建并与主服务默认 `snail-ai` 配置对齐 |
+| SnailAI 默认 AI 助手 | `sai_agent.id=1`（`IWS+ 助手`），显式绑定默认对话模型 `id=1`；默认模型 API Key 为空 |
 
 `iws_init_from_empty.sql` 中的 `minio`、`image` 使用占位凭据，只对新建空库生效；已有库需在“系统管理 -> 文件配置管理”中填写真实 `accessKey` 和 `secretKey`。MinIO 密码按原约定保存在仓库外，不写入 README 或初始化 SQL。
+
+已有库缺少 SnailAI 默认应用时执行 `script/sql/iws_snailai_default_app.sql`。脚本头部 `@snailai_app_schema` 默认 `innolux-iws`，通过同库 MySQL 8.0 连接执行，可重复运行；已有 `app_id=1` 但配置不同会拒绝覆盖。默认应用令牌只用于本地或受控初始化，共享和生产环境应同时更换数据库令牌与主服务配置。
+
+空库初始化还会创建默认对话模型和默认 AI 助手。首次使用只需在 AI 控制台为默认模型 `glm-5.1` 补充 API Key；主服务需 `snail-ai.enabled=true`，并保持 SnailAI Server 运行。新用户首次打开 AI 会话会自动订阅并选中默认助手。已有库缺少默认助手时执行 `script/sql/iws_snailai_default_agent.sql`，为 `app_id=1` 且没有任何订阅的 OpenAPI 用户回填默认助手订阅；已有其他订阅的用户不动。
 
 ## 后端结构
 

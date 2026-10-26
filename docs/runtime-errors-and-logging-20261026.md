@@ -7,7 +7,8 @@
 | 问题 | 证据 | 处理 |
 | --- | --- | --- |
 | 公共字典请求反复出现未知异常 | `sys-error.log` 中 14 次字典请求失败；Redis 中的对象类型为 `org.dromara.system.domain.vo.SysDictDataVo`，当前类已改为 IWS 包名 | 为主服务配置独立 Redis 前缀，停止读取无前缀旧缓存 |
-| AI 页面无法注册当前用户 | 两次 `/snail-ai/user/register` 失败；AI 服务记录“应用不存在: 1” | 初始化 SQL 只创建 `sai_app` 表；还需在 SnailAI 控制台创建应用并配对主服务配置 |
+| AI 页面无法注册当前用户 | 两次 `/snail-ai/user/register` 失败；AI 服务记录“应用不存在: 1” | 新初始化已内置默认应用；旧库执行 `iws_snailai_default_app.sql` 补齐 |
+| AI 会话没有智能体 | 聊天链路 `SubscriptionCheckHandler` 校验 `sai_user_agent`，未订阅直接返回“请先订阅该智能体”；新库没有默认助手，旧库也没有订阅 | 新初始化内置 `IWS+ 助手`；旧库执行 `iws_snailai_default_agent.sql` 补齐；主服务需 `snail-ai.enabled=true` |
 | SnailJob 持续报错 | 15 处 MySQL `Access denied for user` 堆栈 | 核对运行机 SnailJob 的数据库账号、密码及连接地址；库名为 `innolux-iws` |
 | 监控页面报错 | 提供的监控服务日志显示成功启动和服务状态变化，没有对应请求异常 | 先复验公共字典请求；若仍异常，按页面网络请求和发生时间继续定位 |
 
@@ -19,36 +20,20 @@
 
 ## AI 应用配对
 
-运行机日志显示请求头 `Snail-Ai-App-Id` 的值 `1` 在 SnailAI 服务端查不到对应应用，返回“应用不存在: 1”，主服务再把它包装成 `SnailAiException`。异机 `sai_app` 的实际行未在本机查询；这是运行环境缺少应用记录，不是只改异常文案就能修复的问题。
+运行机日志显示请求头 `Snail-Ai-App-Id` 的值 `1` 在 SnailAI 服务端查不到对应应用，返回“应用不存在: 1”，主服务再把它包装成 `SnailAiException`。这是运行环境缺少应用记录，不是只改异常文案就能修复的问题。
 
-`iws_init_from_empty.sql` 当前只创建 `sai_app` 表，没有写入应用；因此按当前空库流程执行后，还需要在 SnailAI 控制台创建应用并与主服务配对。应用 token 由 SnailAI 控制台生成，属于运行环境凭据，不应写入空库初始化 SQL。仓库旧初始化脚本中的固定应用和 token 是历史记录，不能作为当前空库流程已创建应用的证据，也不应复制到运行环境。
+当前 `iws_init_from_empty.sql` 已内置 `app_id=1` 的默认应用，并与主服务 dev/prod 默认 `snail-ai.app-id`、`snail-ai.token` 对齐；新建空库无需再进控制台手工创建。
 
-用户确认当前只执行过初始化 SQL、尚未创建 AI 应用；当前环境按控制台创建应用，不需要新增 SQL：
+已执行过旧版初始化、尚未创建 AI 应用的库，在运行机数据库执行：
 
-1. 打开 SnailAI 控制台 `http://<SnailAI主机>:18089/snail-ai/`（经 IWS 反向代理时为 `http://<IWS主机>/snail-ai/`），使用部署配置的 SnailAI 管理员登录。
-2. 进入“应用管理”，点击“新增”，填写：
-   - `appId`：`1`，与主服务当前 `snail-ai.app-id` 对齐。这里填的是 `sai_app.app_id`（字符串），不是自增主键 `id`；如果该标识已被占用，改用其他值并同步修改主服务配置。
-   - `appName`：`IWS+`。
-   - `description`：`IWS+ 主应用`，可留空。
-   - 路由策略：保持默认 `LEAST_LOAD`。
-   `appId` 创建后不可修改，创建前确认。
-3. 保存后确认应用状态为启用（`status=1`）。创建成功提示会显示以 `SAI_` 开头的 token，也可在应用列表的 `token` 列使用复制按钮获取。不要把 token 写入仓库、文档、日志或工单；不要沿用仓库或旧脚本中的 token。
-4. 在运行机主服务的外部配置中设置并重启主服务：
+```powershell
+mysql --host=127.0.0.1 --port=3306 --user=<部署账号> --default-character-set=utf8mb4 `
+  --database=innolux-iws --batch --raw < script/sql/iws_snailai_default_app.sql
+```
 
-   ```yaml
-   snail-ai:
-     app-id: "1"
-     token: "<从 SnailAI 控制台复制的 token>"
-     open-api:
-       enabled: true
-       web-port: 18089
-       prefix: snail-ai
-   ```
+脚本头部 `@snailai_app_schema` 已设为 `innolux-iws`。脚本连续执行两次应成功且只保留一行；若 `app_id=1` 已存在但名称、描述、令牌、路由策略或状态不同，会明确失败并保留原记录。此时按现有应用令牌同步主服务配置，或经确认后处理该自定义记录；不要在未知情况下覆盖。
 
-   `snail-ai.enabled` 控制的是 Agent 客户端接入，当前可保持 `false`；AI 页面注册用户使用 OpenAPI 客户端。
-5. 重新登录 IWS Web，打开 AI 页面。现有前端会把 `/snail-ai/user/register` 的固定安全提示通过全局提示显示；页面空态仍使用通用文案。
-
-SnailAI 会缓存已认证应用 5 分钟。若创建后又修改了该应用的 token，等待缓存过期或重启 SnailAI 服务后再复验。
+默认令牌属于接入模板。共享或生产环境应同时更换 `sai_app.app_id=1` 的令牌和主服务 `snail-ai.token`，不能只修改其中一处。SnailAI 会缓存已认证应用 5 分钟；修改令牌后等待缓存过期或重启 SnailAI 服务。
 
 运行机只读核验：
 
@@ -58,9 +43,58 @@ FROM `innolux-iws`.sai_app
 WHERE app_id = '1';
 ```
 
-应有且只有一行，且 `status=1`。再调用已登录状态下的 `POST /snail-ai/user/register`，应返回 `code=200` 且 `data.openId` 非空；SnailAI 日志中不应再出现“应用不存在”或“应用认证失败”。本机 `innolux-iws.sai_app` 为空只能作为结构参考，不能作为异机运行证据。
+应有且只有一行，且 `status=1`。再调用已登录状态下的 `POST /snail-ai/user/register`，应返回 `code=200` 且 `data.openId` 非空；SnailAI 日志中不应再出现“应用不存在”或“应用认证失败”。本机 `innolux-iws.sai_app` 的当前结构和空数据只作为实施前状态参考，不能作为异机运行证据。
 
 代码侧新增 `SnailAiExceptionHandler`，在通用 `RuntimeException` 处理器之前返回固定安全提示：应用认证失败时给出应用管理、`app-id` 和 `token` 的核对指引，其他失败统一提示检查 SnailAI 服务端状态和应用配置。SDK 的异常原文和 HTTP 响应体不回传页面；日志只记录请求地址、认证分类、异常类型和安全堆栈帧，不记录异常 message 或 cause。它让配置错误可识别，不改变缺失应用这一环境事实。
+
+## AI 默认助手
+
+新增用户首次打开 AI 会话时没有智能体，是因为聊天链路按 `sai_user_agent` 校验订阅，未订阅会直接返回“请先订阅该智能体”。空库初始化现在会创建默认 AI 助手 `IWS+ 助手`（`sai_agent.id=1`），并显式绑定默认对话模型 `id=1`；种子模型使用 `glm-5.1` 和阿里云百炼 DashScope 的 OpenAI 兼容端点。
+
+默认模型的 API Key 为空，未补 Key 时对话不可用。在 SnailAI 控制台（AI 控制台）的模型配置中找到默认 CHAT 模型，补充 API Key 后即可对话；端点保持 `https://dashscope.aliyuncs.com/compatible-mode/v1`，模型为 `glm-5.1`。Key 必须与该端点匹配；改用其他提供商时同时调整端点和模型，不能只替换 Key。
+
+### ChatClient 构建失败
+
+本次运行反馈确认默认模型 API Key 尚未填写。SnailAI 1.1.1 的 `ChatModelRuntime.validate` 要求 `apiKey` 非空，因此空 API Key 是当前 `ChatClient` 构建失败的直接原因。按以下顺序处理：
+
+1. 打开 AI 控制台 → 模型管理，为默认模型 `glm-5.1` 填写并保存 API Key，然后点击“验证”。
+2. 确认默认助手 `IWS+ 助手` 的 `chat_model_id=1`，且 `sai_model_config.id=1` 为启用的 GLOBAL CHAT 模型；默认助手已显式绑定它，不要求它同时带系统默认标志。
+3. 填写并验证后再发起对话；若仍失败，查看 `iws-snailai-server` 日志中 `Failed to build ChatClient for config` 之后的异常信息，继续定位缺失字段或不可用的适配器。
+
+不要写入假 API Key，也不要修改 SnailAI 依赖代码绕过 `apiKey` 校验。
+
+已执行过旧版初始化、没有默认助手的库，先确认 `sai_app` 已有启用的 `app_id=1`；如果为空，先执行 `iws_snailai_default_app.sql`，再执行下面的默认助手脚本。
+
+```powershell
+Get-Content -Raw -Encoding UTF8 script/sql/iws_snailai_default_app.sql |
+  mysql --host=127.0.0.1 --port=3306 --user=<部署账号> --default-character-set=utf8mb4 --database=innolux-iws --batch --raw
+
+Get-Content -Raw -Encoding UTF8 script/sql/iws_snailai_default_agent.sql |
+  mysql --host=127.0.0.1 --port=3306 --user=<部署账号> --default-character-set=utf8mb4 --database=innolux-iws --batch --raw
+```
+
+脚本头部 `@snailai_agent_schema` 已设为 `innolux-iws`。首次执行为缺失的 `id=1` 新增默认助手并绑定模型 `id=1`，同时给 `app_id=1` 且没有任何订阅的 OpenAPI 用户回填默认助手订阅；已有其他订阅的用户不动。`id=1` 已被其他名称占用、缺少启用的 GLOBAL CHAT 模型 `id=1` 或必要表时前置失败，不覆盖原记录；重复执行无变化。
+
+运行机只读核验：
+
+```sql
+SELECT id, name, status, app_id, chat_model_id
+FROM `innolux-iws`.sai_agent
+WHERE id = 1;
+
+SELECT id, model_name, model_type, scope, is_default, is_enabled, api_endpoint, api_key = '' AS api_key_empty
+FROM `innolux-iws`.sai_model_config
+WHERE id = 1 AND model_type = 'CHAT' AND scope = 'GLOBAL' AND is_enabled = 1;
+
+SELECT u.app_id, u.open_id, ua.agent_id
+FROM `innolux-iws`.sai_openapi_user u
+LEFT JOIN `innolux-iws`.sai_user_agent ua ON ua.user_id = u.platform_user_id
+WHERE u.app_id = '1';
+```
+
+应有且只有一行默认助手，命名为 `IWS+ 助手`、`status=1`、`app_id=1`、`chat_model_id=1`；模型 `id=1` 应为启用的 GLOBAL CHAT 模型且 `api_key` 非空；每个 `app_id=1` 的 OpenAPI 用户至少有一条订阅。
+
+聊天还要求主服务以 `snail-ai.enabled=true` 注册为 SnailAI 客户端，并保持 SnailAI Server 运行。主服务未连接时，`ContextCollectorHandler` 会报无可用客户端；此时检查主服务与 SnailAI Server 的 gRPC 地址、端口和启动顺序，而不是只改数据库。
 
 ## 日志位置与滚动
 
@@ -95,6 +129,8 @@ logs/
 - Redis：验证 dev/prod 默认前缀及外部覆盖、字典键、真实 Sa-Token 键和 Lock4j 键的映射；未连接真实 Redis。
 - 日志：实际加载四个服务的配置并写入 WARN，核对各自汇总文件；验证主服务模块路由和异常堆栈，实际写入超过 50MB 产生日期分卷，注入日期时钟验证跨日滚动。SnailJob 远端日志接收 appender 使用测试替身，不代表任务日志远端上报已联调。
 - AI：验证认证提示、其他错误提示、响应及日志不包含 SDK 原文中的测试秘密，以及专用处理器优先于通用异常处理器。
+- SnailAI 默认应用 SQL：在隔离 MySQL 8.0.45 验证当前空库初始化包含一行默认应用，升级脚本首次新增、重复执行无变化、自定义冲突拒绝覆盖、缺表前置失败。
+- 默认 AI 助手 SQL：在隔离 MySQL 8.0.45 验证空库初始化包含一行 `IWS+ 助手`（`chat_model_id=1`）和一行默认 CHAT 模型；旧结构库执行升级脚本首跑新增助手并回填 1 行订阅，二跑无变化，名称冲突失败且不覆盖，缺少启用的 GLOBAL CHAT 模型 `id=1` 或缺 `sai_agent` 表时前置失败且不写入；模型 `id=1` 非系统默认时仍可完成升级。
 - 独立源码审查发现的 AI 原始错误内容透传问题已修复并复核；`git diff --check` 通过。
 
 这些是本机隔离验证，不等同于运行机页面和服务恢复验收。
@@ -102,8 +138,9 @@ logs/
 ## 运行机复验
 
 1. 核对 SnailJob 的生效数据库配置，修正账号认证失败后确认服务不再循环报错；不要仅修改库名。
-2. 配置 SnailAI 应用及主服务接入参数，确认两端应用标识和令牌一致。
-3. 统一主服务 Redis 前缀并重启，重新登录后打开字典相关页面、监控和 AI 页面。
-4. 检查字典接口与 `/snail-ai/user/register` 的实际响应，确认新日志没有对应错误。
+2. 旧库执行 `script/sql/iws_snailai_default_app.sql` 和 `script/sql/iws_snailai_default_agent.sql`，新库确认初始化已创建 `sai_app.app_id=1` 与 `sai_agent.id=1`；核对主服务 `snail-ai` 配置。
+3. 确认主服务 `snail-ai.enabled=true`、SnailAI Server 正在运行且客户端已连接；在 AI 控制台为默认 CHAT 模型补充 API Key。
+4. 统一主服务 Redis 前缀并重启，重新登录后打开字典相关页面、监控和 AI 页面。
+5. 检查字典接口与 `/snail-ai/user/register` 的实际响应；新用户首次打开 AI 会话应自动订阅并选中默认助手，确认新日志没有对应错误。
 
 未在用户运行机修改数据库、Redis 或服务进程；运行机恢复验收仍需以上步骤完成。
