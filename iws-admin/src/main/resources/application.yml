@@ -212,8 +212,8 @@ xss:
 iws:
   endpoint:
     enabled: false
-    # 启用 process 前必须配置已登记且启用的环境码
-    current-environment: ''
+    # 空库初始化已登记 TEST（测试环境）；启用 process 前确认此处与已启用的环境码一致
+    current-environment: TEST
   process:
     enabled: false
     scheduler:
