@@ -332,3 +332,8 @@ justauth:
       client-id: 10**********6
       client-secret: 1f7d08**********5b7**********29e
       redirect-uri: ${justauth.address}/social-callback?source=gitea
+
+--- # 系统接入目录：正式环境必须显式选择已登记并启用的环境码
+iws:
+  endpoint:
+    current-environment: ''

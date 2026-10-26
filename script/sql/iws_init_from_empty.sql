@@ -25,17 +25,20 @@
 -- 该脚本按顺序包含：
 --   1. 框架、系统、代码生成、调度、工作流与 AI 平台结构（81 张表）
 --   2. WMS SMT 核心结构（20 张表）
---   3. endpoint 结构（6 张表）与唯一 CATALOG 控制行
+--   3. endpoint 结构（6 张表）、唯一 CATALOG 控制行与默认环境 TEST
 --   4. process 结构（16 张表）
 --   5. endpoint/process 菜单和按钮权限（53 行）
 --   6. APK 发布记录表（1 张表）与系统管理菜单（5 行）
 -- 共 124 张表。
 --
 -- 种子只保留系统运行所需的默认模板配置：部门/岗位/角色/菜单/字典/参数、
--- 默认管理员、SnailJob 初始管理员、默认客户端、OSS 模板、流程分类和流程表达式、AI 模型提供者。
+-- 默认管理员、SnailJob 初始管理员、默认客户端、OSS 模板、流程分类和流程表达式、
+-- AI 模型提供者、SnailAI 默认应用（app_id=1）及默认环境 TEST（测试环境）。
 -- 不包含测试账号、演示供应商、WMS 业务单据、计划/事件/实例、真实系统地址、
 -- 真实环境凭据或外部系统密钥。默认管理员及默认客户端属于初始化模板，
--- 部署后应在受控流程中立即更换；禁止把真实凭据写入本文件。
+-- 部署后应在受控流程中立即更换；默认 SnailAI 应用 token 使用主服务 dev/prod
+-- 已配置的默认接入值，属于开发环境模板，生产部署应同时更换应用记录和主服务配置。
+-- 禁止把真实凭据写入本文件。
 -- ============================================================================
 
 SET NAMES utf8mb4;
@@ -3008,6 +3011,7 @@ INSERT INTO `sys_config` (`config_id`, `config_name`, `config_key`, `config_valu
 INSERT INTO `sys_config` (`config_id`, `config_name`, `config_key`, `config_value`, `config_type`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761700000000000005,'登录安全-Token活跃超时秒数','sys.login.activeTimeout','1800','Y',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',NULL,NULL,'指定时间无操作则过期，单位秒；空值时使用客户端配置');
 INSERT INTO `sys_config` (`config_id`, `config_name`, `config_key`, `config_value`, `config_type`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761700000000000006,'登录安全-Token固定超时秒数','sys.login.timeout','604800','Y',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',NULL,NULL,'Token固定有效期，单位秒；空值时使用客户端配置');
 INSERT INTO `sys_config` (`config_id`, `config_name`, `config_key`, `config_value`, `config_type`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761700000000000007,'界面体验-标准提示自动关闭秒数','sys.ui.messageCloseSeconds','30','Y',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',NULL,NULL,'标准消息提示自动关闭时间，单位秒；默认30秒，可手动关闭');
+INSERT INTO `sys_config` (`config_id`, `config_name`, `config_key`, `config_value`, `config_type`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761700000000000008,'界面体验-菜单编号前缀开关','sys.ui.menuPrefixEnabled','false','Y',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',NULL,NULL,'true显示菜单编号前缀，false隐藏；默认关闭，刷新页面后生效');
 INSERT INTO `sys_client` (`id`, `client_id`, `client_key`, `client_secret`, `grant_type`, `device_type`, `access_path`, `ip_whitelist`, `active_timeout`, `timeout`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1762000000000000001,'e5cd7e4891bf95d1d19206ce24a7b32e','pc','pc123','password,social','pc',NULL,NULL,1800,604800,'0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:55',1761100000000000001,'2026-10-23 21:05:55');
 INSERT INTO `sys_client` (`id`, `client_id`, `client_key`, `client_secret`, `grant_type`, `device_type`, `access_path`, `ip_whitelist`, `active_timeout`, `timeout`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1762000000000000002,'428a8310cd442757ae699df5d894f051','app','app123','password,sms,social','android','/app/**',NULL,1800,604800,'0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:55',1761100000000000001,'2026-10-23 21:05:55');
 INSERT INTO `sys_oss_config` (`oss_config_id`, `config_key`, `access_key`, `secret_key`, `bucket_name`, `prefix`, `endpoint`, `domain_url`, `is_https`, `region`, `access_policy`, `status`, `ext1`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761900000000000001,'minio','<MINIO_ACCESS_KEY>','<MINIO_SECRET_KEY>','innolux-iws','','127.0.0.1:9000','','N','','0','Y','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:54',1761100000000000001,'2026-10-23 21:05:54',NULL);
@@ -3036,6 +3040,11 @@ INSERT INTO `sai_model_provider` (`id`, `provider_name`, `provider_key`, `descri
 INSERT INTO `sai_model_provider` (`id`, `provider_name`, `provider_key`, `description`, `icon_url`, `is_enabled`, `created_dt`, `updated_dt`) VALUES (6,'DeepSeek','deepseek','DeepSeek OpenAI 兼容模型',NULL,1,'2026-10-23 13:05:59','2026-10-23 13:05:59');
 INSERT INTO `sai_model_provider` (`id`, `provider_name`, `provider_key`, `description`, `icon_url`, `is_enabled`, `created_dt`, `updated_dt`) VALUES (7,'智谱AI','zhipu','智谱AI OpenAI 兼容模型 (GLM等)',NULL,1,'2026-10-23 13:05:59','2026-10-23 13:05:59');
 INSERT INTO `sai_model_config` (`id`, `provider_id`, `model_name`, `model_key`, `model_type`, `adapter_key`, `description`, `api_key`, `api_endpoint`, `config_json`, `owner_id`, `scope`, `is_default`, `is_enabled`, `created_dt`, `updated_dt`) VALUES (1,5,'glm-5.1','glm-5.1','CHAT','openai-compatible','','','https://dashscope.aliyuncs.com/compatible-mode/v1','{\"frequencyPenalty\":0.0,\"maxTokens\":20000,\"presencePenalty\":0.0,\"stopSequences\":[],\"stream\":true,\"temperature\":0.7,\"timeoutMs\":300000,\"topK\":1,\"topP\":1.0}',NULL,'GLOBAL',1,1,'2026-10-23 13:05:59','2026-10-23 13:05:59');
+
+-- SnailAI 默认应用：业务键为 app_id，不依赖自增 id；token 与主服务默认接入配置一致。
+SET @init_snailai_default_app_token = 'SAI_566a6bfbc26e4998b4841cc927d50c5d';
+INSERT INTO `sai_app` (`app_id`, `app_name`, `description`, `token`, `route_strategy`, `status`)
+VALUES ('1', 'IWS+', 'IWS+ 主应用，供主服务 SnailAI 客户端接入', @init_snailai_default_app_token, 'LEAST_LOAD', 1);
 
 -- ----------------------------------------------------------------------------
 -- 系统接入配置 endpoint 表与唯一目录控制行
@@ -3634,10 +3643,45 @@ DEALLOCATE PREPARE ep_stmt;
 SET @ep_final_ok = IF(@ep_control_ok = 1 AND COALESCE(@ep_final_count, 0) = 1
     AND @ep_final_revision >= 0, 1, 0);
 
+-- 默认环境：空库预置 TEST / 测试环境，首次启用 process 时把部署配置
+-- iws.endpoint.current-environment 指向 TEST 即可通过启动校验。
+SET @ep_default_env_count_sql = CONCAT(
+    'SELECT COUNT(*) INTO @ep_env_count FROM ', @upgrade_schema_q,
+    '.`iws_endpoint_environment` WHERE `environment_code` = ''TEST'''
+);
+SET @ep_ddl = IF(@ep_final_ok = 1, @ep_default_env_count_sql, 'DO 0');
+PREPARE ep_stmt FROM @ep_ddl;
+EXECUTE ep_stmt;
+DEALLOCATE PREPARE ep_stmt;
+
+SET @ep_ddl = IF(@ep_final_ok = 1 AND COALESCE(@ep_env_count, 0) = 0, CONCAT(
+    'INSERT INTO ', @upgrade_schema_q, '.`iws_endpoint_environment`',
+    ' (`environment_code`, `display_name`, `description`, `enabled`, `revision`,',
+    ' `create_by`, `create_time`, `update_by`, `update_time`)',
+    ' VALUES (''TEST'', ''测试环境'', ''空库初始化默认环境，供首次启动使用；接入正式环境后可将本行停用'',',
+    ' 1, 0, NULL, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP)'
+), 'DO 0');
+PREPARE ep_stmt FROM @ep_ddl;
+EXECUTE ep_stmt;
+DEALLOCATE PREPARE ep_stmt;
+
+SET @ep_default_env_check_sql = CONCAT(
+    'SELECT COUNT(*) INTO @ep_env_ok FROM ', @upgrade_schema_q, '.`iws_endpoint_environment`',
+    ' WHERE `environment_code` = ''TEST'' AND `display_name` = ''测试环境''',
+    ' AND `enabled` = 1 AND `revision` = 0'
+);
+SET @ep_ddl = IF(@ep_final_ok = 1, @ep_default_env_check_sql, 'DO 0');
+PREPARE ep_stmt FROM @ep_ddl;
+EXECUTE ep_stmt;
+DEALLOCATE PREPARE ep_stmt;
+
+SET @ep_default_env_ok = IF(@ep_final_ok = 1 AND COALESCE(@ep_env_ok, 0) = 1, 1, 0);
+
 SELECT
     IF(@ep_final_ok = 1, '系统接入配置结构升级完成', '系统接入配置结构升级失败') AS `执行结果`,
     @upgrade_schema AS `目标库`,
-    @ep_final_revision AS `目录版本`;
+    @ep_final_revision AS `目录版本`,
+    IF(@ep_default_env_ok = 1, 'TEST', '未写入') AS `默认环境`;
 
 SELECT JSON_EXTRACT(IF(@ep_final_ok = 1, '{}', 'invalid'), '$') AS `最终校验`;
 
@@ -5493,14 +5537,34 @@ SET @init_final_ai_user_count = (SELECT COUNT(*) FROM sai_user);
 SET @init_final_ai_provider_count = (SELECT COUNT(*) FROM sai_model_provider);
 SET @init_final_ai_sample_rows = (
     (SELECT COUNT(*) FROM sai_agent)
-  + (SELECT COUNT(*) FROM sai_app)
   + (SELECT COUNT(*) FROM sai_openapi_user)
+);
+SET @init_final_ai_app_count = (SELECT COUNT(*) FROM sai_app);
+SET @init_final_ai_default_app_ok = (
+    SELECT COUNT(*) = 1
+    FROM sai_app
+    WHERE app_id = '1'
+      AND app_name = 'IWS+'
+      AND description = 'IWS+ 主应用，供主服务 SnailAI 客户端接入'
+      AND token IS NOT NULL
+      AND CHAR_LENGTH(token) > 0
+      AND CAST(token AS BINARY) = CAST(@init_snailai_default_app_token AS BINARY)
+      AND route_strategy = 'LEAST_LOAD'
+      AND status = 1
 );
 SET @init_final_control_count = (SELECT COUNT(*) FROM iws_endpoint_catalog_control);
 SET @init_final_control_revision = (SELECT COALESCE(MAX(revision), -1) FROM iws_endpoint_catalog_control);
+SET @init_final_endpoint_environment_count = (SELECT COUNT(*) FROM iws_endpoint_environment);
+SET @init_final_endpoint_default_environment_ok = (
+    SELECT COUNT(*) = 1
+    FROM iws_endpoint_environment
+    WHERE environment_code = 'TEST'
+      AND display_name = '测试环境'
+      AND enabled = 1
+      AND revision = 0
+);
 SET @init_final_endpoint_business_rows = (
     (SELECT COUNT(*) FROM iws_endpoint_system)
-  + (SELECT COUNT(*) FROM iws_endpoint_environment)
   + (SELECT COUNT(*) FROM iws_endpoint_address)
   + (SELECT COUNT(*) FROM iws_endpoint_system_address)
   + (SELECT COUNT(*) FROM iws_endpoint_audit)
@@ -5566,9 +5630,13 @@ SET @init_final_ok = (
     AND @init_final_flow_spel_count = 2
     AND @init_final_ai_user_count = 1
     AND @init_final_ai_provider_count = 7
+    AND @init_final_ai_app_count = 1
+    AND @init_final_ai_default_app_ok = 1
     AND @init_final_ai_sample_rows = 0
     AND @init_final_control_count = 1
     AND @init_final_control_revision = 0
+    AND @init_final_endpoint_environment_count = 1
+    AND @init_final_endpoint_default_environment_ok = 1
     AND @init_final_endpoint_business_rows = 0
     AND @init_final_process_rows = 0
     AND @init_final_wms_rows = 0
@@ -5582,7 +5650,10 @@ SELECT
     @init_final_event_menu_count AS `计划事件菜单数`,
     @init_final_user_count AS `默认管理员数`,
     @init_final_job_admin_count AS `调度初始管理员数`,
+    @init_final_ai_app_count AS `默认AI应用数`,
+    @init_final_ai_default_app_ok AS `默认AI应用符合`,
     @init_final_control_revision AS `目录控制版本`,
+    IF(@init_final_endpoint_default_environment_ok = 1, 'TEST', '缺失') AS `默认环境`,
     @init_final_wms_rows AS `WMS业务行`,
     @init_final_process_rows AS `计划事件运行行`,
     IF(@init_final_ok = 1, '空库全量初始化完成', '最终验收失败，请检查上述不变量') AS `执行结果`;
