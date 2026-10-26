@@ -45,6 +45,12 @@
             <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
         </dependency>
 
+        <!-- knife4j 接口文档界面（原生 starter，配合 springdoc 3 使用，提供 /doc.html 静态界面） -->
+        <dependency>
+            <groupId>com.github.xiaoymin</groupId>
+            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+        </dependency>
+
         <!-- JavaDoc 运行时读取 -->
         <dependency>
             <groupId>com.github.therapi</groupId>
