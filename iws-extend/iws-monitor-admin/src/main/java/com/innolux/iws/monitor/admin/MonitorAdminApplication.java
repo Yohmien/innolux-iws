@@ -14,6 +14,8 @@ package com.innolux.iws.monitor.admin;
 import de.codecentric.boot.admin.server.config.EnableAdminServer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Admin 监控启动程序
@@ -24,6 +26,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class MonitorAdminApplication {
 
+    private static final Logger LOG = LoggerFactory.getLogger(MonitorAdminApplication.class);
+
     /**
      * Admin 监控服务启动入口。
      *
@@ -31,7 +35,7 @@ public class MonitorAdminApplication {
      */
     public static void main(String[] args) {
         SpringApplication.run(MonitorAdminApplication.class, args);
-        System.out.println("Admin 监控启动成功");
+        LOG.info("Admin 监控启动成功");
     }
 
 }

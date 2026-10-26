@@ -93,4 +93,4 @@ management:
     health:
       show-details: ALWAYS
     logfile:
-      external-file: ./logs/iws-snailai-server/console.log
+      external-file: ${LOG_ROOT:./logs}/iws-snailai-server/all.log

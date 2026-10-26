@@ -43,7 +43,7 @@ management:
     health:
       show-details: ALWAYS
     logfile:
-      external-file: ./logs/iws-monitor-admin.log
+      external-file: ${LOG_ROOT:./logs}/iws-monitor-admin/all.log
 
 --- # 监控配置
 spring.boot.admin.client:

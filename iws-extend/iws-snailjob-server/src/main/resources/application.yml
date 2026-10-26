@@ -45,4 +45,4 @@ management:
     health:
       show-details: ALWAYS
     logfile:
-      external-file: ./logs/iws-snailjob-server/console.log
+      external-file: ${LOG_ROOT:./logs}/iws-snailjob-server/all.log
