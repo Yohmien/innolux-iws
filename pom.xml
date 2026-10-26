@@ -35,6 +35,7 @@
         <spring-boot-admin.version>4.1.2</spring-boot-admin.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <springdoc.version>3.0.3</springdoc.version>
+        <knife4j.version>4.5.0</knife4j.version>
 
         <!-- 数据访问与持久化相关依赖版本 -->
         <mybatis.version>3.5.19</mybatis.version>
@@ -180,6 +181,23 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
                 <version>${springdoc.version}</version>
+            </dependency>
+            <!-- 接口文档 UI（springdoc 3，覆盖 knife4j starter 传递的 2.x） -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-common</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+            <!-- knife4j 接口文档界面（原生 starter，配合 springdoc 3 使用） -->
+            <dependency>
+                <groupId>com.github.xiaoymin</groupId>
+                <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+                <version>${knife4j.version}</version>
             </dependency>
 
             <!-- JavaDoc 运行时读取 -->
