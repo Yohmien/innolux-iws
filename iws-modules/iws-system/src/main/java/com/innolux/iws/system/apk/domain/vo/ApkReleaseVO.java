@@ -81,6 +81,11 @@ public class ApkReleaseVO implements Serializable {
     private String status;
 
     /**
+     * 是否强制更新
+     */
+    private Boolean forceUpdate;
+
+    /**
      * 计划实例主键
      */
     @JsonSerialize(using = ToStringSerializer.class)
@@ -123,6 +128,7 @@ public class ApkReleaseVO implements Serializable {
         vo.setFileSize(release.getFileSize());
         vo.setOssId(release.getOssId());
         vo.setStatus(release.getStatus());
+        vo.setForceUpdate(release.getForceUpdate());
         vo.setProcessInstanceId(release.getProcessInstanceId());
         vo.setRemark(release.getRemark());
         vo.setCreateTime(release.getCreateTime());

@@ -13,6 +13,7 @@ package com.innolux.iws.system.apk.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.innolux.iws.common.core.exception.ServiceException;
+import com.innolux.iws.common.oss.exception.S3StorageException;
 import com.innolux.iws.system.apk.domain.ApkRelease;
 import com.innolux.iws.system.apk.domain.vo.ApkReleaseVO;
 import com.innolux.iws.system.apk.enums.ApkReleaseStatus;
@@ -40,6 +41,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * APK 上传、版本去重、发布重试与计划初始化实现。
@@ -60,6 +62,14 @@ public class ApkReleaseCommandServiceImpl implements IApkReleaseCommandService {
     private static final String APK_BUSINESS_TYPE = "APK_RELEASE";
 
     private static final String APK_OSS_PREFIX = "apk/";
+
+    private static final String S3_API_PORT_ERROR_MARKER = "S3 API Requests must be made to API port.";
+
+    private static final String APK_OSS_PORT_ERROR = "APK 上传失败：对象存储访问站点指向了 MinIO 管理端口，"
+        + "请在对象存储配置中改为 S3 API 端口（通常为 9000），并检查反向代理转发。";
+
+    private static final String APK_OSS_WRITE_ERROR = "APK 上传失败：对象存储写入失败，"
+        + "请检查存储服务连接、访问凭证和桶权限。";
 
     private static final int MAX_APP_NAME_LENGTH = 200;
 
@@ -87,13 +97,39 @@ public class ApkReleaseCommandServiceImpl implements IApkReleaseCommandService {
 
     @Override
     public ApkReleaseVO upload(MultipartFile file, String remark) {
+        return upload(file, remark, Boolean.TRUE);
+    }
+
+    @Override
+    public ApkReleaseVO upload(MultipartFile file, String remark, Boolean forceUpdate) {
         validateFile(file);
         String normalizedRemark = validateRemark(remark);
+        boolean normalizedForceUpdate = forceUpdate == null || forceUpdate;
         Path tempFile = createTempFile(file);
         try {
-            return uploadValidated(tempFile, normalizedRemark);
+            return uploadValidated(tempFile, normalizedRemark, normalizedForceUpdate);
         } finally {
             deleteTempFile(tempFile);
+        }
+    }
+
+    @Override
+    public void updateForceUpdate(long releaseId, boolean forceUpdate) {
+        if (releaseId <= 0) {
+            throw new ServiceException("APK 发布版本 ID 必须为正整数");
+        }
+        int updated = releaseMapper.update(null, Wrappers.<ApkRelease>lambdaUpdate()
+            .eq(ApkRelease::getReleaseId, releaseId)
+            .set(ApkRelease::getForceUpdate, forceUpdate));
+        if (updated == 1) {
+            return;
+        }
+        ApkRelease release = releaseMapper.selectById(releaseId);
+        if (release == null) {
+            throw new ServiceException("APK 发布版本不存在: " + releaseId);
+        }
+        if (!Objects.equals(release.getForceUpdate(), forceUpdate)) {
+            throw new ServiceException("APK 强制更新设置未生效: " + releaseId);
         }
     }
 
@@ -123,7 +159,7 @@ public class ApkReleaseCommandServiceImpl implements IApkReleaseCommandService {
         log.info("APK 发布计划已核验: {}", result);
     }
 
-    private ApkReleaseVO uploadValidated(Path tempFile, String remark) {
+    private ApkReleaseVO uploadValidated(Path tempFile, String remark, boolean forceUpdate) {
         ApkMetadata metadata = parseMetadata(tempFile);
         String sha256 = sha256(tempFile);
         long fileSize = fileSize(tempFile);
@@ -133,7 +169,7 @@ public class ApkReleaseCommandServiceImpl implements IApkReleaseCommandService {
         }
 
         SysOssVo oss = uploadToOss(tempFile, metadata, remark);
-        ApkRelease release = newRelease(metadata, remark, oss, sha256, fileSize);
+        ApkRelease release = newRelease(metadata, remark, oss, sha256, fileSize, forceUpdate);
         try {
             metadataWriter.insert(release);
         } catch (DataIntegrityViolationException ex) {
@@ -171,11 +207,27 @@ public class ApkReleaseCommandServiceImpl implements IApkReleaseCommandService {
         ext.setRefType(APK_BUSINESS_TYPE);
         String prefix = APK_OSS_PREFIX + metadata.packageName() + "/" + metadata.versionCode();
         MultipartFile uploadFile = new ApkTempMultipartFile(tempFile, fileName, APK_CONTENT_TYPE);
-        SysOssVo oss = ossService.upload(uploadFile, ext, prefix);
+        SysOssVo oss;
+        try {
+            oss = ossService.upload(uploadFile, ext, prefix);
+        } catch (S3StorageException ex) {
+            log.error("APK 对象存储上传失败: packageName={}, versionCode={}",
+                metadata.packageName(), metadata.versionCode(), ex);
+            throw new ServiceException(containsS3ApiPortError(ex) ? APK_OSS_PORT_ERROR : APK_OSS_WRITE_ERROR, ex);
+        }
         if (oss == null || oss.getOssId() == null) {
             throw new ServiceException("APK 文件上传未返回有效记录");
         }
         return oss;
+    }
+
+    private static boolean containsS3ApiPortError(Throwable throwable) {
+        for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
+            if (cause.getMessage() != null && cause.getMessage().contains(S3_API_PORT_ERROR_MARKER)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ApkRelease publishAndRefresh(ApkRelease release) {
@@ -198,7 +250,7 @@ public class ApkReleaseCommandServiceImpl implements IApkReleaseCommandService {
     }
 
     private static ApkRelease newRelease(ApkMetadata metadata, String remark, SysOssVo oss,
-                                         String sha256, long fileSize) {
+                                         String sha256, long fileSize, boolean forceUpdate) {
         ApkRelease release = new ApkRelease();
         release.setAppName(metadata.appName());
         release.setPackageName(metadata.packageName());
@@ -208,6 +260,7 @@ public class ApkReleaseCommandServiceImpl implements IApkReleaseCommandService {
         release.setFileSize(fileSize);
         release.setOssId(oss.getOssId());
         release.setStatus(ApkReleaseStatus.UPLOADED.name());
+        release.setForceUpdate(forceUpdate);
         release.setRemark(remark);
         return release;
     }

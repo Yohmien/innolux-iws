@@ -5521,6 +5521,7 @@ CREATE TABLE `sys_apk_release` (
   `file_size` bigint NOT NULL,
   `oss_id` bigint NOT NULL,
   `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'UPLOADED',
+  `force_update` tinyint(1) NOT NULL DEFAULT 1,
   `process_instance_id` bigint DEFAULT NULL,
   `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
   `create_dept` bigint DEFAULT NULL,

@@ -31,6 +31,24 @@ public interface IApkReleaseCommandService {
     ApkReleaseVO upload(MultipartFile file, String remark);
 
     /**
+     * 解析、上传并登记 APK 版本，同时设置强制更新策略。
+     *
+     * @param file        APK 文件
+     * @param remark      备注
+     * @param forceUpdate 是否强制更新，空值按 true 处理
+     * @return 登记后的版本
+     */
+    ApkReleaseVO upload(MultipartFile file, String remark, Boolean forceUpdate);
+
+    /**
+     * 修改已有版本的强制更新策略。
+     *
+     * @param releaseId   发布版本 ID
+     * @param forceUpdate 是否强制更新
+     */
+    void updateForceUpdate(long releaseId, boolean forceUpdate);
+
+    /**
      * 重试已上传版本的发布。
      *
      * @param releaseId 发布版本 ID

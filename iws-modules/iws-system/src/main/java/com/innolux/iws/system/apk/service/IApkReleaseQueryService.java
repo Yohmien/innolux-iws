@@ -50,7 +50,7 @@ public interface IApkReleaseQueryService {
      *
      * @param packageName 安装包名称
      * @param appName     应用名称
-     * @return 最新已发布版本
+     * @return 最新已发布版本，不存在时返回 null
      */
     ApkReleaseVO queryLatestPublished(String packageName, String appName);
 

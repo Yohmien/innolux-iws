@@ -85,14 +85,32 @@ public class ApkReleaseController {
      *
      * @param file    APK 文件
      * @param remark  备注
+     * @param forceUpdate 是否强制更新
      * @return 登记后的版本
      */
     @SaCheckPermission("system:apk:upload")
     @Log(title = "APK 上传", businessType = BusinessType.INSERT)
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public R<ApkReleaseVO> upload(@RequestPart("file") MultipartFile file,
-                                  @RequestParam(value = "remark", required = false) String remark) {
-        return R.ok(commandService.upload(file, remark));
+                                  @RequestParam(value = "remark", required = false) String remark,
+                                  @RequestParam(value = "forceUpdate", defaultValue = "true") boolean forceUpdate) {
+        return R.ok(commandService.upload(file, remark, forceUpdate));
+    }
+
+    /**
+     * 修改 APK 版本的强制更新策略。
+     *
+     * @param releaseId   发布版本 ID
+     * @param forceUpdate 是否强制更新
+     * @return 操作结果
+     */
+    @SaCheckPermission("system:apk:publish")
+    @Log(title = "APK 强制更新设置", businessType = BusinessType.UPDATE)
+    @PostMapping("/{releaseId}/force-update")
+    public R<Void> updateForceUpdate(@PathVariable("releaseId") long releaseId,
+                                     @RequestParam("forceUpdate") boolean forceUpdate) {
+        commandService.updateForceUpdate(releaseId, forceUpdate);
+        return R.ok();
     }
 
     /**
