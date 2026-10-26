@@ -233,7 +233,7 @@ insert into sys_menu values(1761400000000000002, '系统监控', 0, 3, 'monitor'
 insert into sys_menu values(1761400000000000003, '系统工具', 0, 4, 'tool', null, '', 'N', 'Y', 'M', '0', '0', '', 'tool', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '系统工具目录');
 insert into sys_menu values(1761400000000000005, '测试菜单', 0, 5, 'demo', null, '', 'N', 'Y', 'M', '0', '0', '', 'star', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '测试菜单');
 insert into sys_menu values(1761400000000000008, 'AI会话',  0, 8, 'aichat', 'ai/chat/index', '', 'N', 'Y', 'C', '0', '0', '', 'checkbox', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'AI聊天菜单');
-insert into sys_menu values(1761400000000000004, 'INNOLUX官网', 0, 9, 'https://www.innolux.com', null, '', 'Y', 'Y', 'M', '0', '0', '', 'guide', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'INNOLUX官网地址');
+insert into sys_menu values(1761400000000000004, 'INNOLUX官网', 0, 9999, 'https://www.innolux.com', null, '', 'Y', 'Y', 'M', '0', '0', '', 'guide', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'INNOLUX官网地址，固定排在全部菜单之后');
 -- 二级菜单
 insert into sys_menu values(1761400000000000100, '用户管理', 1761400000000000001, 1, 'user', 'system/user/index', '', 'N', 'Y', 'C', '0', '0', 'system:user:list', 'user', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '用户管理菜单');
 insert into sys_menu values(1761400000000000101, '角色管理', 1761400000000000001, 2, 'role', 'system/role/index', '', 'N', 'Y', 'C', '0', '0', 'system:role:list', 'peoples', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '角色管理菜单');
@@ -263,12 +263,12 @@ insert into sys_menu values(1761400000000000120, '任务调度中心', 176140000
 insert into sys_menu values(1761400000000000121, 'AI控制台', 1761400000000000002, 7, 'snailai', 'monitor/snailai/index', '', 'N', 'Y', 'C', '0', '0', 'monitor:snailai:list', 'checkbox', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'AI控制台菜单');
 
 -- IWS+标准业务菜单
-insert into sys_menu values(1761400000000020001, 'A基础数据', 0, 10, 'iws-base', null, '', 'N', 'Y', 'M', '0', '0', '', 'table', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+基础数据目录');
-insert into sys_menu values(1761400000000020002, 'B入库管理', 0, 11, 'iws-inbound', null, '', 'N', 'Y', 'M', '0', '0', '', 'download', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+入库管理目录');
-insert into sys_menu values(1761400000000020003, 'C储位管理', 0, 12, 'iws-storage', null, '', 'N', 'Y', 'M', '0', '0', '', 'box', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+储位管理目录');
-insert into sys_menu values(1761400000000020004, 'D在库管理', 0, 13, 'iws-inventory', null, '', 'N', 'Y', 'M', '0', '0', '', 'list', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+在库管理目录');
-insert into sys_menu values(1761400000000020005, 'E出库管理', 0, 14, 'iws-outbound', null, '', 'N', 'Y', 'M', '0', '0', '', 'upload', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+出库管理目录');
-insert into sys_menu values(1761400000000020100, 'A01供应商标准页', 1761400000000020001, 1, 'supplier', 'wms/basic/supplier/index', '', 'N', 'Y', 'C', '0', '0', 'wms:supplier:list', 'table', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+供应商标准CRUD样板页');
+insert into sys_menu values(1761400000000020001, '基础数据', 0, 10, 'iws-base', null, '', 'N', 'Y', 'M', '0', '0', '', 'table', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+基础数据目录');
+insert into sys_menu values(1761400000000020002, '入库管理', 0, 11, 'iws-inbound', null, '', 'N', 'Y', 'M', '0', '0', '', 'download', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+入库管理目录');
+insert into sys_menu values(1761400000000020003, '储位管理', 0, 12, 'iws-storage', null, '', 'N', 'Y', 'M', '0', '0', '', 'box', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+储位管理目录');
+insert into sys_menu values(1761400000000020004, '在库管理', 0, 13, 'iws-inventory', null, '', 'N', 'Y', 'M', '0', '0', '', 'list', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+在库管理目录');
+insert into sys_menu values(1761400000000020005, '出库管理', 0, 14, 'iws-outbound', null, '', 'N', 'Y', 'M', '0', '0', '', 'upload', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+出库管理目录');
+insert into sys_menu values(1761400000000020100, '供应商标准页', 1761400000000020001, 1, 'supplier', 'wms/basic/supplier/index', '', 'N', 'Y', 'C', '0', '0', 'wms:supplier:list', 'table', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+供应商标准CRUD样板页');
 
 -- 三级菜单
 insert into sys_menu values(1761400000000000500, '操作日志', 1761400000000000108, 1, 'operlog', 'monitor/operlog/index', '', 'N', 'Y', 'C', '0', '0', 'monitor:operlog:list', 'form', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '操作日志菜单');
@@ -718,6 +718,7 @@ insert into sys_config values(1761700000000000004, '登录安全-是否开启验
 insert into sys_config values(1761700000000000005, '登录安全-Token活跃超时秒数', 'sys.login.activeTimeout', '1800', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '指定时间无操作则过期，单位秒；空值时使用客户端配置');
 insert into sys_config values(1761700000000000006, '登录安全-Token固定超时秒数', 'sys.login.timeout', '604800', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'Token固定有效期，单位秒；空值时使用客户端配置');
 insert into sys_config values(1761700000000000007, '界面体验-标准提示自动关闭秒数', 'sys.ui.messageCloseSeconds', '30', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '标准消息提示自动关闭时间，单位秒；默认30秒，可手动关闭');
+insert into sys_config values(1761700000000000008, '界面体验-菜单编号前缀开关', 'sys.ui.menuPrefixEnabled', 'false', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'true显示菜单编号前缀，false隐藏；默认关闭，刷新页面后生效');
 
 
 -- ----------------------------
@@ -2456,7 +2457,7 @@ VALUES ('OpenAI', 'openai', 'OpenAI官方模型 (GPT-4, GPT-3.5等)', 1),
 
 INSERT INTO sai_model_config VALUES (1, 5, 'glm-5.1', 'glm-5.1', 'CHAT', 'openai-compatible', '', '', 'https://dashscope.aliyuncs.com/compatible-mode/v1', '{\"frequencyPenalty\":0.0,\"maxTokens\":20000,\"presencePenalty\":0.0,\"stopSequences\":[],\"stream\":true,\"temperature\":0.7,\"timeoutMs\":300000,\"topK\":1,\"topP\":1.0}', NULL, 'GLOBAL', 1, 1, NOW(), NOW());
 
--- 默认 AI 助手：显式绑定对话模型 id=1；首次使用只需在 AI 控制台补充 API Key。
+-- 默认 AI 助手：显式绑定默认对话模型 id=1；首次使用只需在 AI 控制台补充 API Key。
 INSERT INTO sai_agent (id, name, description, avatar, instruction, greeting, preset_questions, chat_model_id, memory_enabled, mcp_enabled, skill_enabled, web_search_enabled, rag_enabled, rag_ids, rag_call_mode, short_term_memory_size, creator_id, is_featured, view_count, status, config, app_id, create_dt, update_dt)
 VALUES (1, 'IWS+ 助手', 'IWS+ 默认通用助手，首次使用只需为默认对话模型补充 API Key。', NULL, '你是 IWS+ 的默认通用助手。请用简体中文准确、简洁地回答用户问题，必要时给出操作步骤和示例。你不直接执行仓储、生产或外部系统中的真实操作；涉及实际变更时，请提示用户通过对应业务页面确认和处理。', '你好，我是 IWS+ 助手，可以为你解答系统使用和日常工作中的问题。', '["IWS+ 可以帮我处理哪些工作？","怎么查看指定仓库的库存？","计划事件平台怎么使用？"]', 1, 1, 0, 0, 0, 0, NULL, 1, 20, 1, 1, 0, 1, NULL, '1', NOW(), NOW());
 
