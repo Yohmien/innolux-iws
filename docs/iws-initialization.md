@@ -25,7 +25,7 @@ $initCredential = Get-Credential -UserName '<部署账号>'
 | --- | --- |
 | 框架、系统、生成器、调度、工作流、AI 平台 | 81 张表 |
 | WMS SMT 核心 | 20 张表 |
-| endpoint | 6 张表，唯一 `CATALOG` 控制行（revision 为 0），默认环境 `TEST`（测试环境）1 行 |
+| endpoint | 6 张表，唯一 `CATALOG` 控制行（revision 为 0），默认环境 `TEST`（测试环境）与系统 `IWS` 各 1 行 |
 | process | 16 张配置及运行表 |
 | APK 应用版本管理 | 1 张版本表，独立应用包管理页面 |
 | SnailAI 默认应用 | 1 行 `sai_app`，`app_id=1`，供主服务默认配置接入 |
@@ -60,7 +60,7 @@ SnailJob 组使用与 dev/prod 客户端配置相同的令牌，命名空间 `un
 
 执行中断后先查明已创建对象和失败点，保留日志。入口会拒绝部分初始化的非空库，并在 `ALTER DATABASE` 之前停止；应由部署负责人根据实际状态决定修复或另选全新目标。脚本不自动删除、清空或重建已有库。
 
-APK 功能还需要完成“系统接入配置”的当前环境与 `IWS` 系统启用，以及“应用包管理”的发布计划初始化；具体页面字段、配置覆盖和失败重试顺序见 [APK 应用包管理](apk-management.md#发布前置检查)。
+APK 功能还需要完成“系统接入配置”的当前环境与 `IWS` 系统启用，以及“应用包管理”的发布计划初始化。已有默认环境但缺少或停用 `IWS` 时，可执行幂等脚本 `script/sql/iws_endpoint_default_iws_system.sql`；具体页面字段、配置覆盖和失败重试顺序见 [APK 应用包管理](apk-management.md#发布前置检查)。
 
 ## 已有库升级
 
@@ -86,7 +86,7 @@ Get-Content -Raw -Encoding UTF8 script/sql/iws_snailai_default_agent.sql |
 
 | 检查 | 结果 |
 | --- | --- |
-| 最终版入口从不存在的库开始执行 | 成功：124 表、230 菜单、53 平台菜单、IWS 与 SnailJob 初始管理员各 1、SnailAI 默认应用 1 行、默认 AI 助手 1 行、默认对话模型 1 行、OpenAPI 用户 0 行、用户订阅 0 行、默认环境 `TEST` 1 行、SnailJob 命名空间 2 行与 `iws_group` 组 2 行、控制版本 0，WMS 和 process 业务行均为 0 |
+| 最终版入口从不存在的库开始执行 | 成功：124 表、230 菜单、53 平台菜单、IWS 与 SnailJob 初始管理员各 1、SnailAI 默认应用 1 行、默认 AI 助手 1 行、默认对话模型 1 行、OpenAPI 用户 0 行、用户订阅 0 行、默认环境 `TEST` 1 行、系统 `IWS` 1 行、SnailJob 命名空间 2 行与 `iws_group` 组 2 行、控制版本 0，WMS 和 process 业务行均为 0 |
 | SnailAI 默认应用升级脚本 | 首次新增 1 行；重复执行保持 1 行且无变更；修改应用名后再次执行拒绝覆盖；缺少 `sai_app` 时前置失败 |
 | 默认 AI 助手种子与最终验收 | 初始化输出 `默认AI助手符合=1`；`sai_agent` 1 行（`id=1`、`IWS+ 助手`、`chat_model_id=1`）、`sai_model_config` 1 行、`sai_openapi_user` 0 行、`sai_user_agent` 0 行 |
 | 初始化回填段（隔离实例 13313 模拟用户） | 零订阅用户新增默认助手订阅 1 行；已有其他订阅的用户保持原订阅；重复执行 0 行 |
@@ -98,7 +98,7 @@ Get-Content -Raw -Encoding UTF8 script/sql/iws_snailai_default_agent.sql |
 | 2026-10-24 旧行为：已有空库排序为 `utf8mb4_0900_ai_ci` | 拒绝，新增表数为 0；这是历史结果，不代表当前新行为 |
 | 与基础 SQL、WMS 核心及平台升级生成的参考结构比较 | 已有 reference/full 列及索引元数据文件字节一致；本轮新增管理员只改变必要种子 |
 | PowerShell 解析 | 通过 |
-| 2026-10-26 默认环境种子（隔离实例 13312） | 初始化输出 `默认环境 TEST`、`空库全量初始化完成`；升级脚本首次新增并把目录版本推进到 1，重复执行保持 1 行且不推进版本，自定义同名环境保留原值，缺少 endpoint 表时前置失败且不写入 |
+| 2026-10-26 默认目录种子（隔离实例） | 初始化输出 `默认环境 TEST` 与 `默认系统 IWS`、`空库全量初始化完成`；升级脚本首次新增环境/系统并把目录版本推进一次，重复执行不推进版本，自定义同名配置保留原值，已存在但停用时明确失败，缺少 endpoint 表时前置失败且不写入 |
 
 证据目录：`C:/Users/yohmi/.codex/visualizations/2026/10/23/01a168da-b04a-7d72-965e-62d12c45cc0d/mysql-init`，最终首跑见 `delivery-first-run.log`，拒绝路径及快照见 `delivery-verification.json` 和对应日志。此前带反引号库名的成功记录为 `tick-entry.log`，与最终版普通库名首跑分开记录。SnailAI 默认应用隔离验证脚本为 `C:/Users/yohmi/.codex/visualizations/2026/10/26/01a176ae-6f59-7b21-aea2-4f72e9a5a858/verify_snailai_mysql.py`。
 

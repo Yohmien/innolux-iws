@@ -144,13 +144,13 @@ WMS SMT 电子仓标准数据模型详见 `docs/wms-smt-standard-data-model.md`�
 
 ## 计划事件平台首次启用
 
-空库初始化已登记默认环境 `TEST`（测试环境），`application.yml` 的 `iws.endpoint.current-environment` 也默认指向 `TEST`，两个模块开关保持 `false`。首次启用按以下顺序操作，开关位于同一文件的 `iws.endpoint`、`iws.process` 段。
+空库初始化已登记默认环境 `TEST`（测试环境）与系统 `IWS`，`application.yml` 的 `iws.endpoint.current-environment` 也默认指向 `TEST`，两个模块开关保持 `false`。首次启用按以下顺序操作，开关位于同一文件的 `iws.endpoint`、`iws.process` 段。
 
 1. 保持 `iws.process.enabled=false`，只打开 `iws.endpoint.enabled=true`，启动主服务，确认 `系统接入配置` 的环境、系统定义、系统地址三个页面可用。
 2. 需要接正式环境时，在 `环境配置` 新增对应环境码（例如 `PROD`）并设为启用，把 `iws.endpoint.current-environment` 改成该码后重启。当前环境只来自部署配置，页面上的选择不会切换运行时环境；`TEST` 行可保留或停用。
 3. 确认 endpoint 页面正常，再打开 `iws.process.enabled=true`。`iws.process.scheduler.enabled` 继续保持 `false`；需要后台队列与监督任务时，连同 `snail-job.enabled=true` 一起开启，`control-batch-limit`、`control-poll-interval-ms` 已有正数默认值，空库初始化也已建好 SnailJob 命名空间与 `iws_group` 组。APK 发布走 IMMEDIATE，不需要调度和该组。
 
-`iws.process.enabled=true` 启动时会校验当前环境已登记且启用：环境未配置报 `iws.process.enabled=true 需要配置 iws.endpoint.current-environment 并指向已启用环境`，环境不存在或已停用报 `iws.process.enabled=true 的当前环境不存在或未启用: <环境码>`。把 `current-environment` 指向没登记的环境码同样会命中。已有库缺少默认环境时，在 `环境配置` 补一行 `TEST` 并启用后再启动。
+`iws.process.enabled=true` 启动时会校验当前环境已登记且启用：环境未配置报 `iws.process.enabled=true 需要配置 iws.endpoint.current-environment 并指向已启用环境`，环境不存在或已停用报 `iws.process.enabled=true 的当前环境不存在或未启用: <环境码>`。把 `current-environment` 指向没登记的环境码同样会命中。已有库缺少默认环境时执行 `script/sql/iws_endpoint_default_environment.sql`；缺少或停用系统 `IWS` 时执行 `script/sql/iws_endpoint_default_iws_system.sql`，也可在对应页面手工新增并启用。
 
 ## 代码文件头规范
 
