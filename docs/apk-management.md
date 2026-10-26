@@ -12,7 +12,7 @@
 
 1. 启动主服务时只启用 endpoint：在原 `dev` 参数后追加 `--iws.endpoint.enabled=true`，process 仍关闭。
 2. 用系统管理员进入“系统接入配置”，确认默认环境 `TEST` 和系统码 `IWS` 均已启用。新版空库初始化会同时预置两项；升级旧库可用 `iws_endpoint_default_environment.sql` 补齐。
-3. 重启主服务并设置 `--spring.profiles.active=dev,apk`。`application-apk.yml` 启用 endpoint/process 和有界 IMMEDIATE 资源；当前环境继承主配置 `iws.endpoint.current-environment`，不单独定义环境变量。后台队列调度仍关闭。
+3. 重启主服务并设置 `--spring.profiles.active=dev,apk`。`application-apk.yml` 只启用 endpoint/process；IMMEDIATE 的 `max-concurrency=4` 和 `response-reserve-ms=500` 已由主 `application.yml` 提供正数默认值，后台队列调度仍关闭。
 4. 进入“系统管理 → 应用包管理”，点击“初始化发布计划”，由平台服务创建并发布 APK 业务计划和即时监督计划。重复点击只核验既有定义，冲突会明确报错。
 5. 启动 MinIO，上传目标 PDA 的 APK，并按版本设置是否强制更新。启用强制更新前确认版本为“已发布”；服务端尚无该包的已发布版本时，PDA 跳过更新检查。
 
@@ -25,8 +25,9 @@
 | 当前环境 | `iws.endpoint.current-environment` | 配成环境的稳定编码，例如 `TEST`；不能为空 |
 | 环境启用 | “系统接入配置 → 环境配置” | 环境列表中存在相同编码，并标记为“当前环境”且状态为“启用” |
 | IWS 系统 | “系统接入配置 → 系统定义” | 存在启用的系统码 `IWS` |
+| IMMEDIATE 资源 | `iws.process.immediate` | `max-concurrency`、`response-reserve-ms` 都是正数；主配置默认 `4`、`500` |
 
-`application.yml` 的开发默认当前环境是 `TEST`；`application-prod.yml` 当前将该值留空。使用生产 profile 时必须显式设置 `iws.endpoint.current-environment`，并确认页面存在同编码的启用环境。修改该配置后需要重启主服务；页面编辑只维护目录，不切换运行时环境。
+`application.yml` 的开发默认当前环境是 `TEST`；`application-prod.yml` 当前将该值留空。使用生产 profile 时必须显式设置 `iws.endpoint.current-environment`，并确认页面存在同编码的启用环境。修改当前环境或 IMMEDIATE 资源后需要重启主服务；页面编辑只维护目录，不切换运行时环境。
 
 空库初始化会同时创建启用的 `TEST` 和 `IWS`。已有库缺少环境时执行 `script/sql/iws_endpoint_default_environment.sql`；已有环境但缺少或停用 `IWS` 时，执行 `script/sql/iws_endpoint_default_iws_system.sql`。两个脚本都可重复执行，执行后须确认“门禁结果”为 `1`；自定义的既有系统名称和说明会保留。
 

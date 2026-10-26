@@ -34,7 +34,7 @@
 7. 配置业务调度和计划定义，完成发布检查与空数据检查后，再按业务窗口启动作业。
 8. 只有 `iws.process.enabled=true`、`iws.process.scheduler.enabled=true`、`snail-job.enabled=true` 同时成立，job 侧才注册监督执行器和 `QUEUE` 事件 worker。`iws.process.scheduler.control-batch-limit` 与 `control-poll-interval-ms` 已在 `application.yml` 提供正数默认值，按部署规模调整即可。空库初始化已建好命名空间 `dev`/`prod` 与组 `iws_group`，组令牌与 `snail-job.token` 一致；已有库需在 SnailJob 后台组管理补建，否则执行器注册失败、任务无法分派。
 
-`IMMEDIATE` 另需正数 `iws.process.immediate.max-concurrency` 和 `iws.process.immediate.response-reserve-ms`；缺少任一项时即时执行返回 `NOT_READY`，不会自动转为排队执行。
+`IMMEDIATE` 另需正数 `iws.process.immediate.max-concurrency` 和 `iws.process.immediate.response-reserve-ms`；主 `application.yml` 已提供默认 `4` 和 `500`。缺少任一项时即时执行返回 `NOT_READY`，不会自动转为排队执行。
 
 菜单脚本生成 50 个 endpoint/process 权限码。为岗位逐项授予实际需要的完整权限码，覆盖目录配置、计划编辑与发布、实例操作、监督控制、事件恢复、请求记录和审计；斜线只表示同前缀下的多个完整权限码。
 
