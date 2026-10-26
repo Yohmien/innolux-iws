@@ -31,7 +31,7 @@ import com.innolux.iws.process.enums.OperationKind;
 import com.innolux.iws.process.enums.PostingMode;
 import com.innolux.iws.process.enums.WaitReason;
 import com.innolux.iws.process.mapper.ProcessTriggerReceiptMapper;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.process.runtime.StateContext;
 import com.innolux.iws.process.runtime.StateValidator;
 import com.innolux.iws.process.runtime.ValidationResult;
@@ -68,7 +68,7 @@ public class EventUpdateService {
 
     private final ProcessAttemptMapper attemptMapper;
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     /**
      * 构造更新服务。
@@ -85,7 +85,7 @@ public class EventUpdateService {
     public EventUpdateService(RuntimeDao runtimeDao, EventMutationService mutationService,
                               PlanActivationService activationService, CapabilityRegistry capabilityRegistry,
                               EndpointTargetResolver targetResolver, ProcessTriggerReceiptMapper receiptMapper,
-                              ProcessAttemptMapper attemptMapper, ObjectMapper objectMapper) {
+                              ProcessAttemptMapper attemptMapper, JsonMapper objectMapper) {
         this.runtimeDao = runtimeDao;
         this.mutationService = mutationService;
         this.activationService = activationService;
@@ -345,7 +345,7 @@ public class EventUpdateService {
     private String payloadJson(Map<String, ?> payload) {
         try {
             return objectMapper.writeValueAsString(payload);
-        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+        } catch (tools.jackson.core.JacksonException ex) {
             throw new ServiceException("输入引用序列化失败", ex);
         }
     }

@@ -14,9 +14,9 @@ package com.innolux.iws.process.runtime;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.process.domain.ProcessActionAudit;
 import com.innolux.iws.process.domain.ProcessAttempt;
@@ -65,7 +65,7 @@ public class RecoveryEvidenceService {
 
     private final ProcessAuditService auditService;
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     /**
      * 构造 QUERY 恢复证据服务。
@@ -78,7 +78,7 @@ public class RecoveryEvidenceService {
      */
     public RecoveryEvidenceService(ProcessEventMapper eventMapper, ProcessAttemptMapper attemptMapper,
                                    ProcessEventDefinitionMapper definitionMapper,
-                                   ProcessAuditService auditService, ObjectMapper objectMapper) {
+                                   ProcessAuditService auditService, JsonMapper objectMapper) {
         this.eventMapper = eventMapper;
         this.attemptMapper = attemptMapper;
         this.definitionMapper = definitionMapper;
@@ -310,7 +310,7 @@ public class RecoveryEvidenceService {
         checkpoint.put("recordedAt", now.toString());
         try {
             return objectMapper.writeValueAsString(checkpoint);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new ServiceException("恢复证据检查点序列化失败", ex);
         }
     }
@@ -324,7 +324,7 @@ public class RecoveryEvidenceService {
             return EVIDENCE_STATUS.equals(checkpoint.path("status").asText())
                 && checkpoint.path("queryEventId").asLong() == queryEventId
                 && checkpoint.path("queryAttemptId").asLong() == queryAttemptId;
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             return false;
         }
     }

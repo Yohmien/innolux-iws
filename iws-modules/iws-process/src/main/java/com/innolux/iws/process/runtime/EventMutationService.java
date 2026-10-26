@@ -13,8 +13,8 @@ package com.innolux.iws.process.runtime;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.process.domain.PlanDefinition;
 import com.innolux.iws.process.domain.ProcessActionAudit;
@@ -73,7 +73,7 @@ public class EventMutationService {
 
     private final ProcessAuditService auditService;
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     private final PlanActivationService activationService;
 
@@ -101,7 +101,7 @@ public class EventMutationService {
     public EventMutationService(RuntimeDao runtimeDao, ProcessEventMapper eventMapper,
                                 ProcessAttemptMapper attemptMapper, ProcessTokenMapper tokenMapper,
                                 ProcessInstanceMapper instanceMapper, ProcessScheduleControlMapper controlMapper,
-                                ProcessAuditService auditService, ObjectMapper objectMapper,
+                                ProcessAuditService auditService, JsonMapper objectMapper,
                                 PlanActivationService activationService, CallCapacityService callCapacityService,
                                 CapabilityRegistry capabilityRegistry, RecoveryEvidenceService recoveryEvidenceService,
                                 com.innolux.iws.process.mapper.ProcessRequestDetailMapper requestDetailMapper) {
@@ -984,7 +984,7 @@ public class EventMutationService {
     private String toJson(Map<String, Object> value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             return value.toString();
         }
     }
@@ -997,14 +997,14 @@ public class EventMutationService {
             return next;
         }
         try {
-            var merged = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(existing);
-            var original = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(existing);
-            merged.setAll((com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(next));
+            var merged = (tools.jackson.databind.node.ObjectNode) objectMapper.readTree(existing);
+            var original = (tools.jackson.databind.node.ObjectNode) objectMapper.readTree(existing);
+            merged.setAll((tools.jackson.databind.node.ObjectNode) objectMapper.readTree(next));
             if (original.has("sendIntent")) {
                 merged.set("sendIntent", original.get("sendIntent"));
             }
             return objectMapper.writeValueAsString(merged);
-        } catch (JsonProcessingException | ClassCastException ex) {
+        } catch (JacksonException | ClassCastException ex) {
             return next;
         }
     }

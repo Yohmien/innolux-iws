@@ -11,8 +11,8 @@
 
 package com.innolux.iws.process.runtime;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.core.exception.ServiceException;
 
 import java.util.List;
@@ -22,7 +22,7 @@ import java.util.List;
  */
 final class SupervisorDecisionStore {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
     private SupervisorDecisionStore() {
     }
@@ -36,7 +36,7 @@ final class SupervisorDecisionStore {
     static String toJson(Decision decision) {
         try {
             return MAPPER.writeValueAsString(decision);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new ServiceException("监督决策检查点序列化失败: " + ex.getMessage());
         }
     }
@@ -53,7 +53,7 @@ final class SupervisorDecisionStore {
         }
         try {
             return MAPPER.readValue(json, Decision.class);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new ServiceException("监督决策检查点损坏: " + ex.getMessage());
         }
     }

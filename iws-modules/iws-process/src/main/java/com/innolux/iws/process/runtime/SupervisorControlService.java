@@ -13,8 +13,8 @@ package com.innolux.iws.process.runtime;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.process.api.SupervisorControlResult;
 import com.innolux.iws.process.domain.PlanDefinition;
@@ -76,7 +76,7 @@ public class SupervisorControlService {
 
     private final CommandReceiptService commandReceiptService;
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     /**
      * 构造服务。
@@ -97,7 +97,7 @@ public class SupervisorControlService {
                                     ProcessAuditService auditService,
                                     ProcessObjectAuthorizer objectAuthorizer,
                                     CommandReceiptService commandReceiptService,
-                                    ObjectMapper objectMapper) {
+                                    JsonMapper objectMapper) {
         this.instanceMapper = instanceMapper;
         this.controlMapper = controlMapper;
         this.definitionMapper = definitionMapper;
@@ -455,7 +455,7 @@ public class SupervisorControlService {
                     "原命令已执行（幂等回放）", original.controlState(), original.desiredState(),
                     original.observedState(), original.revision(), original.wakePending(),
                     original.allowedActions());
-            } catch (JsonProcessingException ignored) {
+            } catch (JacksonException ignored) {
                 // 旧回执没有结构化结果时退回当前快照。
             }
         }
@@ -483,7 +483,7 @@ public class SupervisorControlService {
     private String toJson(SupervisorControlResult result) {
         try {
             return objectMapper.writeValueAsString(result);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new ServiceException("控制结果序列化失败: " + ex.getMessage());
         }
     }

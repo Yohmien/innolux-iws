@@ -12,8 +12,8 @@
 package com.innolux.iws.process.runtime;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.process.domain.PlanDefinition;
 import com.innolux.iws.process.domain.ProcessEdge;
@@ -88,7 +88,7 @@ public class PlanActivationService {
 
     private final ProcessScheduleControlMapper controlMapper;
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     /**
      * 构造激活服务。
@@ -105,7 +105,7 @@ public class PlanActivationService {
     public PlanActivationService(RuntimeDao runtimeDao, EventEligibilityService eligibilityService,
                                  BranchSelector branchSelector, ProcessEventMapper eventMapper,
                                  ProcessTokenMapper tokenMapper, ProcessInstanceMapper instanceMapper,
-                                 ProcessScheduleControlMapper controlMapper, ObjectMapper objectMapper) {
+                                 ProcessScheduleControlMapper controlMapper, JsonMapper objectMapper) {
         this.runtimeDao = runtimeDao;
         this.eligibilityService = eligibilityService;
         this.branchSelector = branchSelector;
@@ -233,7 +233,7 @@ public class PlanActivationService {
             facts.put("checkpoint.raw", checkpointJson);
             return;
         }
-        node.fields().forEachRemaining(entry -> {
+        node.properties().forEach(entry -> {
             if (entry.getValue() != null && !entry.getValue().isNull()) {
                 facts.put("checkpoint." + entry.getKey(), entry.getValue().isValueNode()
                     ? entry.getValue().asText() : entry.getValue().toString());

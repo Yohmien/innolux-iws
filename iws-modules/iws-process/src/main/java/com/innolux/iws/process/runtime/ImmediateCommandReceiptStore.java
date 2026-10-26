@@ -12,8 +12,8 @@
 package com.innolux.iws.process.runtime;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 import com.innolux.iws.process.api.ExecuteImmediateCommand;
 import com.innolux.iws.process.api.ImmediateExecutionVO;
 import com.innolux.iws.process.domain.ProcessActionAudit;
@@ -45,7 +45,7 @@ public class ImmediateCommandReceiptStore {
 
     private final ProcessAuditService auditService;
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     /**
      * 构造回执存储。
@@ -55,7 +55,7 @@ public class ImmediateCommandReceiptStore {
      * @param objectMapper JSON 映射器
      */
     public ImmediateCommandReceiptStore(ProcessActionAuditMapper auditMapper, ProcessAuditService auditService,
-                                        ObjectMapper objectMapper) {
+                                        JsonMapper objectMapper) {
         this.auditMapper = auditMapper;
         this.auditService = auditService;
         this.objectMapper = objectMapper;
