@@ -120,13 +120,14 @@ INSERT INTO tmp_iws_apk_cols
 (7,  'file_size',            'bigint',        'NO',  NULL,       '', NULL,      NULL),
 (8,  'oss_id',               'bigint',        'NO',  NULL,       '', NULL,      NULL),
 (9,  'status',               'varchar(20)',   'NO',  'UPLOADED', '', 'utf8mb4', 'utf8mb4_general_ci'),
-(10, 'process_instance_id',  'bigint',        'YES', NULL,       '', NULL,      NULL),
-(11, 'remark',               'varchar(500)',  'YES', NULL,       '', 'utf8mb4', 'utf8mb4_general_ci'),
-(12, 'create_dept',          'bigint',        'YES', NULL,       '', NULL,      NULL),
-(13, 'create_by',            'bigint',        'YES', NULL,       '', NULL,      NULL),
-(14, 'create_time',          'datetime',      'YES', NULL,       '', NULL,      NULL),
-(15, 'update_by',            'bigint',        'YES', NULL,       '', NULL,      NULL),
-(16, 'update_time',          'datetime',      'YES', NULL,       '', NULL,      NULL);
+(10, 'force_update',         'tinyint(1)',    'NO',  '1',        '', NULL,      NULL),
+(11, 'process_instance_id',  'bigint',        'YES', NULL,       '', NULL,      NULL),
+(12, 'remark',               'varchar(500)',  'YES', NULL,       '', 'utf8mb4', 'utf8mb4_general_ci'),
+(13, 'create_dept',          'bigint',        'YES', NULL,       '', NULL,      NULL),
+(14, 'create_by',            'bigint',        'YES', NULL,       '', NULL,      NULL),
+(15, 'create_time',          'datetime',      'YES', NULL,       '', NULL,      NULL),
+(16, 'update_by',            'bigint',        'YES', NULL,       '', NULL,      NULL),
+(17, 'update_time',          'datetime',      'YES', NULL,       '', NULL,      NULL);
 
 INSERT INTO tmp_iws_apk_idxs
 (index_name, non_unique, seq_in_index, column_name, sub_part, index_type) VALUES
@@ -226,7 +227,7 @@ SET @apk_actual_column_count = (
 );
 INSERT INTO tmp_iws_apk_conflicts (object_key, reason)
 SELECT 'sys_apk_release', CONCAT('列数量与目标不一致：', @apk_actual_column_count)
-WHERE @apk_table_ok = 1 AND @apk_actual_column_count <> 16;
+WHERE @apk_table_ok = 1 AND @apk_actual_column_count <> 17;
 
 INSERT INTO tmp_iws_apk_conflicts (object_key, reason)
 SELECT DISTINCT 'sys_apk_release', CONCAT('索引定义不一致：', e.index_name)
@@ -351,6 +352,7 @@ SET @apk_create_sql = IF(@apk_preflight_ok = 1 AND @apk_named_table_count = 0, C
     '`file_size` bigint NOT NULL,',
     '`oss_id` bigint NOT NULL,',
     '`status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT ''UPLOADED'',',
+    '`force_update` tinyint(1) NOT NULL DEFAULT 1,',
     '`process_instance_id` bigint DEFAULT NULL,',
     '`remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,',
     '`create_dept` bigint DEFAULT NULL,',
