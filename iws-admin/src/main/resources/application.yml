@@ -256,6 +256,11 @@ iws:
     current-environment: TEST
   process:
     enabled: false
+    immediate:
+      # IMMEDIATE 准入并发数，必须为正数
+      max-concurrency: ${IWS_APK_MAX_CONCURRENCY:4}
+      # HTTP 响应收口预留毫秒数，必须为正数
+      response-reserve-ms: ${IWS_APK_RESPONSE_RESERVE_MS:500}
     scheduler:
       enabled: false
       # 控制意图协调批次上限，须为正数
