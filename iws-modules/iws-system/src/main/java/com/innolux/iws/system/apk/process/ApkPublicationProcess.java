@@ -16,6 +16,8 @@ import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.common.mybatis.core.page.PageQuery;
 import com.innolux.iws.endpoint.catalog.EndpointCatalogReader;
 import com.innolux.iws.endpoint.catalog.EndpointCatalogSnapshot;
+import com.innolux.iws.endpoint.catalog.EndpointEnvironmentSnapshot;
+import com.innolux.iws.endpoint.catalog.EndpointSystemSnapshot;
 import com.innolux.iws.process.api.BusinessScheduleBo;
 import com.innolux.iws.process.api.BusinessScheduleVo;
 import com.innolux.iws.process.api.DefinitionDetailVo;
@@ -185,12 +187,36 @@ public class ApkPublicationProcess {
     private void requireCatalogReady() {
         EndpointCatalogReader reader = require(catalogProvider, "系统目录服务");
         EndpointCatalogSnapshot snapshot = reader.snapshot();
-        boolean currentEnvironment = snapshot.environments().stream().anyMatch(item ->
-            item.enabled() && item.environmentCode().equals(reader.currentEnvironmentCode()));
-        boolean self = snapshot.systems().stream().anyMatch(item -> item.enabled()
-            && ApkProcessContract.SELF_SYSTEM_CODE.equals(item.systemCode()));
-        if (!currentEnvironment || !self) {
-            throw new ServiceException("请先在接入目录启用当前环境和 IWS 本系统，再初始化 APK 发布计划");
+        validateCatalogReady(snapshot, reader.currentEnvironmentCode());
+    }
+
+    static void validateCatalogReady(EndpointCatalogSnapshot snapshot, String currentEnvironmentCode) {
+        String environmentCode = currentEnvironmentCode == null ? "" : currentEnvironmentCode.trim();
+        if (environmentCode.isEmpty()) {
+            throw new ServiceException("当前接入环境未配置：iws.endpoint.current-environment 为空，"
+                + "请设置环境码并在“系统接入配置 → 环境配置”启用该环境");
+        }
+        EndpointEnvironmentSnapshot environment = snapshot.environments().stream()
+            .filter(item -> environmentCode.equals(item.environmentCode()))
+            .findFirst()
+            .orElse(null);
+        if (environment == null) {
+            throw new ServiceException("当前接入环境不存在：" + environmentCode
+                + "，请在“系统接入配置 → 环境配置”新增并启用该环境");
+        }
+        if (!environment.enabled()) {
+            throw new ServiceException("当前接入环境未启用：" + environmentCode
+                + "，请在“系统接入配置 → 环境配置”启用该环境");
+        }
+        EndpointSystemSnapshot system = snapshot.systems().stream()
+            .filter(item -> ApkProcessContract.SELF_SYSTEM_CODE.equals(item.systemCode()))
+            .findFirst()
+            .orElse(null);
+        if (system == null) {
+            throw new ServiceException("接入目录缺少系统定义 IWS，请在“系统接入配置 → 系统定义”新增并启用系统码 IWS");
+        }
+        if (!system.enabled()) {
+            throw new ServiceException("接入目录中的系统 IWS 未启用，请在“系统接入配置 → 系统定义”启用该系统");
         }
     }
 

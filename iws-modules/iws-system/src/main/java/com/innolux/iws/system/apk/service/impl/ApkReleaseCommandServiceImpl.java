@@ -234,7 +234,8 @@ public class ApkReleaseCommandServiceImpl implements IApkReleaseCommandService {
         try {
             publicationProcess.publish(release.getReleaseId(), release.getSha256());
         } catch (RuntimeException ex) {
-            log.error("APK 发布失败，版本保持待重试: releaseId={}", release.getReleaseId(), ex);
+            log.error("APK 发布失败，版本保持待重试: releaseId={}, reason={}",
+                release.getReleaseId(), ex.getMessage(), ex);
         }
         ApkRelease latest = releaseMapper.selectById(release.getReleaseId());
         if (latest == null) {

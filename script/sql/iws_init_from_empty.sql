@@ -25,7 +25,7 @@
 -- 该脚本按顺序包含：
 --   1. 框架、系统、代码生成、调度、工作流与 AI 平台结构（81 张表）
 --   2. WMS SMT 核心结构（20 张表）
---   3. endpoint 结构（6 张表）、唯一 CATALOG 控制行与默认环境 TEST
+--   3. endpoint 结构（6 张表）、唯一 CATALOG 控制行、默认环境 TEST 与 IWS 系统
 --   4. process 结构（16 张表）
 --   5. endpoint/process 菜单和按钮权限（53 行）
 --   6. APK 发布记录表（1 张表）与系统管理菜单（5 行）
@@ -34,7 +34,7 @@
 -- 种子只保留系统运行所需的默认模板配置：部门/岗位/角色/菜单/字典/参数、
 -- 默认管理员、SnailJob 初始管理员与默认组、默认客户端、OSS 模板、流程分类和流程表达式、
 -- AI 模型提供者、默认对话模型、SnailAI 默认应用（app_id=1）、默认 AI 助手
--- （IWS+ 助手，显式绑定默认对话模型 id=1）及默认环境 TEST（测试环境）。
+-- （IWS+ 助手，显式绑定默认对话模型 id=1）、默认环境 TEST（测试环境）与 IWS 系统。
 -- 默认 AI 助手绑定默认对话模型，首次使用补 API Key 即可对话。
 -- 不包含测试账号、演示供应商、WMS 业务单据、计划/事件/实例、真实系统地址、
 -- 真实环境凭据或外部系统密钥。默认管理员及默认客户端属于初始化模板，
@@ -3707,13 +3707,47 @@ DEALLOCATE PREPARE ep_stmt;
 
 SET @ep_default_env_ok = IF(@ep_final_ok = 1 AND COALESCE(@ep_env_ok, 0) = 1, 1, 0);
 
+SET @ep_default_system_count_sql = CONCAT(
+    'SELECT COUNT(*) INTO @ep_system_count FROM ', @upgrade_schema_q,
+    '.iws_endpoint_system WHERE system_code = ''IWS'''
+);
+SET @ep_ddl = IF(@ep_final_ok = 1, @ep_default_system_count_sql, 'DO 0');
+PREPARE ep_stmt FROM @ep_ddl;
+EXECUTE ep_stmt;
+DEALLOCATE PREPARE ep_stmt;
+
+SET @ep_ddl = IF(@ep_final_ok = 1 AND COALESCE(@ep_system_count, 0) = 0, CONCAT(
+    'INSERT INTO ', @upgrade_schema_q, '.iws_endpoint_system',
+    ' (system_code, display_name, description, enabled, revision,',
+    ' create_by, create_time, update_by, update_time)',
+    ' VALUES (''IWS'', ''IWS+'', ''空库初始化默认系统，供 APK 等计划事件发布使用'',',
+    ' 1, 0, NULL, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP)'
+), 'DO 0');
+PREPARE ep_stmt FROM @ep_ddl;
+EXECUTE ep_stmt;
+DEALLOCATE PREPARE ep_stmt;
+
+SET @ep_default_system_check_sql = CONCAT(
+    'SELECT COUNT(*) INTO @ep_system_ok FROM ', @upgrade_schema_q, '.iws_endpoint_system',
+    ' WHERE system_code = ''IWS'' AND enabled = 1 AND revision = 0'
+);
+SET @ep_ddl = IF(@ep_final_ok = 1, @ep_default_system_check_sql, 'DO 0');
+PREPARE ep_stmt FROM @ep_ddl;
+EXECUTE ep_stmt;
+DEALLOCATE PREPARE ep_stmt;
+
+SET @ep_default_system_ok = IF(@ep_final_ok = 1 AND COALESCE(@ep_system_ok, 0) = 1, 1, 0);
+SET @ep_seed_ok = IF(@ep_final_ok = 1 AND @ep_default_env_ok = 1
+    AND @ep_default_system_ok = 1, 1, 0);
+
 SELECT
     IF(@ep_final_ok = 1, '系统接入配置结构升级完成', '系统接入配置结构升级失败') AS `执行结果`,
     @upgrade_schema AS `目标库`,
     @ep_final_revision AS `目录版本`,
-    IF(@ep_default_env_ok = 1, 'TEST', '未写入') AS `默认环境`;
+    IF(@ep_default_env_ok = 1, 'TEST', '未写入') AS `默认环境`,
+    IF(@ep_default_system_ok = 1, 'IWS', '未写入') AS `默认系统`;
 
-SELECT JSON_EXTRACT(IF(@ep_final_ok = 1, '{}', 'invalid'), '$') AS `最终校验`;
+SELECT JSON_EXTRACT(IF(@ep_seed_ok = 1, '{}', 'invalid'), '$') AS `最终校验`;
 
 -- 后置验收查询：供执行人独立复核。
 SELECT table_name AS `表名`, engine AS `存储引擎`, table_collation AS `排序规则`
@@ -5612,6 +5646,13 @@ SET @init_final_endpoint_default_environment_ok = (
       AND enabled = 1
       AND revision = 0
 );
+SET @init_final_endpoint_default_system_ok = (
+    SELECT COUNT(*) = 1
+    FROM iws_endpoint_system
+    WHERE system_code = 'IWS'
+      AND enabled = 1
+      AND revision = 0
+);
 SET @init_final_endpoint_business_rows = (
     (SELECT COUNT(*) FROM iws_endpoint_system)
   + (SELECT COUNT(*) FROM iws_endpoint_address)
@@ -5690,7 +5731,8 @@ SET @init_final_ok = (
     AND @init_final_control_revision = 0
     AND @init_final_endpoint_environment_count = 1
     AND @init_final_endpoint_default_environment_ok = 1
-    AND @init_final_endpoint_business_rows = 0
+    AND @init_final_endpoint_default_system_ok = 1
+    AND @init_final_endpoint_business_rows = 1
     AND @init_final_process_rows = 0
     AND @init_final_wms_rows = 0
     AND @init_final_demo_rows = 0
@@ -5709,6 +5751,7 @@ SELECT
     @init_final_ai_default_agent_ok AS `默认AI助手符合`,
     @init_final_control_revision AS `目录控制版本`,
     IF(@init_final_endpoint_default_environment_ok = 1, 'TEST', '缺失') AS `默认环境`,
+    IF(@init_final_endpoint_default_system_ok = 1, 'IWS', '缺失') AS `默认系统`,
     @init_final_wms_rows AS `WMS业务行`,
     @init_final_process_rows AS `计划事件运行行`,
     IF(@init_final_ok = 1, '空库全量初始化完成', '最终验收失败，请检查上述不变量') AS `执行结果`;
