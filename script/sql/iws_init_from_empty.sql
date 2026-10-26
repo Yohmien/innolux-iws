@@ -18,8 +18,10 @@
 --     --default-character-set=utf8mb4 --database=<目标库> --batch --raw \
 --     --execute="source script/sql/iws_init_from_empty.sql"
 --
--- SQL 前置校验会拒绝非 MySQL 8.0、非 utf8mb4_general_ci 或已有任何表/视图/
--- 存储程序/触发器/事件的 schema。mysql 执行不得添加 --force；首个错误必须停止。
+-- SQL 从 DATABASE() 识别当前库，确认 MySQL 8.0 且库完全为空后，自动将默认
+-- 字符集/排序规则调整为 utf8mb4/utf8mb4_general_ci（需要 ALTER 权限）。
+-- 未选库或已有表/视图/存储程序/触发器/事件时拒绝；不会调整非空库。
+-- mysql 执行不得添加 --force；首个错误必须停止。
 -- 该脚本按顺序包含：
 --   1. 框架、系统、代码生成、调度、工作流与 AI 平台结构（81 张表）
 --   2. WMS SMT 核心结构（20 张表）
@@ -73,6 +75,23 @@ SET @init_empty_ok = (
     AND @init_existing_routines = 0
     AND @init_existing_triggers = 0
     AND @init_existing_events = 0
+);
+-- 仅在所有基础条件成立且目标完全为空时调整默认规则；不转换已有表。
+SET @init_prepare_ok = (
+    @init_schema_ok = 1
+    AND @init_version_ok = 1
+    AND @init_table_case_setting_ok = 1
+    AND @init_empty_ok = 1
+);
+-- MySQL 8.0 不支持 PREPARE ALTER DATABASE；省略库名即操作当前连接库，
+-- 与上方 DATABASE() 目标一致。执行器必须在门禁失败时停止，禁止 --force/GUI 续错。
+SELECT JSON_EXTRACT(IF(@init_prepare_ok = 1, '{}', 'invalid'), '$') AS `空库调整前校验`;
+ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+SET @init_collation_ok = (
+    SELECT COUNT(*) = 1 FROM information_schema.SCHEMATA
+    WHERE CAST(SCHEMA_NAME AS BINARY) = CAST(@init_schema AS BINARY)
+      AND DEFAULT_CHARACTER_SET_NAME = 'utf8mb4'
+      AND DEFAULT_COLLATION_NAME = 'utf8mb4_general_ci'
 );
 SET @init_preflight_ok = (
     @init_schema_ok = 1
