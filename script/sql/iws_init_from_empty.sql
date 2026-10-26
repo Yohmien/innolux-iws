@@ -32,7 +32,7 @@
 -- 共 124 张表。
 --
 -- 种子只保留系统运行所需的默认模板配置：部门/岗位/角色/菜单/字典/参数、
--- 默认管理员、SnailJob 初始管理员、默认客户端、OSS 模板、流程分类和流程表达式、
+-- 默认管理员、SnailJob 初始管理员与默认组、默认客户端、OSS 模板、流程分类和流程表达式、
 -- AI 模型提供者、SnailAI 默认应用（app_id=1）及默认环境 TEST（测试环境）。
 -- 不包含测试账号、演示供应商、WMS 业务单据、计划/事件/实例、真实系统地址、
 -- 真实环境凭据或外部系统密钥。默认管理员及默认客户端属于初始化模板，
@@ -2557,6 +2557,20 @@ CREATE TABLE `wms_warehouse_zone` (
 -- 沿用基础初始化脚本的 SnailJob 模板管理员；部署后更换默认密码。
 INSERT INTO `sj_system_user` (`username`, `password`, `role`)
 VALUES ('admin', '465c194afb65670f38322df087f0a9bb225cc257e43eb4ac5a0c98ef5b3173ac', 2);
+
+-- SnailJob 命名空间与默认组：客户端按 snail-job.namespace（默认取 profile 名）和 group 注册；
+-- 组缺失或令牌不一致时执行器注册失败，QUEUE 事件与监督任务无处可派。
+SET @init_snailjob_group_token = 'SJ_cKqBTPzCsWA3VyuCfFoccmuIEGXjr5KT';
+INSERT INTO `sj_namespace` (`id`, `name`, `unique_id`, `description`, `deleted`, `create_dt`, `update_dt`)
+VALUES (1, 'Development', 'dev', '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+       (2, 'Production', 'prod', '', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+INSERT INTO `sj_group_config` (`id`, `namespace_id`, `group_name`, `description`, `token`,
+                               `group_status`, `version`, `group_partition`, `id_generator_mode`,
+                               `init_scene`, `create_dt`, `update_dt`)
+VALUES (1, 'dev', 'iws_group', '', @init_snailjob_group_token, 1, 1, 0, 1, 1,
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+       (2, 'prod', 'iws_group', '', @init_snailjob_group_token, 1, 1, 0, 1, 1,
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO `sys_dept` (`dept_id`, `parent_id`, `ancestors`, `dept_name`, `dept_category`, `order_num`, `leader`, `phone`, `email`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1761000000000000100,0,'0','IWS+',NULL,0,NULL,'15888888888','wms@innolux.com','0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:51',NULL,NULL);
 INSERT INTO `sys_dept` (`dept_id`, `parent_id`, `ancestors`, `dept_name`, `dept_category`, `order_num`, `leader`, `phone`, `email`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1761000000000000101,1761000000000000100,'0,1761000000000000100','INNOLUX',NULL,1,NULL,'15888888888','wms@innolux.com','0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:51',NULL,NULL);
@@ -5527,6 +5541,17 @@ SET @init_final_user_count = (SELECT COUNT(*) FROM sys_user);
 SET @init_final_job_admin_count = (
     SELECT COUNT(*) FROM sj_system_user WHERE username = 'admin' AND role = 2
 );
+SET @init_final_snailjob_namespace_count = (
+    SELECT COUNT(*) FROM sj_namespace WHERE deleted = 0 AND unique_id IN ('dev', 'prod')
+);
+SET @init_final_snailjob_group_ok = (
+    SELECT COUNT(*) = 2
+    FROM sj_group_config
+    WHERE group_name = 'iws_group'
+      AND group_status = 1
+      AND namespace_id IN ('dev', 'prod')
+      AND CAST(token AS BINARY) = CAST(@init_snailjob_group_token AS BINARY)
+);
 SET @init_final_dict_type_count = (SELECT COUNT(*) FROM sys_dict_type);
 SET @init_final_dict_data_count = (SELECT COUNT(*) FROM sys_dict_data);
 SET @init_final_client_count = (SELECT COUNT(*) FROM sys_client);
@@ -5622,6 +5647,8 @@ SET @init_final_ok = (
     AND @init_final_role_menu_count = 133
     AND @init_final_user_count = 1
     AND @init_final_job_admin_count = 1
+    AND @init_final_snailjob_namespace_count = 2
+    AND @init_final_snailjob_group_ok = 1
     AND @init_final_dict_type_count = 13
     AND @init_final_dict_data_count = 55
     AND @init_final_client_count = 2
@@ -5650,6 +5677,7 @@ SELECT
     @init_final_event_menu_count AS `计划事件菜单数`,
     @init_final_user_count AS `默认管理员数`,
     @init_final_job_admin_count AS `调度初始管理员数`,
+    @init_final_snailjob_group_ok AS `默认组符合`,
     @init_final_ai_app_count AS `默认AI应用数`,
     @init_final_ai_default_app_ok AS `默认AI应用符合`,
     @init_final_control_revision AS `目录控制版本`,
