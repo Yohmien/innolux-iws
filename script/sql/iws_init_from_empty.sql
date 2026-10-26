@@ -33,7 +33,9 @@
 --
 -- 种子只保留系统运行所需的默认模板配置：部门/岗位/角色/菜单/字典/参数、
 -- 默认管理员、SnailJob 初始管理员与默认组、默认客户端、OSS 模板、流程分类和流程表达式、
--- AI 模型提供者、SnailAI 默认应用（app_id=1）及默认环境 TEST（测试环境）。
+-- AI 模型提供者、默认对话模型、SnailAI 默认应用（app_id=1）、默认 AI 助手
+-- （IWS+ 助手，显式绑定对话模型 id=1）及默认环境 TEST（测试环境）。
+-- 默认 AI 助手绑定对话模型，首次使用补 API Key 即可对话。
 -- 不包含测试账号、演示供应商、WMS 业务单据、计划/事件/实例、真实系统地址、
 -- 真实环境凭据或外部系统密钥。默认管理员及默认客户端属于初始化模板，
 -- 部署后应在受控流程中立即更换；默认 SnailAI 应用 token 使用主服务 dev/prod
@@ -3055,10 +3057,24 @@ INSERT INTO `sai_model_provider` (`id`, `provider_name`, `provider_key`, `descri
 INSERT INTO `sai_model_provider` (`id`, `provider_name`, `provider_key`, `description`, `icon_url`, `is_enabled`, `created_dt`, `updated_dt`) VALUES (7,'智谱AI','zhipu','智谱AI OpenAI 兼容模型 (GLM等)',NULL,1,'2026-10-23 13:05:59','2026-10-23 13:05:59');
 INSERT INTO `sai_model_config` (`id`, `provider_id`, `model_name`, `model_key`, `model_type`, `adapter_key`, `description`, `api_key`, `api_endpoint`, `config_json`, `owner_id`, `scope`, `is_default`, `is_enabled`, `created_dt`, `updated_dt`) VALUES (1,5,'glm-5.1','glm-5.1','CHAT','openai-compatible','','','https://dashscope.aliyuncs.com/compatible-mode/v1','{\"frequencyPenalty\":0.0,\"maxTokens\":20000,\"presencePenalty\":0.0,\"stopSequences\":[],\"stream\":true,\"temperature\":0.7,\"timeoutMs\":300000,\"topK\":1,\"topP\":1.0}',NULL,'GLOBAL',1,1,'2026-10-23 13:05:59','2026-10-23 13:05:59');
 
+-- 默认 AI 助手：显式绑定对话模型 id=1；首次使用只需补 API Key。
+INSERT INTO `sai_agent` (`id`, `name`, `description`, `avatar`, `instruction`, `greeting`, `preset_questions`, `chat_model_id`, `memory_enabled`, `mcp_enabled`, `skill_enabled`, `web_search_enabled`, `rag_enabled`, `rag_ids`, `rag_call_mode`, `short_term_memory_size`, `creator_id`, `is_featured`, `view_count`, `status`, `config`, `app_id`, `create_dt`, `update_dt`)
+VALUES (1, 'IWS+ 助手', 'IWS+ 默认通用助手，首次使用只需为默认对话模型补充 API Key。', NULL, '你是 IWS+ 的默认通用助手。请用简体中文准确、简洁地回答用户问题，必要时给出操作步骤和示例。你不直接执行仓储、生产或外部系统中的真实操作；涉及实际变更时，请提示用户通过对应业务页面确认和处理。', '你好，我是 IWS+ 助手，可以为你解答系统使用和日常工作中的问题。', '["IWS+ 可以帮我处理哪些工作？","怎么查看指定仓库的库存？","计划事件平台怎么使用？"]', 1, 1, 0, 0, 0, 0, NULL, 1, 20, 1, 1, 0, 1, NULL, '1', NOW(), NOW());
+
 -- SnailAI 默认应用：业务键为 app_id，不依赖自增 id；token 与主服务默认接入配置一致。
 SET @init_snailai_default_app_token = 'SAI_566a6bfbc26e4998b4841cc927d50c5d';
 INSERT INTO `sai_app` (`app_id`, `app_name`, `description`, `token`, `route_strategy`, `status`)
 VALUES ('1', 'IWS+', 'IWS+ 主应用，供主服务 SnailAI 客户端接入', @init_snailai_default_app_token, 'LEAST_LOAD', 1);
+
+-- 已存在的 OpenAPI 用户若尚未订阅任何智能体，回填默认助手订阅；
+-- 新库没有 OpenAPI 用户，该段应为 0 行，不影响用户后续的订阅选择。
+INSERT INTO `sai_user_agent` (`user_id`, `agent_id`, `create_dt`)
+SELECT u.`platform_user_id`, 1, NOW()
+FROM `sai_openapi_user` u
+WHERE u.`app_id` = '1'
+  AND NOT EXISTS (
+      SELECT 1 FROM `sai_user_agent` ua WHERE ua.`user_id` = u.`platform_user_id`
+  );
 
 -- ----------------------------------------------------------------------------
 -- 系统接入配置 endpoint 表与唯一目录控制行
@@ -5560,10 +5576,17 @@ SET @init_final_flow_category_count = (SELECT COUNT(*) FROM flow_category);
 SET @init_final_flow_spel_count = (SELECT COUNT(*) FROM flow_spel);
 SET @init_final_ai_user_count = (SELECT COUNT(*) FROM sai_user);
 SET @init_final_ai_provider_count = (SELECT COUNT(*) FROM sai_model_provider);
-SET @init_final_ai_sample_rows = (
-    (SELECT COUNT(*) FROM sai_agent)
-  + (SELECT COUNT(*) FROM sai_openapi_user)
+SET @init_final_ai_agent_count = (SELECT COUNT(*) FROM sai_agent);
+SET @init_final_ai_default_agent_ok = (
+    SELECT COUNT(*) = 1
+    FROM sai_agent
+    WHERE id = 1
+      AND name = 'IWS+ 助手'
+      AND status = 1
+      AND app_id = '1'
+      AND chat_model_id = 1
 );
+SET @init_final_ai_openapi_user_count = (SELECT COUNT(*) FROM sai_openapi_user);
 SET @init_final_ai_app_count = (SELECT COUNT(*) FROM sai_app);
 SET @init_final_ai_default_app_ok = (
     SELECT COUNT(*) = 1
@@ -5659,7 +5682,9 @@ SET @init_final_ok = (
     AND @init_final_ai_provider_count = 7
     AND @init_final_ai_app_count = 1
     AND @init_final_ai_default_app_ok = 1
-    AND @init_final_ai_sample_rows = 0
+    AND @init_final_ai_agent_count = 1
+    AND @init_final_ai_default_agent_ok = 1
+    AND @init_final_ai_openapi_user_count = 0
     AND @init_final_control_count = 1
     AND @init_final_control_revision = 0
     AND @init_final_endpoint_environment_count = 1
@@ -5680,6 +5705,7 @@ SELECT
     @init_final_snailjob_group_ok AS `默认组符合`,
     @init_final_ai_app_count AS `默认AI应用数`,
     @init_final_ai_default_app_ok AS `默认AI应用符合`,
+    @init_final_ai_default_agent_ok AS `默认AI助手符合`,
     @init_final_control_revision AS `目录控制版本`,
     IF(@init_final_endpoint_default_environment_ok = 1, 'TEST', '缺失') AS `默认环境`,
     @init_final_wms_rows AS `WMS业务行`,
