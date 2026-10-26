@@ -894,11 +894,11 @@ create table sys_oss_config (
     primary key (oss_config_id)
 ) engine=innodb comment='对象存储配置表';
 
-insert into sys_oss_config values (1761900000000000001, 'minio', 'innolux', 'innolux123', 'innolux-wms', '', '127.0.0.1:9000', '', 'N', '', '1', 'Y', '', 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000001, sysdate(), null);
+insert into sys_oss_config values (1761900000000000001, 'minio', '<MINIO_ACCESS_KEY>', '<MINIO_SECRET_KEY>', 'innolux-iws', '', '127.0.0.1:9000', '', 'N', '', '0', 'Y', '', 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000001, sysdate(), null);
 insert into sys_oss_config values (1761900000000000002, 'qiniu', 'XXXXXXXXXXXXXXX', 'XXXXXXXXXXXXXXX', 'innolux-wms', '', 's3-cn-north-1.qiniucs.com', '', 'N', '', '1', 'N', '', 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000001, sysdate(), null);
 insert into sys_oss_config values (1761900000000000003, 'aliyun', 'XXXXXXXXXXXXXXX', 'XXXXXXXXXXXXXXX', 'innolux-wms', '', 'oss-cn-beijing.aliyuncs.com', '', 'N', '', '1', 'N', '', 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000001, sysdate(), null);
 insert into sys_oss_config values (1761900000000000004, 'qcloud', 'XXXXXXXXXXXXXXX', 'XXXXXXXXXXXXXXX', 'innolux-wms-1240000000', '', 'cos.ap-beijing.myqcloud.com', '', 'N', 'ap-beijing', '1', 'N', '', 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000001, sysdate(), null);
-insert into sys_oss_config values (1761900000000000005, 'image', 'innolux', 'innolux123', 'innolux-wms', 'image', '127.0.0.1:9000', '', 'N', '', '1', 'N', '', 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000001, sysdate(), null);
+insert into sys_oss_config values (1761900000000000005, 'image', '<MINIO_ACCESS_KEY>', '<MINIO_SECRET_KEY>', 'innolux-iws', 'image', '127.0.0.1:9000', '', 'N', '', '0', 'N', '', 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000001, sysdate(), null);
 
 -- ----------------------------
 -- 系统授权表
