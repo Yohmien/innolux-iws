@@ -14,6 +14,3 @@ iws:
     enabled: true
     scheduler:
       enabled: false
-    immediate:
-      max-concurrency: ${IWS_APK_MAX_CONCURRENCY:4}
-      response-reserve-ms: ${IWS_APK_RESPONSE_RESERVE_MS:500}
