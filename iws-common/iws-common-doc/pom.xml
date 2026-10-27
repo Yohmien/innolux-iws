@@ -45,10 +45,16 @@
             <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
         </dependency>
 
-        <!-- knife4j 接口文档界面（原生 starter，配合 springdoc 3 使用，提供 /doc.html 静态界面） -->
+        <!-- 接口文档 UI：提供 /v3/api-docs/swagger-config，NextDoc4j 页面据此读取分组 -->
         <dependency>
-            <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+
+        <!-- NextDoc4j 接口文档界面（/doc.html 与 /nextdoc/** 静态资源） -->
+        <dependency>
+            <groupId>top.nextdoc4j</groupId>
+            <artifactId>nextdoc4j-spring-boot-starter</artifactId>
         </dependency>
 
         <!-- JavaDoc 运行时读取 -->
