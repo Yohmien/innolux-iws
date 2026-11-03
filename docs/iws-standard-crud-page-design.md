@@ -1,5 +1,22 @@
 # IWS+ 标准表数据页设计
 
+## 当前实现基线（2026-10-19 校正）
+
+本文同时保留标准化目标和后续推广方案。实现事实以当前 `IwsCrudController`、`WmsSupplierServiceImpl`、`IwsCrudMetaRegistry`、`IwsCrudQueryValidator` 和 Web CRUD 组件为准；以下目标条款不能解释为已经交付。
+
+| 能力 | 当前实现 | 后续目标或限制 |
+| --- | --- | --- |
+| 标准页 | 供应商使用 `IwsCrudPage`，已有统一 hooks 与 API | 其他表需接入实际元数据和服务 |
+| 列表 | POST `/wms/crud/{tableCode}/list`，JSON `IwsTableQueryBo`，返回 `R<PageResult<...>>` | 不使用原文 GET 资源列表作为通用 WMS 路由 |
+| 详情 | Web 有 API 封装，控制器未提供 GET 详情路由 | 使用前需要补齐后端 |
+| 列配置 | Web localStorage 保存；后端更新共享运行时元数据 | 尚未按用户持久化和隔离，后端重启会丢失运行时修改 |
+| 字段白名单 | 查询、批量条件、排序和导出已有校验 | 不能推定新增、修改、导入全部字段权限已完成 |
+| 供应商导入 | 选择文件后同步解析写入，支持更新已有记录、行错误聚合与事务 | 未提供独立的预览后确认接口 |
+| 供应商导出 | 同步分批流式写入，批次 10000，单文件数据上限 1048575 | 尚无异步任务、进度与分片下载服务 |
+| 业务流程 | 有页面和表结构基础 | 不能认定入出库、库存变更、WCS 状态机已接通 |
+
+下文的字段配置落库、四级权限、大文件异步任务、导入预览和全部表推广属于目标设计，实施时按明确需求逐项验收。
+
 ## 1. 目标与边界
 
 本文定义 IWS+ 标准表数据页的统一设计，用于所有偏基础数据、单据数据、库存数据、历史数据和接口推送记录的数据展示与维护页面。
@@ -386,7 +403,9 @@ iws_user_table_search_setting
 
 ### 6.2 导入
 
-导入流程：
+当前供应商同步导入的事实见本文开头；以下预览、确认和异步流程为后续目标，不是现有接口行为。
+
+目标导入流程：
 
 ```text
 下载模板 -> 上传文件 -> 后端解析 -> 数据校验 -> 预览结果 -> 确认导入 -> 结果反馈
@@ -446,7 +465,7 @@ iws-modules/iws-wms
 ```text
 com.innolux.iws.wms
   controller
-  domain.entity
+  domain
   domain.bo
   domain.vo
   domain.dto
@@ -465,7 +484,7 @@ com.innolux.iws.wms
 | 包 | 职责 |
 | --- | --- |
 | `controller` | 接收请求、权限注解、参数校验、返回统一响应 |
-| `domain.entity` | 数据库实体，不放页面逻辑 |
+| `domain` | 数据库实体，不放页面逻辑 |
 | `domain.bo` | 查询、新增、修改入参 |
 | `domain.vo` | 列表、详情、导出返回对象 |
 | `domain.dto` | 导入、导出、元数据、批量操作 DTO |
@@ -478,37 +497,25 @@ com.innolux.iws.wms
 | `support.permission` | 字段权限、数据权限、动作权限 |
 | `enums` | 状态枚举、查询模式、导入导出状态 |
 
-### 8.3 标准接口
+### 8.3 当前标准接口
 
-| 方法 | 路径 | 说明 |
+通用入口为 `/wms/crud/{tableCode}`，当前接入表编码为 `wms_supplier`：
+
+| 方法 | 路径 | 当前职责 |
 | --- | --- | --- |
-| `GET` | `/wms/{resource}/meta` | 获取页面元数据 |
-| `GET` | `/wms/{resource}/list` | 分页查询 |
-| `GET` | `/wms/{resource}/{id}` | 详情 |
-| `POST` | `/wms/{resource}` | 新增 |
-| `PUT` | `/wms/{resource}` | 修改 |
-| `DELETE` | `/wms/{resource}/{ids}` | 删除 |
-| `POST` | `/wms/{resource}/export` | 导出 |
-| `POST` | `/wms/{resource}/import` | 导入 |
-| `POST` | `/wms/{resource}/template` | 导入模板 |
-| `POST` | `/wms/{resource}/columns` | 保存用户列配置 |
+| `GET` | `/wms/crud/{tableCode}/meta` | 页面元数据 |
+| `POST` | `/wms/crud/{tableCode}/list` | JSON 分页查询 |
+| `POST` | `/wms/crud/{tableCode}` | 新增 |
+| `PUT` | `/wms/crud/{tableCode}` | 修改 |
+| `DELETE` | `/wms/crud/{tableCode}/{ids}` | 删除 |
+| `POST` | `/wms/crud/{tableCode}/export` | JSON 导出请求 |
+| `POST` | `/wms/crud/{tableCode}/import` | multipart 文件与 updateSupport |
+| `POST` | `/wms/crud/{tableCode}/template` | 导入模板 |
+| `POST` | `/wms/crud/{tableCode}/columns` | 更新运行时列配置 |
 
-资源名示例：
+当前没有通用 GET 详情路由。前端 `getCrudDetail` 的存在不能证明后端已经实现；不得在未修改契约时按旧文档新增平行的 `/wms/{resource}` 通用接口体系。
 
-```text
-supplier
-material
-warehouse-zone
-storage
-container-type
-container
-inventory
-inventory-flow
-inbound-order
-outbound-order
-inbound-push-log
-outbound-push-log
-```
+其他表的资源划分和页面推广属于后续设计，必须先实现对应元数据、服务与权限，再进行前后端验证。
 
 ## 9. 后端查询标准
 
@@ -630,6 +637,8 @@ process_status + push_time
 ```
 
 ### 10.3 大数据导出
+
+以下阈值是后续异步方案建议；当前供应商采用同步分批流式导出，不执行这里的 5 万条异步切换。超过单文件数据上限时会拒绝并提示缩小条件，尚无可调用的异步任务接口。
 
 导出阈值建议：
 

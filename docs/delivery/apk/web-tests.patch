@@ -1,0 +1,62 @@
+diff --git a/src/api/system/apk/__tests__/presentation.spec.ts b/src/api/system/apk/__tests__/presentation.spec.ts
+new file mode 100644
+--- /dev/null
++++ b/src/api/system/apk/__tests__/presentation.spec.ts
+@@ -0,0 +1,57 @@
++import { describe, expect, it } from 'vitest';
++import {
++  apkReleaseStatusTagType,
++  apkReleaseStatusText,
++  apkUploadProgressPercent,
++  buildApkDownloadUrl,
++  formatApkFileSize,
++  isApkReleasePublishable
++} from '../presentation';
++
++describe('APK presentation', () => {
++  it('formats file sizes into readable units', () => {
++    expect(formatApkFileSize(0)).toBe('0 B');
++    expect(formatApkFileSize(1536)).toBe('1.50 KB');
++    expect(formatApkFileSize(15 * 1024 * 1024)).toBe('15.0 MB');
++    expect(formatApkFileSize(-1)).toBe('—');
++  });
++
++  it('keeps upload progress below completion until the response arrives', () => {
++    expect(apkUploadProgressPercent(50, 100)).toBe(50);
++    expect(apkUploadProgressPercent(100, 100)).toBe(99);
++    expect(apkUploadProgressPercent(100, 0)).toBe(0);
++  });
++
++  it('marks only PUBLISHED releases as completed', () => {
++    expect(apkReleaseStatusText('UPLOADED')).toBe('待发布');
++    expect(apkReleaseStatusText('PUBLISHED')).toBe('已发布');
++    expect(apkReleaseStatusTagType('UPLOADED')).toBe('warning');
++    expect(apkReleaseStatusTagType('PUBLISHED')).toBe('success');
++    expect(isApkReleasePublishable('UPLOADED')).toBe(true);
++    expect(isApkReleasePublishable('PUBLISHED')).toBe(false);
++  });
++
++  it('uses the backend download URL and builds an encoded anonymous fallback', () => {
++    expect(
++      buildApkDownloadUrl(
++        {
++          downloadUrl: '/app/apk/download?packageName=com.innolux.iws&versionCode=1',
++          packageName: 'com.innolux.iws',
++          versionCode: '1'
++        },
++        '/dev-api'
++      )
++    ).toBe('/dev-api/app/apk/download?packageName=com.innolux.iws&versionCode=1');
++
++    expect(
++      buildApkDownloadUrl(
++        {
++          downloadUrl: '',
++          packageName: 'com.innolux.iws app',
++          versionCode: '26'
++        },
++        '/dev-api/'
++      )
++    ).toBe('/dev-api/app/apk/download?packageName=com.innolux.iws+app&versionCode=26');
++  });
++});
