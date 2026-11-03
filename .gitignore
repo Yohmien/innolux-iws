@@ -54,3 +54,8 @@ logs/
 
 application-local.yml
 application-ga.yml
+
+# Local runtime evidence and generated build metadata
+/work/
+/iws-modules/iws-wms/work/
+/META-INF/
