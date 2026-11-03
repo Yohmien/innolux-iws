@@ -19,7 +19,9 @@ import lombok.Data;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 标准表页面元数据 VO。
@@ -57,6 +59,11 @@ public class IwsCrudTableMetaVo implements Serializable {
     private IwsCrudCapabilityDto capabilities = new IwsCrudCapabilityDto();
 
     private IwsCrudPermissionDto permissions = new IwsCrudPermissionDto();
+
+    /**
+     * 当前用户可见且当前实现真实开放的领域动作。
+     */
+    private Map<String, Boolean> allowedActions = new LinkedHashMap<>();
 
     private List<IwsCrudColumnMetaDto> columns = new ArrayList<>();
 }

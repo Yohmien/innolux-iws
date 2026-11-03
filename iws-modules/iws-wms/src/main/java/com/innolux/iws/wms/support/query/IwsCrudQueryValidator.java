@@ -11,6 +11,7 @@
 
 package com.innolux.iws.wms.support.query;
 
+import cn.hutool.http.HttpStatus;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.wms.domain.bo.IwsBulkConditionBo;
 import com.innolux.iws.wms.domain.bo.IwsExportRequestBo;
@@ -49,20 +50,28 @@ public class IwsCrudQueryValidator {
      * @param queryBo 查询参数
      */
     public void validateQuery(IwsCrudTableMetaVo meta, IwsTableQueryBo queryBo) {
+        if (queryBo == null) {
+            throw badRequest("查询参数不能为空");
+        }
         Map<String, IwsCrudColumnMetaDto> columnMap = columnMap(meta);
         validatePage(meta, queryBo);
         normalizeQuery(queryBo);
-        for (IwsQueryConditionBo condition : queryBo.getConditions()) {
+        for (int index = 0; index < queryBo.getConditions().size(); index++) {
+            IwsQueryConditionBo condition = queryBo.getConditions().get(index);
+            if (condition == null) {
+                throw badRequest("conditions[" + index + "] 不能为 null");
+            }
             IwsCrudColumnMetaDto column = requireColumn(columnMap, condition.getField());
             if (!Boolean.TRUE.equals(column.getSearchable())) {
                 throw new ServiceException("字段不允许搜索: " + condition.getField());
             }
-            if (column.getQueryMode() != null && condition.getQueryMode() != null
-                && !column.getQueryMode().equals(condition.getQueryMode())) {
-                throw new ServiceException("字段查询模式不匹配: " + condition.getField());
-            }
+            IwsCrudConditionSupport.validate(column, condition);
         }
-        for (IwsBulkConditionBo condition : queryBo.getBulkConditions()) {
+        for (int index = 0; index < queryBo.getBulkConditions().size(); index++) {
+            IwsBulkConditionBo condition = queryBo.getBulkConditions().get(index);
+            if (condition == null) {
+                throw badRequest("bulkConditions[" + index + "] 不能为 null");
+            }
             IwsCrudColumnMetaDto column = requireColumn(columnMap, condition.getField());
             if (!Boolean.TRUE.equals(column.getBulkSearch())) {
                 throw new ServiceException("字段不允许批量搜索: " + condition.getField());
@@ -71,7 +80,11 @@ public class IwsCrudQueryValidator {
                 throw new ServiceException("批量搜索数量超过上限: " + condition.getField());
             }
         }
-        for (IwsSortConditionBo sort : queryBo.getSorts()) {
+        for (int index = 0; index < queryBo.getSorts().size(); index++) {
+            IwsSortConditionBo sort = queryBo.getSorts().get(index);
+            if (sort == null) {
+                throw badRequest("sorts[" + index + "] 不能为 null");
+            }
             IwsCrudColumnMetaDto column = requireColumn(columnMap, sort.getField());
             if (!Boolean.TRUE.equals(column.getSortable())) {
                 throw new ServiceException("字段不允许排序: " + sort.getField());
@@ -132,4 +145,9 @@ public class IwsCrudQueryValidator {
         }
         return column;
     }
+
+    private ServiceException badRequest(String message) {
+        return new ServiceException(message, HttpStatus.HTTP_BAD_REQUEST);
+    }
+
 }

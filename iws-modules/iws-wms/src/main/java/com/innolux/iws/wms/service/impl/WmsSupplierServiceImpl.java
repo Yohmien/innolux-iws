@@ -30,11 +30,12 @@ import com.innolux.iws.wms.domain.vo.WmsSupplierImportVo;
 import com.innolux.iws.wms.mapper.WmsSupplierMapper;
 import com.innolux.iws.wms.service.IWmsSupplierService;
 import com.innolux.iws.wms.support.meta.IwsCrudMetaRegistry;
+import com.innolux.iws.wms.support.query.IwsCrudConditionSupport;
+import com.innolux.iws.wms.support.schema.WmsDirectWriteSchemaGate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +70,8 @@ public class WmsSupplierServiceImpl implements IWmsSupplierService {
     private final WmsSupplierMapper supplierMapper;
 
     private final IwsCrudMetaRegistry metaRegistry;
+
+    private final WmsDirectWriteSchemaGate directWriteSchemaGate;
 
     @Override
     public PageResult<Map<String, Object>> selectPage(IwsTableQueryBo queryBo) {
@@ -126,6 +129,7 @@ public class WmsSupplierServiceImpl implements IWmsSupplierService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public String importData(List<WmsSupplierImportVo> rows, boolean updateSupport) {
+        directWriteSchemaGate.acquire();
         if (rows == null || rows.isEmpty()) {
             throw new ServiceException("导入失败，未解析到有效供应商数据");
         }
@@ -184,7 +188,9 @@ public class WmsSupplierServiceImpl implements IWmsSupplierService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean insert(Map<String, Object> data) {
+        directWriteSchemaGate.acquire();
         WmsSupplier supplier = BeanUtil.toBean(data, WmsSupplier.class);
         if (supplier.getStatus() == null) {
             supplier.setStatus(1);
@@ -196,7 +202,9 @@ public class WmsSupplierServiceImpl implements IWmsSupplierService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean update(Map<String, Object> data) {
+        directWriteSchemaGate.acquire();
         WmsSupplier supplier = BeanUtil.toBean(data, WmsSupplier.class);
         if (supplier.getSupplierId() == null) {
             throw new ServiceException("供应商ID不能为空");
@@ -205,7 +213,9 @@ public class WmsSupplierServiceImpl implements IWmsSupplierService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean deleteByIds(List<Long> ids) {
+        directWriteSchemaGate.acquire();
         if (ids == null || ids.isEmpty()) {
             return false;
         }
@@ -225,10 +235,10 @@ public class WmsSupplierServiceImpl implements IWmsSupplierService {
         QueryWrapper<WmsSupplier> wrapper = new QueryWrapper<>();
         for (IwsQueryConditionBo condition : queryBo.getConditions()) {
             IwsCrudColumnMetaDto column = columnMap.get(condition.getField());
-            if (column == null || !hasConditionValue(condition)) {
+            if (column == null) {
                 continue;
             }
-            applyCondition(wrapper, column.getDbColumn(), condition);
+            IwsCrudConditionSupport.apply(wrapper, column, condition);
         }
 
         for (IwsBulkConditionBo condition : queryBo.getBulkConditions()) {
@@ -392,35 +402,6 @@ public class WmsSupplierServiceImpl implements IWmsSupplierService {
         return records.stream()
             .map(record -> BeanUtil.beanToMap(record, false, true))
             .toList();
-    }
-
-    private void applyCondition(QueryWrapper<WmsSupplier> wrapper, String column, IwsQueryConditionBo condition) {
-        String mode = StrUtil.nullToDefault(condition.getQueryMode(), "eq");
-        switch (mode) {
-            case "likeRight" -> wrapper.likeRight(column, condition.getValue());
-            case "contains" -> wrapper.like(column, condition.getValue());
-            case "between" -> {
-                if (ObjectUtil.isNotEmpty(condition.getBeginValue())) {
-                    wrapper.ge(column, condition.getBeginValue());
-                }
-                if (ObjectUtil.isNotEmpty(condition.getEndValue())) {
-                    wrapper.le(column, condition.getEndValue());
-                }
-            }
-            case "in" -> {
-                if (condition.getValue() instanceof Collection<?> values && !values.isEmpty()) {
-                    wrapper.in(column, values);
-                }
-            }
-            default -> wrapper.eq(column, condition.getValue());
-        }
-    }
-
-    private boolean hasConditionValue(IwsQueryConditionBo condition) {
-        if ("between".equals(condition.getQueryMode())) {
-            return ObjectUtil.isNotEmpty(condition.getBeginValue()) || ObjectUtil.isNotEmpty(condition.getEndValue());
-        }
-        return ObjectUtil.isNotEmpty(condition.getValue());
     }
 
     private Map<String, IwsCrudColumnMetaDto> columnMap() {
