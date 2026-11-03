@@ -24,12 +24,14 @@
 -- mysql 执行不得添加 --force；首个错误必须停止。
 -- 该脚本按顺序包含：
 --   1. 框架、系统、代码生成、调度、工作流与 AI 平台结构（81 张表）
---   2. WMS SMT 核心结构（20 张表）
+--   2. WMS SMT 核心结构（66 张表）
 --   3. endpoint 结构（6 张表）、唯一 CATALOG 控制行、默认环境 TEST 与 IWS 系统
 --   4. process 结构（16 张表）
 --   5. endpoint/process 菜单和按钮权限（53 行）
 --   6. APK 发布记录表（1 张表）与系统管理菜单（5 行）
--- 共 124 张表。
+--   7. 在库管理公司最小闭环菜单（7 行）、空间页面菜单（6 行）与业务目录页面（1 行，复用既有根）
+-- 共 181 张表，其中 WMS 77 张。
+-- 菜单种子共 256 行。
 --
 -- 种子只保留系统运行所需的默认模板配置：部门/岗位/角色/菜单/字典/参数、
 -- 默认管理员、SnailJob 初始管理员与默认组、默认客户端、OSS 模板、流程分类和流程表达式、
@@ -127,6 +129,12 @@ SELECT JSON_EXTRACT(IF(@init_preflight_ok = 1, '{}', 'invalid'), '$') AS `空库
 -- ----------------------------------------------------------------------------
 -- 框架与 WMS 表结构：2026-10-23 在独立 MySQL 8.0.45 空库执行当前仓库
 -- iws_init.sql 与 iws_wms_smt_core.sql 后导出；不代表任何真实部署库状态
+-- 2026-10-27 追加公司最小闭环 5 张表与空间 S1 仓库父链；S1 只加可空引用和地址列，
+-- 2026-10-28 同版纳入在库空间升级控制 5 张表与库存业务类型目录 2 张表；
+-- 定义取自 upgrade_control 与 type_catalog 升级脚本在 MySQL 8.0.45 的目标态，
+-- 不写入升级运行、检查点、映射、问题或目录样例数据。
+-- 2026-10-29 同版内联空间、访问通道、位置版本、可见范围与容量 10 张目标表；
+-- 只建结构，不写业务、容量或权限种子。
 -- ----------------------------------------------------------------------------
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -1831,6 +1839,118 @@ CREATE TABLE `test_tree` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_business_plan_mount` (
+  `mount_id` bigint NOT NULL COMMENT '挂载主键，系统生成',
+  `business_type_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '业务类型编码',
+  `plan_type_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '计划类型编码',
+  `schedule_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '调度业务编码，等于iws_business_schedule.business_code',
+  `contract_version` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '挂载合同版本',
+  `enabled` tinyint NOT NULL DEFAULT '1' COMMENT '是否启用',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`mount_id`),
+  UNIQUE KEY `uk_wms_business_plan_mount` (`business_type_code`,`plan_type_code`,`schedule_code`),
+  KEY `idx_wms_business_plan_mount_resolve` (`schedule_code`,`plan_type_code`,`enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS业务类型计划挂载目录'
+;
+/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE `wms_business_type` (
+  `business_type_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '业务类型编码',
+  `business_type_name` varchar(128) NOT NULL COMMENT '业务类型名称',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '状态：ACTIVE/DISABLED',
+  `contract_version` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '业务合同版本',
+  `object_policy_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '对象策略键；本切面不注册策略',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`business_type_code`),
+  KEY `idx_wms_business_type_status` (`status`,`business_type_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS业务类型目录'
+;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_command_attempt` (
+  `attempt_id` bigint NOT NULL COMMENT '尝试主键，系统生成',
+  `command_key` varchar(64) COLLATE utf8mb4_bin NOT NULL COMMENT '命令键',
+  `action` varchar(64) COLLATE utf8mb4_bin NOT NULL COMMENT '命令动作，如 COMPANY_CREATE/COMPANY_UPDATE/COMPANY_ENABLE/COMPANY_DISABLE/COMPANY_SCOPE_REPLACE',
+  `object_type` varchar(64) COLLATE utf8mb4_bin NOT NULL COMMENT '对象类型，如 WMS_COMPANY',
+  `object_id` bigint DEFAULT NULL COMMENT '对象内部ID，创建前可空',
+  `input_digest` char(64) NOT NULL COMMENT '规范化请求摘要，SHA-256小写',
+  `input_summary` varchar(2000) DEFAULT NULL COMMENT '脱敏请求摘要',
+  `status` varchar(16) COLLATE utf8mb4_bin NOT NULL COMMENT '状态：ACCEPTED/PROCESSING/APPLIED/REJECTED/FAILED/UNKNOWN',
+  `error_code` varchar(64) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '错误码，如 VERSION_CONFLICT/SCOPE_VERSION_CONFLICT/FEATURE_NOT_OPEN',
+  `error_message` varchar(500) DEFAULT NULL COMMENT '脱敏错误消息',
+  `fact_type` varchar(64) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '成功事实类型，如 WMS_OBJECT_AUDIT',
+  `fact_id` varchar(128) DEFAULT NULL COMMENT '成功事实标识',
+  `actor_user_id` bigint DEFAULT NULL COMMENT '操作者',
+  `actor_name` varchar(64) DEFAULT NULL COMMENT '操作者名称快照',
+  `dept_id` bigint DEFAULT NULL COMMENT '操作者部门快照',
+  `dept_name` varchar(128) DEFAULT NULL COMMENT '操作者部门名称快照',
+  `initiator_name` varchar(64) DEFAULT NULL COMMENT '发起人名称快照',
+  `execution_subject` varchar(64) DEFAULT NULL COMMENT '执行主体名称快照',
+  `execution_subject_type` varchar(32) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '执行主体类型：USER/PLAN/SYSTEM',
+  `execution_account` varchar(64) DEFAULT NULL COMMENT '执行账号快照',
+  `occurred_at` datetime(3) NOT NULL COMMENT '命令发生时间',
+  `recorded_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '记录时间',
+  PRIMARY KEY (`attempt_id`),
+  UNIQUE KEY `uk_wms_command_attempt_command` (`command_key`),
+  KEY `idx_wms_command_attempt_object` (`object_type`,`object_id`,`occurred_at`),
+  KEY `idx_wms_command_attempt_status` (`status`,`occurred_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS非计划受控命令尝试';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_company` (
+  `company_id` bigint NOT NULL COMMENT '公司主键，系统生成',
+  `company_code` varchar(64) COLLATE utf8mb4_bin NOT NULL COMMENT '公司编码，业务唯一，创建后不可修改',
+  `company_name` varchar(100) NOT NULL COMMENT '公司名称',
+  `enabled` tinyint NOT NULL DEFAULT '0' COMMENT '是否可被后续业务选择：0否，1是；与生命周期分离',
+  `lifecycle_status` varchar(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '生命周期：ACTIVE/RETIRING/RETIRED',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '公司乐观锁版本，创建为1',
+  `remark` varchar(500) DEFAULT NULL COMMENT '备注',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`company_id`),
+  UNIQUE KEY `uk_wms_company_code` (`company_code`),
+  KEY `idx_wms_company_lifecycle` (`lifecycle_status`,`enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS公司主档';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_company_management_grant` (
+  `grant_id` bigint NOT NULL COMMENT '授权明细主键，系统生成',
+  `company_id` bigint NOT NULL COMMENT '公司主键，逻辑关联 wms_company.company_id',
+  `role_id` bigint NOT NULL COMMENT '角色主键，逻辑关联 sys_role.role_id',
+  `created_by` bigint DEFAULT NULL COMMENT '创建者',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  PRIMARY KEY (`grant_id`),
+  UNIQUE KEY `uk_wms_company_grant` (`company_id`,`role_id`),
+  KEY `idx_wms_company_grant_role` (`role_id`,`company_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS公司管理角色授权明细';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_company_management_scope` (
+  `company_id` bigint NOT NULL COMMENT '公司主键，逻辑关联 wms_company.company_id；每公司恰一行',
+  `scope_revision` int NOT NULL DEFAULT '0' COMMENT '管理范围独立乐观锁版本，创建为0',
+  `updated_by` bigint DEFAULT NULL COMMENT '最后更新人',
+  `updated_at` datetime(3) DEFAULT NULL COMMENT '最后更新时间',
+  PRIMARY KEY (`company_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS公司管理范围头';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `wms_compartment` (
   `compartment_id` bigint NOT NULL COMMENT '格口主键，系统生成',
   `container_id` bigint NOT NULL COMMENT '所属容器主键，逻辑关联 wms_container.container_id',
@@ -2230,6 +2350,26 @@ CREATE TABLE `wms_inventory_history` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_legacy_id_map` (
+  `map_id` bigint NOT NULL AUTO_INCREMENT COMMENT '旧标识映射主键，系统生成',
+  `domain` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '映射域，如 COMPANY/WAREHOUSE/STORAGE',
+  `source_table` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '源表名',
+  `source_key` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '源业务键，精确比较',
+  `source_digest` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '源业务摘要，SHA-256 小写十六进制',
+  `target_type` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '目标对象类型',
+  `target_id` bigint NOT NULL COMMENT '目标内部主键',
+  `mapping_status` varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'MAPPED' COMMENT '状态：MAPPED/VERIFIED',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`map_id`),
+  UNIQUE KEY `uk_wms_legacy_id_map_source` (`domain`,`source_table`,`source_key`),
+  UNIQUE KEY `uk_wms_legacy_id_map_target` (`target_type`,`target_id`),
+  CONSTRAINT `ck_wms_legacy_id_map_status` CHECK ((`mapping_status` in (_utf8mb4'MAPPED',_utf8mb4'VERIFIED')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS旧业务标识到目标内部标识映射'
+;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `wms_material` (
   `material_id` bigint NOT NULL COMMENT '物料主键，系统生成',
   `material_code` varchar(50) NOT NULL COMMENT '物料编码，业务唯一',
@@ -2267,6 +2407,35 @@ CREATE TABLE `wms_material` (
   KEY `idx_wms_material_supplier_id` (`supplier_id`),
   KEY `idx_wms_material_supplier_status` (`supplier_code`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS物料表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_object_audit` (
+  `audit_id` bigint NOT NULL COMMENT '审计主键，系统生成',
+  `object_type` varchar(64) COLLATE utf8mb4_bin NOT NULL COMMENT '对象类型，如 WMS_COMPANY',
+  `object_id` bigint NOT NULL COMMENT '对象内部ID',
+  `action` varchar(64) COLLATE utf8mb4_bin NOT NULL COMMENT '动作：CREATE/UPDATE/ENABLE/DISABLE/MANAGEMENT_SCOPE_REPLACE',
+  `command_key` varchar(64) COLLATE utf8mb4_bin NOT NULL COMMENT '命令键，用于幂等与追责',
+  `before_summary` varchar(2000) DEFAULT NULL COMMENT '变更前摘要（脱敏快照，超长截断）',
+  `after_summary` varchar(2000) DEFAULT NULL COMMENT '变更后摘要（脱敏快照，超长截断）',
+  `actor_user_id` bigint DEFAULT NULL COMMENT '当前操作者',
+  `actor_name` varchar(64) DEFAULT NULL COMMENT '操作者名称快照',
+  `initiator_type` varchar(32) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '发起人类型：USER/PLAN/SYSTEM',
+  `initiator_id` varchar(128) DEFAULT NULL COMMENT '发起人标识',
+  `initiator_name` varchar(64) DEFAULT NULL COMMENT '发起人名称快照',
+  `dept_id` bigint DEFAULT NULL COMMENT '操作者部门快照',
+  `dept_name` varchar(128) DEFAULT NULL COMMENT '操作者部门名称快照',
+  `execution_subject` varchar(64) DEFAULT NULL COMMENT '执行主体名称快照',
+  `execution_subject_type` varchar(32) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '执行主体类型：USER/PLAN/SYSTEM',
+  `execution_account` varchar(64) DEFAULT NULL COMMENT '执行账号快照',
+  `result` varchar(16) COLLATE utf8mb4_bin NOT NULL COMMENT '结果：SUCCESS/REJECTED/FAILED/UNKNOWN',
+  `evidence_json` varchar(2000) DEFAULT NULL COMMENT '证据引用或幂等摘要',
+  `occurred_at` datetime(3) NOT NULL COMMENT '业务发生时间',
+  `recorded_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '审计记录时间',
+  PRIMARY KEY (`audit_id`),
+  KEY `idx_wms_object_audit_object` (`object_type`,`object_id`,`occurred_at`),
+  KEY `idx_wms_object_audit_command_key` (`command_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS对象变更审计，只追加';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -2464,6 +2633,26 @@ CREATE TABLE `wms_outbound_order_push_log` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_schema_version` (
+  `schema_version_id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键，系统生成',
+  `component_code` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '组件编码，机器稳定标识',
+  `schema_version` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '组件结构版本',
+  `release_id` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '发布标识',
+  `source_fingerprint` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '升级前源结构指纹，SHA-256 小写十六进制',
+  `target_fingerprint` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '目标结构指纹，SHA-256 小写十六进制',
+  `status` varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '状态：PENDING/APPLIED/VERIFIED/FAILED',
+  `applied_by` varchar(64) NOT NULL COMMENT '应用人或执行器标识',
+  `applied_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '应用时间',
+  `remark` varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (`schema_version_id`),
+  UNIQUE KEY `uk_wms_schema_version_component_version` (`component_code`,`schema_version`),
+  KEY `idx_wms_schema_version_component_status` (`component_code`,`status`,`applied_at`),
+  CONSTRAINT `ck_wms_schema_version_status` CHECK ((`status` in (_utf8mb4'PENDING',_utf8mb4'APPLIED',_utf8mb4'VERIFIED',_utf8mb4'FAILED')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS组件结构与发布版本登记'
+;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `wms_storage` (
   `storage_id` bigint NOT NULL COMMENT '储位主键，系统生成',
   `storage_code` varchar(64) NOT NULL COMMENT '储位编码，业务唯一',
@@ -2480,7 +2669,8 @@ CREATE TABLE `wms_storage` (
   `wcs_point_code` varchar(64) DEFAULT NULL COMMENT 'WCS点位编码',
   `status` tinyint NOT NULL DEFAULT '0' COMMENT '储位状态：0空闲，1占用，2预占，3维护',
   `lock_status` tinyint NOT NULL DEFAULT '0' COMMENT '锁定状态：0未锁定，1已锁定',
-  `disable_status` tinyint NOT NULL DEFAULT '0' COMMENT '禁用状态：0启用，1禁用',
+  `disable_status` tinyint NOT NULL DEFAULT '1' COMMENT '禁用状态：0启用，1禁用',
+  `lifecycle_status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '生命周期：ACTIVE/RETIRING/RETIRED',
   `version` int NOT NULL DEFAULT '0' COMMENT '乐观锁版本号',
   `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标志：0存在，1删除',
   `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
@@ -2489,12 +2679,37 @@ CREATE TABLE `wms_storage` (
   `update_by` bigint DEFAULT NULL COMMENT '更新者',
   `update_time` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `remark` varchar(500) DEFAULT NULL COMMENT '备注',
+  `warehouse_id` bigint NOT NULL COMMENT '所属仓库主键，逻辑关联 wms_warehouse.warehouse_id；最终结构非空',
+  `aisle_text` varchar(64) COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '巷道文本地址；S1可空，写入前去首尾ASCII空格并将空串置NULL',
+  `row_text` varchar(64) COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '排文本地址；S1可空，写入前去首尾ASCII空格并将空串置NULL',
+  `level_text` varchar(64) COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '层文本地址；S1可空，写入前去首尾ASCII空格并将空串置NULL',
+  `column_text` varchar(64) COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '列文本地址；S1可空，写入前去首尾ASCII空格并将空串置NULL',
+  `depth_text` varchar(64) COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '深文本地址；S1可空，写入前去首尾ASCII空格并将空串置NULL',
+  `aisle_text_is_null` tinyint GENERATED ALWAYS AS (`aisle_text` IS NULL) STORED NOT NULL COMMENT '巷道地址空值标志；NULL按相等参与同仓地址唯一键',
+  `row_text_is_null` tinyint GENERATED ALWAYS AS (`row_text` IS NULL) STORED NOT NULL COMMENT '排地址空值标志；NULL按相等参与同仓地址唯一键',
+  `level_text_is_null` tinyint GENERATED ALWAYS AS (`level_text` IS NULL) STORED NOT NULL COMMENT '层地址空值标志；NULL按相等参与同仓地址唯一键',
+  `column_text_is_null` tinyint GENERATED ALWAYS AS (`column_text` IS NULL) STORED NOT NULL COMMENT '列地址空值标志；NULL按相等参与同仓地址唯一键',
+  `depth_text_is_null` tinyint GENERATED ALWAYS AS (`depth_text` IS NULL) STORED NOT NULL COMMENT '深地址空值标志；NULL按相等参与同仓地址唯一键',
+  `aisle_text_cmp` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin GENERATED ALWAYS AS (IFNULL(`aisle_text`,'')) STORED NOT NULL COMMENT '巷道地址精确比较值；NULL统一为空串且使用二进制排序规则',
+  `row_text_cmp` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin GENERATED ALWAYS AS (IFNULL(`row_text`,'')) STORED NOT NULL COMMENT '排地址精确比较值；NULL统一为空串且使用二进制排序规则',
+  `level_text_cmp` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin GENERATED ALWAYS AS (IFNULL(`level_text`,'')) STORED NOT NULL COMMENT '层地址精确比较值；NULL统一为空串且使用二进制排序规则',
+  `column_text_cmp` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin GENERATED ALWAYS AS (IFNULL(`column_text`,'')) STORED NOT NULL COMMENT '列地址精确比较值；NULL统一为空串且使用二进制排序规则',
+  `depth_text_cmp` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin GENERATED ALWAYS AS (IFNULL(`depth_text`,'')) STORED NOT NULL COMMENT '深地址精确比较值；NULL统一为空串且使用二进制排序规则',
   PRIMARY KEY (`storage_id`),
   UNIQUE KEY `uk_wms_storage_code` (`storage_code`),
+  UNIQUE KEY `uk_wms_storage_warehouse_address` (`warehouse_id`,`aisle_text_is_null`,`row_text_is_null`,`level_text_is_null`,`column_text_is_null`,`depth_text_is_null`,`aisle_text_cmp`,`row_text_cmp`,`level_text_cmp`,`column_text_cmp`,`depth_text_cmp`),
   KEY `idx_wms_storage_zone_status` (`zone_id`,`storage_type`,`status`,`lock_status`,`disable_status`),
   KEY `idx_wms_storage_matrix` (`zone_id`,`row_no`,`col_no`,`level_no`),
   KEY `idx_wms_storage_port` (`port_code`,`status`),
-  KEY `idx_wms_storage_wcs_point` (`wcs_point_code`)
+  KEY `idx_wms_storage_wcs_point` (`wcs_point_code`),
+  KEY `idx_wms_storage_warehouse_status` (`warehouse_id`,`status`),
+  KEY `idx_wms_storage_warehouse_lifecycle_zone` (`warehouse_id`,`lifecycle_status`,`zone_id`),
+  CONSTRAINT `ck_wms_storage_aisle_text_trim` CHECK (`aisle_text` IS NULL OR (`aisle_text` <> '' AND CAST(`aisle_text` AS BINARY) = CAST(TRIM(`aisle_text`) AS BINARY))),
+  CONSTRAINT `ck_wms_storage_row_text_trim` CHECK (`row_text` IS NULL OR (`row_text` <> '' AND CAST(`row_text` AS BINARY) = CAST(TRIM(`row_text`) AS BINARY))),
+  CONSTRAINT `ck_wms_storage_level_text_trim` CHECK (`level_text` IS NULL OR (`level_text` <> '' AND CAST(`level_text` AS BINARY) = CAST(TRIM(`level_text`) AS BINARY))),
+  CONSTRAINT `ck_wms_storage_column_text_trim` CHECK (`column_text` IS NULL OR (`column_text` <> '' AND CAST(`column_text` AS BINARY) = CAST(TRIM(`column_text`) AS BINARY))),
+  CONSTRAINT `ck_wms_storage_depth_text_trim` CHECK (`depth_text` IS NULL OR (`depth_text` <> '' AND CAST(`depth_text` AS BINARY) = CAST(TRIM(`depth_text`) AS BINARY))),
+  CONSTRAINT `ck_wms_storage_lifecycle_status` CHECK (`lifecycle_status` IN (_utf8mb4'ACTIVE',_utf8mb4'RETIRING',_utf8mb4'RETIRED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS储位表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2525,17 +2740,112 @@ CREATE TABLE `wms_supplier` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_upgrade_checkpoint` (
+  `checkpoint_id` bigint NOT NULL AUTO_INCREMENT COMMENT '升级检查点主键，系统生成',
+  `run_id` bigint NOT NULL COMMENT '所属升级运行，逻辑关联 wms_upgrade_run.run_id',
+  `step_code` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '步骤编码，机器稳定标识',
+  `object_key` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '对象或批次稳定键，精确比较',
+  `status` varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING/RUNNING/APPLIED/VERIFIED/FAILED/SKIPPED',
+  `before_digest` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL COMMENT '执行前摘要，SHA-256 小写十六进制',
+  `after_digest` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL COMMENT '执行后摘要，SHA-256 小写十六进制',
+  `attempt_count` int NOT NULL DEFAULT '0' COMMENT '该步骤已尝试次数',
+  `error_code` varchar(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL COMMENT '失败或阻断机器码',
+  `error_message` varchar(1000) DEFAULT NULL COMMENT '中文失败或阻断说明，禁止写入敏感原文',
+  `started_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '开始时间',
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  `completed_at` datetime(3) DEFAULT NULL COMMENT '完成时间',
+  PRIMARY KEY (`checkpoint_id`),
+  UNIQUE KEY `uk_wms_upgrade_checkpoint_run_step_object` (`run_id`,`step_code`,`object_key`),
+  KEY `idx_wms_upgrade_checkpoint_run_status` (`run_id`,`status`,`updated_at`),
+  CONSTRAINT `ck_wms_upgrade_checkpoint_attempt` CHECK ((`attempt_count` >= 0)),
+  CONSTRAINT `ck_wms_upgrade_checkpoint_status` CHECK ((`status` in (_utf8mb4'PENDING',_utf8mb4'RUNNING',_utf8mb4'APPLIED',_utf8mb4'VERIFIED',_utf8mb4'FAILED',_utf8mb4'SKIPPED')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS库存升级步骤检查点'
+;
+/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE `wms_upgrade_issue` (
+  `issue_id` bigint NOT NULL AUTO_INCREMENT COMMENT '升级问题主键，系统生成',
+  `run_id` bigint NOT NULL COMMENT '所属升级运行，逻辑关联 wms_upgrade_run.run_id',
+  `issue_code` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '问题机器码，稳定标识',
+  `issue_category` varchar(255) NOT NULL COMMENT '中文问题类别',
+  `redacted_source_key` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '脱敏源业务键，禁止写入凭据或完整敏感报文',
+  `detail_summary` varchar(1000) NOT NULL COMMENT '中文脱敏问题摘要',
+  `blocking_phase` varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '被阻止的阶段',
+  `suggested_action` varchar(1000) NOT NULL COMMENT '建议人工动作',
+  `is_blocking` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否阻断后续阶段：1 阻断，0 仅提示',
+  `detected_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '检测时间',
+  PRIMARY KEY (`issue_id`),
+  UNIQUE KEY `uk_wms_upgrade_issue_run_code_key` (`run_id`,`issue_code`,`redacted_source_key`),
+  KEY `idx_wms_upgrade_issue_run_blocking` (`run_id`,`blocking_phase`,`is_blocking`),
+  CONSTRAINT `ck_wms_upgrade_issue_blocking` CHECK ((`is_blocking` in (0,1))),
+  CONSTRAINT `ck_wms_upgrade_issue_phase` CHECK ((`blocking_phase` in (_utf8mb4'SOURCE_VERIFIED',_utf8mb4'CONTROL_READY',_utf8mb4'DDL_PARTIAL',_utf8mb4'DDL_TARGET',_utf8mb4'BACKFILL_PARTIAL',_utf8mb4'DATA_TARGET',_utf8mb4'CUTOVER_READY',_utf8mb4'COMPLETE',_utf8mb4'BLOCKED')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS库存升级中文阻碍清单'
+;
+/*!40101 SET character_set_client = @saved_cs_client */;
+CREATE TABLE `wms_upgrade_run` (
+  `run_id` bigint NOT NULL AUTO_INCREMENT COMMENT '升级运行主键，系统生成',
+  `release_id` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '发布标识',
+  `source_fingerprint` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '源结构指纹，SHA-256 小写十六进制',
+  `target_fingerprint` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '目标结构指纹，SHA-256 小写十六进制',
+  `phase` varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'SOURCE_VERIFIED' COMMENT '阶段：SOURCE_VERIFIED/CONTROL_READY/DDL_PARTIAL/DDL_TARGET/BACKFILL_PARTIAL/DATA_TARGET/CUTOVER_READY/COMPLETE/BLOCKED',
+  `write_fence_token` varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '写冻结令牌，用于关联停止旧写入的证据',
+  `status` varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'RUNNING' COMMENT '状态：RUNNING/BLOCKED/FAILED/COMPLETED',
+  `attempt_count` int NOT NULL DEFAULT '0' COMMENT '已尝试次数',
+  `error_code` varchar(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL COMMENT '失败或阻断机器码',
+  `error_message` varchar(1000) DEFAULT NULL COMMENT '中文失败或阻断说明，禁止写入敏感原文',
+  `started_by` varchar(64) NOT NULL COMMENT '启动人或执行器标识',
+  `started_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '开始时间',
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  `completed_at` datetime(3) DEFAULT NULL COMMENT '完成时间',
+  PRIMARY KEY (`run_id`),
+  KEY `idx_wms_upgrade_run_release_started` (`release_id`,`started_at`),
+  KEY `idx_wms_upgrade_run_status_phase` (`status`,`phase`,`updated_at`),
+  CONSTRAINT `ck_wms_upgrade_run_attempt` CHECK ((`attempt_count` >= 0)),
+  CONSTRAINT `ck_wms_upgrade_run_phase` CHECK ((`phase` in (_utf8mb4'SOURCE_VERIFIED',_utf8mb4'CONTROL_READY',_utf8mb4'DDL_PARTIAL',_utf8mb4'DDL_TARGET',_utf8mb4'BACKFILL_PARTIAL',_utf8mb4'DATA_TARGET',_utf8mb4'CUTOVER_READY',_utf8mb4'COMPLETE',_utf8mb4'BLOCKED'))),
+  CONSTRAINT `ck_wms_upgrade_run_status` CHECK ((`status` in (_utf8mb4'RUNNING',_utf8mb4'BLOCKED',_utf8mb4'FAILED',_utf8mb4'COMPLETED')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS库存升级运行'
+;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_warehouse` (
+  `warehouse_id` bigint NOT NULL COMMENT '仓库主键，系统生成',
+  `company_id` bigint NOT NULL COMMENT '所属公司主键，逻辑关联 wms_company.company_id',
+  `warehouse_code` varchar(64) COLLATE utf8mb4_bin NOT NULL COMMENT '仓库编码，同公司内唯一且使用精确比较',
+  `warehouse_name` varchar(100) NOT NULL COMMENT '仓库名称，创建后可按受控业务修改',
+  `warehouse_type_code` varchar(32) COLLATE utf8mb4_bin NOT NULL COMMENT '仓库类型编码，如 GENERAL/FLOOR；楼层只存于类型配置',
+  `type_config_version_id` bigint DEFAULT NULL COMMENT '仓库类型配置版本主键；配置版本表后续建立',
+  `lifecycle_status` varchar(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '生命周期：ACTIVE/RETIRING/RETIRED',
+  `enabled` tinyint NOT NULL DEFAULT '0' COMMENT '启用状态：0停用，1启用；与生命周期独立',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '仓库乐观锁版本，创建为1',
+  `remark` varchar(500) DEFAULT NULL COMMENT '备注',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`warehouse_id`),
+  UNIQUE KEY `uk_wms_warehouse_company_code` (`company_id`,`warehouse_code`),
+  KEY `idx_wms_warehouse_company_status` (`company_id`,`lifecycle_status`,`warehouse_type_code`),
+  CONSTRAINT `ck_wms_warehouse_enabled` CHECK (`enabled` IN (0,1)),
+  CONSTRAINT `ck_wms_warehouse_lifecycle_status` CHECK (`lifecycle_status` IN (_utf8mb4'ACTIVE',_utf8mb4'RETIRING',_utf8mb4'RETIRED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS仓库主表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `wms_warehouse_zone` (
   `zone_id` bigint NOT NULL COMMENT '库区主键，系统生成',
   `zone_code` varchar(50) NOT NULL COMMENT '库区编码，业务唯一',
   `zone_name` varchar(100) NOT NULL COMMENT '库区名称',
   `zone_type` tinyint NOT NULL DEFAULT '1' COMMENT '库区类型：1普通库区，2混料区，3品质区，4退料区，5播种墙，6亮灯货架区，7虚拟区',
+  `zone_kind` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '库区种类：MATERIAL/DEVICE',
+  `lifecycle_status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '生命周期：ACTIVE/RETIRING/RETIRED',
   `plant_code` varchar(50) DEFAULT NULL COMMENT '厂别编码，跨厂区部署时使用',
   `warehouse_code` varchar(50) DEFAULT NULL COMMENT '仓库编码，对应现场仓别或仓库类型',
   `parent_zone_id` bigint DEFAULT NULL COMMENT '上级库区主键，逻辑关联 wms_warehouse_zone.zone_id',
   `allow_inbound` tinyint NOT NULL DEFAULT '1' COMMENT '是否允许入库：0否，1是',
   `allow_outbound` tinyint NOT NULL DEFAULT '1' COMMENT '是否允许出库：0否，1是',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：0停用，1启用',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '状态：0停用，1启用',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '库区乐观锁修订号',
   `sort_no` int NOT NULL DEFAULT '0' COMMENT '显示顺序',
   `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标志：0存在，1删除',
   `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
@@ -2544,21 +2854,1387 @@ CREATE TABLE `wms_warehouse_zone` (
   `update_by` bigint DEFAULT NULL COMMENT '更新者',
   `update_time` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `remark` varchar(500) DEFAULT NULL COMMENT '备注',
+  `warehouse_id` bigint NOT NULL COMMENT '所属仓库主键，逻辑关联 wms_warehouse.warehouse_id；最终结构非空',
   PRIMARY KEY (`zone_id`),
   UNIQUE KEY `uk_wms_zone_code` (`zone_code`),
   KEY `idx_wms_zone_plant_wh_status` (`plant_code`,`warehouse_code`,`status`),
   KEY `idx_wms_zone_type_status` (`zone_type`,`status`),
-  KEY `idx_wms_zone_parent` (`parent_zone_id`)
+  KEY `idx_wms_zone_parent` (`parent_zone_id`),
+  KEY `idx_wms_zone_warehouse_status` (`warehouse_id`,`status`),
+  KEY `idx_wms_zone_warehouse_kind_lifecycle` (`warehouse_id`,`zone_kind`,`lifecycle_status`),
+  CONSTRAINT `ck_wms_zone_kind` CHECK (`zone_kind` IN (_utf8mb4'MATERIAL',_utf8mb4'DEVICE')),
+  CONSTRAINT `ck_wms_warehouse_zone_lifecycle_status` CHECK (`lifecycle_status` IN (_utf8mb4'ACTIVE',_utf8mb4'RETIRING',_utf8mb4'RETIRED')),
+  CONSTRAINT `ck_wms_zone_revision` CHECK (`revision` >= 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS库区表';
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+/*!50503 SET character_set_client = utf8mb4 */;
+-- 空间、访问通道、位置版本、可见范围与容量十表目标结构。
+-- 仅建结构，不写业务、容量或权限种子。
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_warehouse_type` (
+    `warehouse_type_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '仓库类型稳定编码',
+    `warehouse_type_name` varchar(128) NOT NULL COMMENT '仓库类型名称',
+    `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '状态：ACTIVE/DISABLED',
+    `contract_version` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '类型合同版本',
+    `config_schema_json` json NOT NULL COMMENT '类型配置JSON Schema',
+    `revision` int NOT NULL DEFAULT 1 COMMENT '仓库类型修订号',
+    `create_dept` bigint NULL COMMENT '创建部门',
+    `create_by` bigint NULL COMMENT '创建者',
+    `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `update_by` bigint NULL COMMENT '更新者',
+    `update_time` datetime(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`warehouse_type_code`),
+    KEY `idx_wms_warehouse_type_status` (`status`),
+    CONSTRAINT `ck_wms_warehouse_type_revision` CHECK (`revision` >= 1),
+    CONSTRAINT `ck_wms_warehouse_type_status` CHECK (`status` IN ('ACTIVE','DISABLED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS仓库类型';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_warehouse_type_config` (
+    `config_version_id` bigint NOT NULL COMMENT '类型配置版本主键',
+    `warehouse_type_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '仓库类型稳定编码',
+    `version_no` int NOT NULL COMMENT '类型配置版本号',
+    `config_json` json NOT NULL COMMENT '类型配置内容',
+    `canonical_digest` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '规范化配置SHA-256小写十六进制',
+    `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'DRAFT' COMMENT '状态：DRAFT/ACTIVE/RETIRED',
+    `create_dept` bigint NULL COMMENT '创建部门',
+    `create_by` bigint NULL COMMENT '创建者',
+    `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `update_by` bigint NULL COMMENT '更新者',
+    `update_time` datetime(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`config_version_id`),
+    UNIQUE KEY `uk_wms_warehouse_type_config_type_version` (`warehouse_type_code`, `version_no`),
+    KEY `idx_wms_warehouse_type_config_status` (`warehouse_type_code`, `status`),
+    CONSTRAINT `ck_wms_warehouse_type_config_digest` CHECK (REGEXP_LIKE(`canonical_digest`, _utf8mb4'^[0-9a-f]{64}$', 'c')),
+    CONSTRAINT `ck_wms_warehouse_type_config_status` CHECK (`status` IN ('DRAFT','ACTIVE','RETIRED')),
+    CONSTRAINT `ck_wms_warehouse_type_config_version_no` CHECK (`version_no` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS仓库类型配置版本';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_access_channel` (
+    `channel_id` bigint NOT NULL COMMENT '访问通道主键',
+    `device_zone_id` bigint NOT NULL COMMENT '设备库区ID，逻辑关联 wms_warehouse_zone.zone_id',
+    `channel_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '通道稳定编码',
+    `access_mode` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '访问模式，未闭合稳定代码由目录约束',
+    `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '状态：ACTIVE/RETIRING/RETIRED',
+    `revision` int NOT NULL DEFAULT 1 COMMENT '访问通道修订号',
+    `create_dept` bigint NULL COMMENT '创建部门',
+    `create_by` bigint NULL COMMENT '创建者',
+    `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `update_by` bigint NULL COMMENT '更新者',
+    `update_time` datetime(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`channel_id`),
+    UNIQUE KEY `uk_wms_access_channel_zone_code` (`device_zone_id`, `channel_code`),
+    KEY `idx_wms_access_channel_status` (`device_zone_id`, `status`),
+    CONSTRAINT `ck_wms_access_channel_revision` CHECK (`revision` >= 1),
+    CONSTRAINT `ck_wms_access_channel_status` CHECK (`status` IN ('ACTIVE','RETIRING','RETIRED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS设备访问通道';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_storage_access_member` (
+    `member_id` bigint NOT NULL COMMENT '通道成员主键',
+    `channel_id` bigint NOT NULL COMMENT '访问通道ID',
+    `storage_id` bigint NOT NULL COMMENT '稳定储位ID',
+    `access_order` int NOT NULL COMMENT '显式访问顺序',
+    `revision` int NOT NULL DEFAULT 1 COMMENT '通道成员修订号',
+    `create_dept` bigint NULL COMMENT '创建部门',
+    `create_by` bigint NULL COMMENT '创建者',
+    `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `update_by` bigint NULL COMMENT '更新者',
+    `update_time` datetime(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`member_id`),
+    UNIQUE KEY `uk_wms_storage_access_member_storage` (`storage_id`),
+    UNIQUE KEY `uk_wms_storage_access_member_channel_storage` (`channel_id`, `storage_id`),
+    UNIQUE KEY `uk_wms_storage_access_member_order` (`channel_id`, `access_order`),
+    CONSTRAINT `ck_wms_storage_access_member_order` CHECK (`access_order` >= 0),
+    CONSTRAINT `ck_wms_storage_access_member_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS通道储位成员';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_storage_access_edge` (
+    `access_edge_id` bigint NOT NULL COMMENT '阻挡边主键',
+    `blocker_storage_id` bigint NOT NULL COMMENT '阻挡储位ID',
+    `blocked_storage_id` bigint NOT NULL COMMENT '被阻挡储位ID',
+    `revision` int NOT NULL DEFAULT 1 COMMENT '阻挡边修订号',
+    `create_dept` bigint NULL COMMENT '创建部门',
+    `create_by` bigint NULL COMMENT '创建者',
+    `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `update_by` bigint NULL COMMENT '更新者',
+    `update_time` datetime(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`access_edge_id`),
+    UNIQUE KEY `uk_wms_storage_access_edge_pair` (`blocker_storage_id`, `blocked_storage_id`),
+    KEY `idx_wms_storage_access_edge_blocked` (`blocked_storage_id`),
+    CONSTRAINT `ck_wms_storage_access_edge_no_self` CHECK (`blocker_storage_id` <> `blocked_storage_id`),
+    CONSTRAINT `ck_wms_storage_access_edge_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS通道储位阻挡边';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_location_version` (
+    `location_version_id` bigint NOT NULL COMMENT '位置版本主键',
+    `object_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '空间对象类型',
+    `object_id` bigint NOT NULL COMMENT '空间对象内部ID',
+    `version_no` int NOT NULL COMMENT '对象位置版本号',
+    `parent_location_version_id` bigint NULL COMMENT '父对象位置版本ID',
+    `config_json` json NOT NULL COMMENT '位置不可变配置',
+    `canonical_digest` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '规范化配置SHA-256小写十六进制',
+    `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'DRAFT' COMMENT '状态：DRAFT/ACTIVE/RETIRED',
+    `create_dept` bigint NULL COMMENT '创建部门',
+    `create_by` bigint NULL COMMENT '创建者',
+    `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `update_by` bigint NULL COMMENT '更新者',
+    `update_time` datetime(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`location_version_id`),
+    UNIQUE KEY `uk_wms_location_version_object_version` (`object_type`, `object_id`, `version_no`),
+    KEY `idx_wms_location_version_parent` (`parent_location_version_id`),
+    KEY `idx_wms_location_version_status` (`status`, `object_type`),
+    CONSTRAINT `ck_wms_location_version_digest` CHECK (REGEXP_LIKE(`canonical_digest`, _utf8mb4'^[0-9a-f]{64}$', 'c')),
+    CONSTRAINT `ck_wms_location_version_status` CHECK (`status` IN ('DRAFT','ACTIVE','RETIRED')),
+    CONSTRAINT `ck_wms_location_version_version_no` CHECK (`version_no` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS空间位置配置版本';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_location_effective` (
+    `location_effective_id` bigint NOT NULL COMMENT '位置生效指针主键',
+    `object_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '空间对象类型',
+    `object_id` bigint NOT NULL COMMENT '空间对象内部ID',
+    `location_version_id` bigint NOT NULL COMMENT '当前位置版本ID',
+    `revision` int NOT NULL DEFAULT 1 COMMENT '生效指针CAS修订号',
+    `create_dept` bigint NULL COMMENT '创建部门',
+    `create_by` bigint NULL COMMENT '创建者',
+    `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `update_by` bigint NULL COMMENT '更新者',
+    `update_time` datetime(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`location_effective_id`),
+    UNIQUE KEY `uk_wms_location_effective_object` (`object_type`, `object_id`),
+    KEY `idx_wms_location_effective_version` (`location_version_id`),
+    CONSTRAINT `ck_wms_location_effective_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS空间位置当前生效版本';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_object_visibility` (
+    `visibility_key` bigint NOT NULL COMMENT '对象可见范围主键',
+    `parent_visibility_key` bigint NULL COMMENT '当前物理父对象可见范围主键',
+    `object_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '空间对象类型',
+    `object_id` bigint NOT NULL COMMENT '空间对象内部ID',
+    `mode` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '可见范围模式：INHERIT/VALUE/CLEAR',
+    `revision` int NOT NULL DEFAULT 1 COMMENT '可见范围修订号',
+    `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '可见范围更新时间',
+    `create_dept` bigint NULL COMMENT '创建部门',
+    `create_by` bigint NULL COMMENT '创建者',
+    `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `update_by` bigint NULL COMMENT '更新者',
+    `update_time` datetime(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`visibility_key`),
+    UNIQUE KEY `uk_wms_object_visibility_object` (`object_type`, `object_id`),
+    KEY `idx_wms_object_visibility_parent` (`parent_visibility_key`),
+    CONSTRAINT `ck_wms_object_visibility_company_mode` CHECK (`object_type` <> 'COMPANY' OR `mode` = 'VALUE'),
+    CONSTRAINT `ck_wms_object_visibility_company_parent` CHECK (`object_type` <> 'COMPANY' OR `parent_visibility_key` IS NULL),
+    CONSTRAINT `ck_wms_object_visibility_mode` CHECK (`mode` IN ('INHERIT','VALUE','CLEAR')),
+    CONSTRAINT `ck_wms_object_visibility_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS对象可见范围三态头';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_object_visibility_department` (
+    `visibility_department_id` bigint NOT NULL COMMENT '可见部门关系主键',
+    `visibility_key` bigint NOT NULL COMMENT '对象可见范围主键',
+    `dept_id` bigint NOT NULL COMMENT '部门ID，逻辑关联 sys_dept.dept_id',
+    `create_dept` bigint NULL COMMENT '创建部门',
+    `create_by` bigint NULL COMMENT '创建者',
+    `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `update_by` bigint NULL COMMENT '更新者',
+    `update_time` datetime(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`visibility_department_id`),
+    UNIQUE KEY `uk_wms_object_visibility_department` (`visibility_key`, `dept_id`),
+    KEY `idx_wms_object_visibility_department_dept` (`dept_id`, `visibility_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS对象可见部门集合';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_storage_capacity` (
+    `capacity_id` bigint NOT NULL COMMENT '储位容量主键，由服务分配',
+    `storage_id` bigint NOT NULL COMMENT '稳定储位ID，逻辑关联 wms_storage.storage_id',
+    `dimension_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '容量维度键',
+    `capacity_value` decimal(38,12) NOT NULL COMMENT '容量值',
+    `unit` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '容量单位',
+    `scale` int NOT NULL COMMENT '容量小数位',
+    `capacity_version` int NOT NULL COMMENT '容量版本号',
+    `active_flag` tinyint(1) NOT NULL DEFAULT 1 COMMENT '活动版本标志：1活动，0历史',
+    `active_capacity_key` varchar(531) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin GENERATED ALWAYS AS (
+      IF(`active_flag` = 1,
+         CONCAT('A:', LPAD(HEX(`storage_id`), 16, '0'), ':', HEX(CAST(`dimension_key` AS BINARY))),
+         CONCAT('H:', LPAD(HEX(`capacity_id`), 16, '0')))
+    ) STORED NOT NULL COMMENT '活动或历史容量无碰撞唯一键',
+    `create_dept` bigint NULL COMMENT '创建部门',
+    `create_by` bigint NULL COMMENT '创建者',
+    `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `update_by` bigint NULL COMMENT '更新者',
+    `update_time` datetime(3) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`capacity_id`),
+    UNIQUE KEY `uk_wms_storage_capacity_active` (`active_capacity_key`),
+    UNIQUE KEY `uk_wms_storage_capacity_version` (`storage_id`, `dimension_key`, `capacity_version`),
+    KEY `idx_wms_storage_capacity_dimension` (`storage_id`, `dimension_key`, `active_flag`, `capacity_version`),
+    CONSTRAINT `ck_wms_storage_capacity_active_flag` CHECK (`active_flag` IN (0,1)),
+    CONSTRAINT `ck_wms_storage_capacity_scale_consistent` CHECK (`capacity_value` = TRUNCATE(`capacity_value`, `scale`)),
+    CONSTRAINT `ck_wms_storage_capacity_scale` CHECK (`scale` BETWEEN 0 AND 12),
+    CONSTRAINT `ck_wms_storage_capacity_value` CHECK (`capacity_value` >= 0),
+    CONSTRAINT `ck_wms_storage_capacity_version` CHECK (`capacity_version` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS储位容量';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- ----------------------------
+-- 34-45、库存 P3 规则与逻辑归属目标结构
+-- ----------------------------
+-- 本组只内联 12 张目标表结构；不写规则、种子台账、生效指针或角色授权。
+-- 定义取自独立规则 SQL 在 MySQL 8.0.45 隔离库的 SHOW CREATE TABLE 目标态。
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_attribute_catalog` (
+  `attribute_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '属性键',
+  `source_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '来源类型',
+  `value_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '值类型',
+  `cardinality` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '基数',
+  `operators_json` json NOT NULL COMMENT '允许操作符',
+  `unit` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '单位',
+  `scale` int DEFAULT NULL COMMENT '小数位',
+  `groupable` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否可分组',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '状态：ACTIVE/DISABLED',
+  `contract_version` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '属性合同版本',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`attribute_key`),
+  KEY `idx_wms_attribute_catalog_status` (`status`,`source_type`),
+  CONSTRAINT `ck_wms_attribute_catalog_groupable` CHECK ((`groupable` in (0,1))),
+  CONSTRAINT `ck_wms_attribute_catalog_revision` CHECK ((`revision` >= 1)),
+  CONSTRAINT `ck_wms_attribute_catalog_scale` CHECK (((`scale` is null) or (`scale` >= 0))),
+  CONSTRAINT `ck_wms_attribute_catalog_status` CHECK ((`status` in (_utf8mb4'ACTIVE',_utf8mb4'DISABLED')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS属性目录';
+INSERT INTO `wms_attribute_catalog`
+    (`attribute_key`, `source_type`, `value_type`, `cardinality`,
+     `operators_json`, `unit`, `scale`, `groupable`, `status`,
+     `contract_version`, `revision`)
+VALUES
+    ('storageCode', 'STORAGE', 'STRING', 'SCALAR',
+     JSON_ARRAY('EQ', 'NE', 'IN', 'IS_NULL'), NULL, NULL, 1, 'ACTIVE', 'STORAGE-1', 1),
+    ('warehouseCode', 'STORAGE', 'STRING', 'SCALAR',
+     JSON_ARRAY('EQ', 'NE', 'IN', 'IS_NULL'), NULL, NULL, 1, 'ACTIVE', 'STORAGE-1', 1),
+    ('zoneCode', 'STORAGE', 'STRING', 'SCALAR',
+     JSON_ARRAY('EQ', 'NE', 'IN', 'IS_NULL'), NULL, NULL, 1, 'ACTIVE', 'STORAGE-1', 1),
+    ('storageType', 'STORAGE', 'INTEGER', 'SCALAR',
+     JSON_ARRAY('EQ', 'NE', 'IN', 'LT', 'LE', 'GT', 'GE', 'IS_NULL'),
+     NULL, NULL, 1, 'ACTIVE', 'STORAGE-1', 1),
+    ('allowInbound', 'STORAGE', 'BOOLEAN', 'SCALAR',
+     JSON_ARRAY('EQ', 'NE', 'IN', 'IS_NULL'), NULL, NULL, 1, 'ACTIVE', 'STORAGE-1', 1),
+    ('allowOutbound', 'STORAGE', 'BOOLEAN', 'SCALAR',
+     JSON_ARRAY('EQ', 'NE', 'IN', 'IS_NULL'), NULL, NULL, 1, 'ACTIVE', 'STORAGE-1', 1)
+ON DUPLICATE KEY UPDATE
+    `source_type` = VALUES(`source_type`),
+    `value_type` = VALUES(`value_type`),
+    `cardinality` = VALUES(`cardinality`),
+    `operators_json` = VALUES(`operators_json`),
+    `unit` = VALUES(`unit`),
+    `scale` = VALUES(`scale`),
+    `groupable` = VALUES(`groupable`),
+    `status` = VALUES(`status`),
+    `contract_version` = VALUES(`contract_version`),
+    `revision` = VALUES(`revision`);
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_rule_definition` (
+  `rule_definition_id` bigint NOT NULL AUTO_INCREMENT COMMENT '规则定义主键',
+  `rule_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '规则键',
+  `purpose` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '用途',
+  `rule_name` varchar(128) NOT NULL COMMENT '规则名称',
+  `scope_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '作用域类型',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '状态：ACTIVE/DISABLED',
+  `current_version_id` bigint DEFAULT NULL COMMENT '当前版本ID',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`rule_definition_id`),
+  UNIQUE KEY `uk_wms_rule_definition_key` (`rule_key`),
+  KEY `idx_wms_rule_definition_resolve` (`purpose`,`status`),
+  KEY `idx_wms_rule_definition_current_version` (`current_version_id`),
+  CONSTRAINT `ck_wms_rule_definition_revision` CHECK ((`revision` >= 1)),
+  CONSTRAINT `ck_wms_rule_definition_status` CHECK ((`status` in (_utf8mb4'ACTIVE',_utf8mb4'DISABLED')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS规则定义';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_rule_version` (
+  `rule_version_id` bigint NOT NULL AUTO_INCREMENT COMMENT '规则版本主键',
+  `rule_definition_id` bigint NOT NULL COMMENT '规则定义ID',
+  `version_no` int NOT NULL COMMENT '版本号',
+  `condition_json` json NOT NULL COMMENT '条件表达式',
+  `result_json` json NOT NULL COMMENT '结果表达式',
+  `attribute_bindings_json` json DEFAULT NULL COMMENT '服务端属性绑定、用途和限额快照',
+  `canonical_digest` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '规范化内容SHA-256小写十六进制',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'DRAFT' COMMENT '状态：DRAFT/ACTIVE/RETIRED',
+  `published_at` datetime(3) DEFAULT NULL COMMENT '发布时间',
+  `published_by` bigint DEFAULT NULL COMMENT '发布人',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`rule_version_id`),
+  UNIQUE KEY `uk_wms_rule_version_owner_version` (`rule_definition_id`,`version_no`),
+  KEY `idx_wms_rule_version_status` (`status`,`rule_definition_id`),
+  KEY `idx_wms_rule_version_digest` (`canonical_digest`),
+  CONSTRAINT `ck_wms_rule_version_digest` CHECK (regexp_like(`canonical_digest`,_utf8mb4'^[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_rule_version_status` CHECK ((`status` in (_utf8mb4'DRAFT',_utf8mb4'ACTIVE',_utf8mb4'RETIRED'))),
+  CONSTRAINT `ck_wms_rule_version_version_no` CHECK ((`version_no` >= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS规则内容版本';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_rule_package_version` (
+  `package_version_id` bigint NOT NULL AUTO_INCREMENT COMMENT '规则包版本主键',
+  `package_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '规则包编码',
+  `version_no` int NOT NULL COMMENT '版本号',
+  `canonical_digest` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '规范化内容SHA-256小写十六进制',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'DRAFT' COMMENT '状态：DRAFT/ACTIVE/RETIRED',
+  `published_at` datetime(3) DEFAULT NULL COMMENT '发布时间',
+  `published_by` bigint DEFAULT NULL COMMENT '发布人',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`package_version_id`),
+  UNIQUE KEY `uk_wms_rule_package_version_code_version` (`package_code`,`version_no`),
+  KEY `idx_wms_rule_package_version_status` (`status`,`package_code`),
+  KEY `idx_wms_rule_package_version_digest` (`canonical_digest`),
+  CONSTRAINT `ck_wms_rule_package_version_digest` CHECK (regexp_like(`canonical_digest`,_utf8mb4'^[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_rule_package_version_status` CHECK ((`status` in (_utf8mb4'DRAFT',_utf8mb4'ACTIVE',_utf8mb4'RETIRED'))),
+  CONSTRAINT `ck_wms_rule_package_version_version_no` CHECK ((`version_no` >= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS规则包版本';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_rule_package_member` (
+  `package_member_id` bigint NOT NULL AUTO_INCREMENT COMMENT '规则包成员主键',
+  `package_version_id` bigint NOT NULL COMMENT '规则包版本ID',
+  `purpose` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '成员用途',
+  `rule_version_id` bigint NOT NULL COMMENT '规则版本ID',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`package_member_id`),
+  UNIQUE KEY `uk_wms_rule_package_member_purpose` (`package_version_id`,`purpose`),
+  KEY `idx_wms_rule_package_member_rule` (`rule_version_id`),
+  CONSTRAINT `ck_wms_rule_package_member_revision` CHECK ((`revision` >= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS规则包成员';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_rule_effective_pointer` (
+  `rule_effective_pointer_id` bigint NOT NULL AUTO_INCREMENT COMMENT '生效指针主键',
+  `scope_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '作用域类型',
+  `scope_id` bigint NOT NULL COMMENT '作用域内部ID',
+  `package_version_id` bigint NOT NULL COMMENT '规则包版本ID',
+  `revision` int NOT NULL DEFAULT '1' COMMENT 'CAS修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`rule_effective_pointer_id`),
+  UNIQUE KEY `uk_wms_rule_effective_pointer_scope` (`scope_type`,`scope_id`),
+  KEY `idx_wms_rule_effective_pointer_package` (`package_version_id`),
+  CONSTRAINT `ck_wms_rule_effective_pointer_revision` CHECK ((`revision` >= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS规则包生效指针';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_rule_seed_ledger` (
+  `rule_seed_ledger_id` bigint NOT NULL AUTO_INCREMENT COMMENT '种子台账主键',
+  `seed_code` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '种子编码',
+  `seed_version` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '种子版本',
+  `canonical_digest` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '规范化内容SHA-256小写十六进制',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '状态：APPLIED',
+  `applied_at` datetime(3) NOT NULL COMMENT '应用时间',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`rule_seed_ledger_id`),
+  UNIQUE KEY `uk_wms_rule_seed_ledger_code_version` (`seed_code`,`seed_version`),
+  KEY `idx_wms_rule_seed_ledger_status` (`status`,`applied_at`),
+  CONSTRAINT `ck_wms_rule_seed_ledger_digest` CHECK (regexp_like(`canonical_digest`,_utf8mb4'^[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_rule_seed_ledger_status` CHECK ((`status` = _utf8mb4'APPLIED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS规则种子台账';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_logical_scope` (
+  `logical_scope_id` bigint NOT NULL AUTO_INCREMENT COMMENT '逻辑归属主键',
+  `scope_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '逻辑归属编码',
+  `scope_name` varchar(128) NOT NULL COMMENT '逻辑归属名称',
+  `lifecycle_status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '生命周期：ACTIVE/RETIRING/RETIRED',
+  `current_version_id` bigint DEFAULT NULL COMMENT '当前版本ID',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`logical_scope_id`),
+  UNIQUE KEY `uk_wms_logical_scope_code` (`scope_code`),
+  KEY `idx_wms_logical_scope_status` (`lifecycle_status`,`scope_code`),
+  KEY `idx_wms_logical_scope_current_version` (`current_version_id`),
+  CONSTRAINT `ck_wms_logical_scope_lifecycle_status` CHECK ((`lifecycle_status` in (_utf8mb4'ACTIVE',_utf8mb4'RETIRING',_utf8mb4'RETIRED'))),
+  CONSTRAINT `ck_wms_logical_scope_revision` CHECK ((`revision` >= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS逻辑归属';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_logical_scope_version` (
+  `scope_version_id` bigint NOT NULL AUTO_INCREMENT COMMENT '逻辑归属版本主键',
+  `logical_scope_id` bigint NOT NULL COMMENT '逻辑归属ID',
+  `version_no` int NOT NULL COMMENT '版本号',
+  `rule_package_version_id` bigint NOT NULL COMMENT '规则包版本ID',
+  `space_snapshot_digest` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '空间快照SHA-256小写十六进制',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'DRAFT' COMMENT '状态：DRAFT/ACTIVE/RETIRED',
+  `published_at` datetime(3) DEFAULT NULL COMMENT '发布时间',
+  `published_by` bigint DEFAULT NULL COMMENT '发布人',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`scope_version_id`),
+  UNIQUE KEY `uk_wms_logical_scope_version_owner_version` (`logical_scope_id`,`version_no`),
+  KEY `idx_wms_logical_scope_version_package` (`rule_package_version_id`,`status`),
+  CONSTRAINT `ck_wms_logical_scope_version_digest` CHECK (regexp_like(`space_snapshot_digest`,_utf8mb4'^[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_logical_scope_version_status` CHECK ((`status` in (_utf8mb4'DRAFT',_utf8mb4'ACTIVE',_utf8mb4'RETIRED'))),
+  CONSTRAINT `ck_wms_logical_scope_version_version_no` CHECK ((`version_no` >= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS逻辑归属版本';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_logical_scope_storage` (
+  `logical_scope_storage_id` bigint NOT NULL AUTO_INCREMENT COMMENT '逻辑归属储位关系主键',
+  `scope_version_id` bigint NOT NULL COMMENT '逻辑归属版本ID',
+  `storage_id` bigint NOT NULL COMMENT '稳定储位ID',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`logical_scope_storage_id`),
+  UNIQUE KEY `uk_wms_logical_scope_storage` (`scope_version_id`,`storage_id`),
+  KEY `idx_wms_logical_scope_storage_storage` (`storage_id`,`scope_version_id`),
+  CONSTRAINT `ck_wms_logical_scope_storage_revision` CHECK ((`revision` >= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS逻辑归属储位集合';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_material_logical_assignment` (
+  `logical_assignment_id` bigint NOT NULL AUTO_INCREMENT COMMENT '物料逻辑归属主键',
+  `inventory_id` bigint NOT NULL COMMENT '稳定库存ID',
+  `scope_version_id` bigint NOT NULL COMMENT '逻辑归属版本ID',
+  `assignment_revision` int NOT NULL DEFAULT '1' COMMENT '归属修订号',
+  `source_business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '来源业务类型',
+  `source_business_id` bigint NOT NULL COMMENT '来源业务内部ID',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '对象修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`logical_assignment_id`),
+  UNIQUE KEY `uk_wms_material_logical_assignment_inventory` (`inventory_id`),
+  KEY `idx_wms_material_logical_assignment_scope` (`scope_version_id`),
+  KEY `idx_wms_material_logical_assignment_source` (`source_business_type`,`source_business_id`),
+  CONSTRAINT `ck_wms_material_logical_assignment_assignment_revision` CHECK ((`assignment_revision` >= 1)),
+  CONSTRAINT `ck_wms_material_logical_assignment_revision` CHECK ((`revision` >= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS物料当前逻辑归属';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `wms_logical_assignment_history` (
+  `logical_assignment_history_id` bigint NOT NULL AUTO_INCREMENT COMMENT '逻辑归属历史主键',
+  `inventory_id` bigint NOT NULL COMMENT '稳定库存ID',
+  `from_scope_version_id` bigint DEFAULT NULL COMMENT '变更前逻辑归属版本ID',
+  `to_scope_version_id` bigint NOT NULL COMMENT '变更后逻辑归属版本ID',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT 'WMS任务键',
+  `plan_instance_id` bigint DEFAULT NULL COMMENT '计划实例ID',
+  `effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '领域效果键WMS:SHA-256',
+  `operator_id` bigint DEFAULT NULL COMMENT '操作者ID快照',
+  `operator_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '操作者名称快照',
+  `operator_department_id` bigint DEFAULT NULL COMMENT '操作者部门ID快照',
+  `operator_department_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '操作者部门名称快照',
+  `occurred_at` datetime(3) NOT NULL COMMENT '业务发生时间',
+  `recorded_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '事实记录时间',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  PRIMARY KEY (`logical_assignment_history_id`),
+  UNIQUE KEY `uk_wms_logical_assignment_history_effect` (`effect_key`),
+  KEY `idx_wms_logical_assignment_history_inventory_time` (`inventory_id`,`occurred_at`),
+  KEY `idx_wms_logical_assignment_history_instance` (`plan_instance_id`),
+  KEY `idx_wms_logical_assignment_history_to_scope` (`to_scope_version_id`),
+  CONSTRAINT `ck_wms_logical_assignment_history_effect_format` CHECK (regexp_like(`effect_key`,_utf8mb4'^WMS:[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_logical_assignment_history_effect_length` CHECK ((char_length(`effect_key`) <= 128))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS逻辑归属变更历史';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- ============================================================
+-- P4 生产信息、装载、占用与物料追踪十一表目标结构
+-- 仅内联已接受 DDL，不写业务、权限种子或结构版本注册。
+-- ============================================================
+CREATE TABLE `wms_production_info` (
+  `production_info_id` bigint NOT NULL COMMENT '生产信息主键，系统生成',
+  `inventory_id` bigint NOT NULL COMMENT '稳定库存单元ID，逻辑关联 wms_inventory.inventory_id',
+  `material_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '料号，逻辑关联 wms_material.material_code',
+  `material_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '物料类别快照',
+  `production_date` date DEFAULT NULL COMMENT '生产日期',
+  `material_batch` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '生产批次',
+  `supplier_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '供应商编码快照',
+  `supplier_name` varchar(100) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '供应商名称快照',
+  `customer_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '客户编码快照',
+  `customer_name` varchar(100) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '客户名称快照',
+  `length_value` decimal(38,12) DEFAULT NULL COMMENT '长度值',
+  `width_value` decimal(38,12) DEFAULT NULL COMMENT '宽度值',
+  `height_value` decimal(38,12) DEFAULT NULL COMMENT '高度值',
+  `dimension_unit` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '尺寸单位',
+  `bom_level` int DEFAULT NULL COMMENT 'BOM层级',
+  `bom_qty` decimal(20,6) DEFAULT NULL COMMENT 'BOM用量，与库存数量分开',
+  `bom_version` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT 'BOM版本',
+  `finished_material_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '最终成品料号',
+  `finished_material_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '最终成品类别',
+  `parse_version` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '标签生产信息解析版本',
+  `revision` int NOT NULL DEFAULT 1 COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`production_info_id`),
+  UNIQUE KEY `uk_wms_production_info_inventory` (`inventory_id`),
+  KEY `idx_wms_production_info_material_batch` (`material_code`,`material_batch`,`production_date`),
+  CONSTRAINT `ck_wms_production_info_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS库存单元生产信息';
+
+CREATE TABLE `wms_material_attribute_value` (
+  `attribute_value_id` bigint NOT NULL COMMENT '物料属性值主键，系统生成',
+  `production_info_id` bigint NOT NULL COMMENT '生产信息ID，逻辑关联 wms_production_info.production_info_id',
+  `attribute_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '属性键，逻辑关联 wms_attribute_catalog.attribute_key',
+  `seq_no` int NOT NULL COMMENT '同属性多值序号，从1开始',
+  `value_text` longtext COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文本属性值',
+  `value_number` decimal(38,12) DEFAULT NULL COMMENT '数值属性值',
+  `value_date` date DEFAULT NULL COMMENT '日期属性值',
+  `value_datetime` datetime(3) DEFAULT NULL COMMENT '日期时间属性值',
+  `unit` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '数值属性单位',
+  `source_ref` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '脱敏来源或证据引用',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`attribute_value_id`),
+  UNIQUE KEY `uk_wms_material_attribute_value_seq` (`production_info_id`,`attribute_key`,`seq_no`),
+  KEY `idx_wms_material_attribute_value_key` (`attribute_key`,`production_info_id`),
+  CONSTRAINT `ck_wms_material_attribute_value_seq` CHECK (`seq_no` >= 1),
+  CONSTRAINT `ck_wms_material_attribute_value_at_most_one_value` CHECK (
+    (`value_text` IS NOT NULL) + (`value_number` IS NOT NULL)
+    + (`value_date` IS NOT NULL) + (`value_datetime` IS NOT NULL) <= 1
+  )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS库存单元可扩展属性值';
+
+CREATE TABLE `wms_load_node` (
+  `load_node_id` bigint NOT NULL COMMENT '统一装载节点主键，系统生成',
+  `node_type` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '节点类型：MATERIAL/CARRIER',
+  `inventory_id` bigint DEFAULT NULL COMMENT '物料节点库存ID，逻辑关联 wms_inventory.inventory_id',
+  `container_id` bigint DEFAULT NULL COMMENT '载具节点容器ID，逻辑关联 wms_container.container_id',
+  `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '节点状态，未闭合代码由后续目录约束',
+  `revision` int NOT NULL DEFAULT 1 COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`load_node_id`),
+  UNIQUE KEY `uk_wms_load_node_inventory` (`inventory_id`),
+  UNIQUE KEY `uk_wms_load_node_container` (`container_id`),
+  KEY `idx_wms_load_node_type_status` (`node_type`,`status`),
+  CONSTRAINT `ck_wms_load_node_exactly_one_ref` CHECK (
+    (`inventory_id` IS NOT NULL) + (`container_id` IS NOT NULL) = 1
+  ),
+  CONSTRAINT `ck_wms_load_node_type` CHECK (`node_type` IN ('MATERIAL','CARRIER')),
+  CONSTRAINT `ck_wms_load_node_type_ref` CHECK (
+    (`node_type` = 'MATERIAL' AND `inventory_id` IS NOT NULL AND `container_id` IS NULL)
+    OR
+    (`node_type` = 'CARRIER' AND `inventory_id` IS NULL AND `container_id` IS NOT NULL)
+  ),
+  CONSTRAINT `ck_wms_load_node_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS统一装载节点';
+
+CREATE TABLE `wms_load_relation` (
+  `relation_id` bigint NOT NULL COMMENT '当前装载关系主键，系统生成',
+  `child_node_id` bigint NOT NULL COMMENT '子节点ID，逻辑关联 wms_load_node.load_node_id',
+  `parent_node_id` bigint NOT NULL COMMENT '父载具节点ID，逻辑关联 wms_load_node.load_node_id',
+  `revision` int NOT NULL DEFAULT 1 COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`relation_id`),
+  UNIQUE KEY `uk_wms_load_relation_child` (`child_node_id`),
+  KEY `idx_wms_load_relation_parent` (`parent_node_id`,`child_node_id`),
+  CONSTRAINT `ck_wms_load_relation_not_self` CHECK (`child_node_id` <> `parent_node_id`),
+  CONSTRAINT `ck_wms_load_relation_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS当前装载父子关系';
+
+CREATE TABLE `wms_load_relation_history` (
+  `relation_history_id` bigint NOT NULL COMMENT '装载关系历史主键，系统生成',
+  `child_node_id` bigint NOT NULL COMMENT '子节点ID快照',
+  `from_parent_node_id` bigint DEFAULT NULL COMMENT '变更前父载具ID，空表示根节点',
+  `to_parent_node_id` bigint DEFAULT NULL COMMENT '变更后父载具ID，空表示拆为根节点',
+  `relation_revision` int NOT NULL COMMENT '变更后关系修订号',
+  `effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '领域效果键WMS:SHA-256',
+  `business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务类型快照',
+  `business_id` bigint NOT NULL COMMENT '父业务内部ID快照',
+  `business_line_id` bigint DEFAULT NULL COMMENT '父业务明细ID快照',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT 'WMS任务键',
+  `plan_instance_id` bigint DEFAULT NULL COMMENT '计划实例ID',
+  `event_id` bigint DEFAULT NULL COMMENT '计划事件ID',
+  `attempt_id` bigint DEFAULT NULL COMMENT '计划尝试ID',
+  `operator_id` bigint DEFAULT NULL COMMENT '实际操作者ID快照',
+  `operator_name` varchar(128) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '实际操作者名称快照',
+  `operator_department_id` bigint DEFAULT NULL COMMENT '实际操作者部门ID快照',
+  `operator_department_name` varchar(128) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '实际操作者部门名称快照',
+  `occurred_at` datetime(3) NOT NULL COMMENT '关系业务发生时间',
+  `recorded_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '事实记录时间',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者，追加事实由服务禁止更新',
+  `update_time` datetime(3) DEFAULT NULL COMMENT '更新时间，追加事实由服务禁止更新',
+  PRIMARY KEY (`relation_history_id`),
+  KEY `idx_wms_load_relation_history_effect` (`effect_key`),
+  KEY `idx_wms_load_relation_history_child_time` (`child_node_id`,`occurred_at`),
+  KEY `idx_wms_load_relation_history_task` (`business_type`,`business_id`,`task_key`),
+  KEY `idx_wms_load_relation_history_instance` (`plan_instance_id`),
+  CONSTRAINT `ck_wms_load_relation_history_revision` CHECK (`relation_revision` >= 1),
+  CONSTRAINT `ck_wms_load_relation_history_effect_format` CHECK (
+    REGEXP_LIKE(`effect_key`, _utf8mb4'^WMS:[0-9a-f]{64}$', 'c')
+  ),
+  CONSTRAINT `ck_wms_load_relation_history_effect_length` CHECK (CHAR_LENGTH(`effect_key`) <= 128)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS装载关系变更历史';
+
+CREATE TABLE `wms_storage_info` (
+  `storage_info_id` bigint NOT NULL COMMENT '根节点存放信息主键，系统生成',
+  `root_node_id` bigint NOT NULL COMMENT '装载根节点ID，逻辑关联 wms_load_node.load_node_id',
+  `location_kind` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '位置类型：STORAGE/OUTSIDE/IN_TRANSIT/UNKNOWN',
+  `storage_id` bigint DEFAULT NULL COMMENT '物理储位ID，仅STORAGE逻辑关联 wms_storage.storage_id',
+  `revision` int NOT NULL DEFAULT 1 COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`storage_info_id`),
+  UNIQUE KEY `uk_wms_storage_info_root` (`root_node_id`),
+  KEY `idx_wms_storage_info_location` (`location_kind`,`storage_id`),
+  KEY `idx_wms_storage_info_storage` (`storage_id`,`root_node_id`),
+  CONSTRAINT `ck_wms_storage_info_location_kind` CHECK (
+    `location_kind` IN ('STORAGE','OUTSIDE','IN_TRANSIT','UNKNOWN')
+  ),
+  CONSTRAINT `ck_wms_storage_info_storage_ref` CHECK (
+    (`location_kind` = 'STORAGE' AND `storage_id` IS NOT NULL)
+    OR
+    (`location_kind` IN ('OUTSIDE','IN_TRANSIT','UNKNOWN') AND `storage_id` IS NULL)
+  ),
+  CONSTRAINT `ck_wms_storage_info_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS装载根节点存放信息';
+
+CREATE TABLE `wms_occupancy_effect` (
+  `occupancy_effect_id` bigint NOT NULL COMMENT '占用事务头主键，系统生成',
+  `effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '领域效果键WMS:SHA-256',
+  `business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务类型快照',
+  `business_id` bigint NOT NULL COMMENT '父业务内部ID快照',
+  `business_line_id` bigint DEFAULT NULL COMMENT '父业务明细ID快照',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT 'WMS任务键',
+  `plan_instance_id` bigint DEFAULT NULL COMMENT '计划实例ID',
+  `event_id` bigint DEFAULT NULL COMMENT '计划事件ID',
+  `attempt_id` bigint DEFAULT NULL COMMENT '计划尝试ID',
+  `trace_id` bigint DEFAULT NULL COMMENT '物料trace事实ID，逻辑关联 wms_material_trace_history.trace_id',
+  `effect_result` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '事务结果，未闭合代码由后续合同约束',
+  `reason` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '业务原因或脱敏说明',
+  `evidence_ref` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '脱敏证据引用',
+  `occurred_at` datetime(3) NOT NULL COMMENT '业务发生时间',
+  `recorded_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '事实记录时间',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者，追加事实由服务禁止更新',
+  `update_time` datetime(3) DEFAULT NULL COMMENT '更新时间，追加事实由服务禁止更新',
+  PRIMARY KEY (`occupancy_effect_id`),
+  UNIQUE KEY `uk_wms_occupancy_effect_effect` (`effect_key`),
+  KEY `idx_wms_occupancy_effect_business` (`business_type`,`business_id`,`occurred_at`),
+  KEY `idx_wms_occupancy_effect_instance` (`plan_instance_id`),
+  KEY `idx_wms_occupancy_effect_trace` (`trace_id`),
+  CONSTRAINT `ck_wms_occupancy_effect_effect_format` CHECK (
+    REGEXP_LIKE(`effect_key`, _utf8mb4'^WMS:[0-9a-f]{64}$', 'c')
+  ),
+  CONSTRAINT `ck_wms_occupancy_effect_effect_length` CHECK (CHAR_LENGTH(`effect_key`) <= 128)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS储位占用事务效果头';
+
+CREATE TABLE `wms_storage_occupancy` (
+  `occupancy_id` bigint NOT NULL COMMENT '储位占用明细主键，服务显式分配，不使用AUTO_INCREMENT',
+  `occupancy_effect_id` bigint NOT NULL COMMENT '占用事务头ID，逻辑关联 wms_occupancy_effect.occupancy_effect_id',
+  `storage_id` bigint NOT NULL COMMENT '物理储位ID，逻辑关联 wms_storage.storage_id',
+  `root_node_id` bigint NOT NULL COMMENT '装载根节点ID，逻辑关联 wms_load_node.load_node_id',
+  `dimension_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '容量维度键',
+  `occupied_qty` decimal(38,12) NOT NULL COMMENT '当前占用数量快照',
+  `unit` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '占用单位',
+  `generation` int NOT NULL COMMENT '同一根物理占用的代次',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '状态：ACTIVE/CLOSED',
+  `detail_key` bigint GENERATED ALWAYS AS (`occupancy_id`) STORED NOT NULL COMMENT '明细ID独立别名，组合事实由六列唯一键保证',
+  `active_occupancy_key` bigint GENERATED ALWAYS AS (IF(`status` = 'ACTIVE', `occupancy_id`, NULL)) STORED COMMENT '活动明细ID别名，CLOSED为NULL',
+  `active_marker` tinyint GENERATED ALWAYS AS (IF(`status` = 'ACTIVE', 1, NULL)) STORED COMMENT '活动组合标志，NULL只豁免CLOSED历史',
+  `revision` int NOT NULL DEFAULT 1 COMMENT '修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`occupancy_id`),
+  UNIQUE KEY `uk_wms_storage_occupancy_fact` (
+    `occupancy_effect_id`,`storage_id`,`root_node_id`,`dimension_key`,`unit`,`generation`
+  ),
+  UNIQUE KEY `uk_wms_storage_occupancy_detail` (`detail_key`),
+  UNIQUE KEY `uk_wms_storage_occupancy_active_key` (`active_occupancy_key`),
+  UNIQUE KEY `uk_wms_storage_occupancy_active_fact` (
+    `storage_id`,`root_node_id`,`dimension_key`,`unit`,`active_marker`
+  ),
+  KEY `idx_wms_storage_occupancy_effect` (`occupancy_effect_id`),
+  KEY `idx_wms_storage_occupancy_storage_status` (`storage_id`,`status`,`dimension_key`),
+  KEY `idx_wms_storage_occupancy_root_status` (`root_node_id`,`status`),
+  CONSTRAINT `ck_wms_storage_occupancy_status` CHECK (`status` IN ('ACTIVE','CLOSED')),
+  CONSTRAINT `ck_wms_storage_occupancy_active_key` CHECK (
+    (`status` = 'ACTIVE' AND `active_occupancy_key` IS NOT NULL)
+    OR
+    (`status` = 'CLOSED' AND `active_occupancy_key` IS NULL)
+  ),
+  CONSTRAINT `ck_wms_storage_occupancy_qty` CHECK (`occupied_qty` >= 0),
+  CONSTRAINT `ck_wms_storage_occupancy_generation` CHECK (`generation` >= 1),
+  CONSTRAINT `ck_wms_storage_occupancy_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS物理储位占用明细';
+
+CREATE TABLE IF NOT EXISTS `wms_business_task` (
+  `task_id` bigint NOT NULL COMMENT 'WMS业务任务主键，系统生成',
+  `business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务类型稳定编码',
+  `business_id` bigint NOT NULL COMMENT '父业务内部ID',
+  `line_id` bigint DEFAULT NULL COMMENT '父业务明细ID',
+  `allocation_unit_id` bigint NOT NULL COMMENT '分配单元ID',
+  `round_no` int NOT NULL DEFAULT 0 COMMENT '轮次号',
+  `phase` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '阶段编码',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '业务任务唯一键',
+  `plan_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '计划类型编码',
+  `plan_instance_id` bigint NOT NULL COMMENT '计划实例ID',
+  `input_hash` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '规范化输入SHA-256小写十六进制',
+  `input_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '完整冻结业务命令JSON',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '状态：ACTIVE/RUNNING/COMPLETED/FAILED/CANCELLED',
+  `revision` int NOT NULL DEFAULT 1 COMMENT '业务任务修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`task_id`),
+  UNIQUE KEY `uk_wms_business_task_key` (`business_type`,`task_key`),
+  UNIQUE KEY `uk_wms_business_task_instance` (`plan_instance_id`),
+  KEY `idx_wms_business_task_business` (`business_type`,`business_id`,`phase`),
+  CONSTRAINT `ck_wms_business_task_round_no` CHECK (`round_no` >= 0),
+  CONSTRAINT `ck_wms_business_task_revision` CHECK (`revision` >= 1),
+  CONSTRAINT `ck_wms_business_task_input_hash` CHECK (
+    REGEXP_LIKE(`input_hash`, _utf8mb4'^[0-9a-f]{64}$', 'c')
+  ),
+  CONSTRAINT `ck_wms_business_task_input_json` CHECK (JSON_VALID(`input_json`)),
+  CONSTRAINT `ck_wms_business_task_status` CHECK (
+    `status` IN ('ACTIVE','RUNNING','COMPLETED','FAILED','CANCELLED')
+  )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS业务任务与冻结输入';
+
+CREATE TABLE IF NOT EXISTS `wms_business_task_barrier` (
+  `barrier_id` bigint NOT NULL COMMENT '业务任务完成屏障主键，系统生成',
+  `business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务类型稳定编码',
+  `business_id` bigint NOT NULL COMMENT '父业务内部ID',
+  `barrier_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务屏障稳定键',
+  `expected_task_keys_json` json NOT NULL COMMENT '预期taskKey字符串数组',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'OPEN' COMMENT '状态：OPEN/COMPLETED',
+  `revision` int NOT NULL DEFAULT 1 COMMENT '屏障修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`barrier_id`),
+  UNIQUE KEY `uk_wms_business_task_barrier_key` (`business_type`,`business_id`,`barrier_key`),
+  KEY `idx_wms_business_task_barrier_status` (`business_type`,`business_id`,`status`),
+  CONSTRAINT `ck_wms_business_task_barrier_tasks` CHECK (JSON_TYPE(`expected_task_keys_json`) = 'ARRAY'),
+  CONSTRAINT `ck_wms_business_task_barrier_status` CHECK (`status` IN ('OPEN','COMPLETED')),
+  CONSTRAINT `ck_wms_business_task_barrier_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS父业务任务完成屏障';
+
+CREATE TABLE IF NOT EXISTS `wms_space_change_order` (
+  `change_order_id` bigint NOT NULL COMMENT '空间变更单主键，系统生成',
+  `command_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '稳定命令键',
+  `change_type` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT 'CREATE/UPDATE/RETIRE',
+  `object_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT 'WAREHOUSE/ZONE/STORAGE',
+  `object_id` bigint DEFAULT NULL COMMENT '空间对象ID，创建时由校验动作分配',
+  `expected_revision` int DEFAULT NULL COMMENT '更新或退役前对象修订号',
+  `company_id` bigint DEFAULT NULL COMMENT '解析后的公司ID',
+  `warehouse_id` bigint DEFAULT NULL COMMENT '解析后的仓库ID',
+  `zone_id` bigint DEFAULT NULL COMMENT '解析后的库区ID',
+  `input_hash` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '冻结输入SHA-256',
+  `input_json` json NOT NULL COMMENT '冻结命令',
+  `validated_config_json` json DEFAULT NULL COMMENT '校验后完整配置',
+  `canonical_digest` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '完整配置SHA-256',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'CREATED' COMMENT 'CREATED/VALIDATED/CHECKED/APPLIED/RETIRED/COMPLETED/FAILED/CANCELLED',
+  `revision` int NOT NULL DEFAULT 1 COMMENT '变更单修订号',
+  `plan_instance_id` bigint DEFAULT NULL COMMENT '业务计划实例ID',
+  `business_task_id` bigint DEFAULT NULL COMMENT 'WMS业务任务ID',
+  `location_version_id` bigint DEFAULT NULL COMMENT '本次提交的位置版本ID',
+  `location_effective_revision` int DEFAULT NULL COMMENT '生效指针修订号',
+  `object_revision` int DEFAULT NULL COMMENT '本次提交后的空间对象修订号',
+  `reason` varchar(500) DEFAULT NULL COMMENT '业务原因',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`change_order_id`),
+  UNIQUE KEY `uk_wms_space_change_order_command` (`command_key`),
+  UNIQUE KEY `uk_wms_space_change_order_instance` (`plan_instance_id`),
+  UNIQUE KEY `uk_wms_space_change_order_task` (`business_task_id`),
+  KEY `idx_wms_space_change_order_status` (`status`,`object_type`,`update_time`),
+  KEY `idx_wms_space_change_order_object` (`object_type`,`object_id`),
+  CONSTRAINT `ck_wms_space_change_order_type` CHECK (`change_type` IN ('CREATE','UPDATE','RETIRE')),
+  CONSTRAINT `ck_wms_space_change_order_object_type` CHECK (`object_type` IN ('WAREHOUSE','ZONE','STORAGE')),
+  CONSTRAINT `ck_wms_space_change_order_status` CHECK (`status` IN ('CREATED','VALIDATED','CHECKED','APPLIED','RETIRED','COMPLETED','FAILED','CANCELLED')),
+  CONSTRAINT `ck_wms_space_change_order_hash` CHECK (REGEXP_LIKE(`input_hash`, _utf8mb4'^[0-9a-f]{64}$', 'c')),
+  CONSTRAINT `ck_wms_space_change_order_digest` CHECK (`canonical_digest` IS NULL OR REGEXP_LIKE(`canonical_digest`, _utf8mb4'^[0-9a-f]{64}$', 'c')),
+  CONSTRAINT `ck_wms_space_change_order_revision` CHECK (`revision` >= 1),
+  CONSTRAINT `ck_wms_space_change_order_expected_revision` CHECK (`expected_revision` IS NULL OR `expected_revision` >= 0),
+  CONSTRAINT `ck_wms_space_change_order_pointer_revision` CHECK (`location_effective_revision` IS NULL OR `location_effective_revision` >= 1),
+  CONSTRAINT `ck_wms_space_change_order_object_revision` CHECK (`object_revision` IS NULL OR `object_revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS空间生命周期变更单';
+
+CREATE TABLE IF NOT EXISTS `wms_logical_merge_order` (
+  `merge_order_id` bigint NOT NULL COMMENT '逻辑合并父单主键',
+  `command_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父单稳定命令键',
+  `target_scope_version_id` bigint NOT NULL COMMENT '目标逻辑作用域版本',
+  `source_scope_version_ids_json` json NOT NULL COMMENT '固定来源版本ID数组',
+  `compatible_scope_version_ids_json` json NOT NULL COMMENT '显式兼容来源版本ID数组',
+  `batch_size` int NOT NULL COMMENT '固定批大小',
+  `input_hash` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父单冻结输入摘要',
+  `input_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父单冻结命令原文',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'BATCHING' COMMENT 'BATCHING/RUNNING/VERIFYING/COMPLETED/FAILED/CANCELLED',
+  `expected_batch_count` int NOT NULL COMMENT '预期固定批次数',
+  `conflict_count` int NOT NULL DEFAULT 0 COMMENT '保留旧归属的冲突物料数',
+  `revision` int NOT NULL DEFAULT 1 COMMENT '父单修订号',
+  `parent_plan_instance_id` bigint DEFAULT NULL COMMENT '父计划实例ID',
+  `parent_business_task_id` bigint DEFAULT NULL COMMENT '父业务任务ID',
+  `barrier_id` bigint DEFAULT NULL COMMENT '完成屏障ID',
+  `reason` varchar(500) DEFAULT NULL COMMENT '业务原因',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`merge_order_id`),
+  UNIQUE KEY `uk_wms_logical_merge_order_command` (`command_key`),
+  UNIQUE KEY `uk_wms_logical_merge_order_parent_instance` (`parent_plan_instance_id`),
+  UNIQUE KEY `uk_wms_logical_merge_order_parent_task` (`parent_business_task_id`),
+  UNIQUE KEY `uk_wms_logical_merge_order_barrier` (`barrier_id`),
+  KEY `idx_wms_logical_merge_order_status` (`status`,`update_time`),
+  CONSTRAINT `ck_wms_logical_merge_order_batch_size` CHECK (`batch_size` BETWEEN 1 AND 500),
+  CONSTRAINT `ck_wms_logical_merge_order_status` CHECK (`status` IN ('BATCHING','RUNNING','VERIFYING','COMPLETED','FAILED','CANCELLED')),
+  CONSTRAINT `ck_wms_logical_merge_order_hash` CHECK (REGEXP_LIKE(`input_hash`, _utf8mb4'^[0-9a-f]{64}$', 'c')),
+  CONSTRAINT `ck_wms_logical_merge_order_batches` CHECK (`expected_batch_count` >= 1),
+  CONSTRAINT `ck_wms_logical_merge_order_conflicts` CHECK (`conflict_count` >= 0),
+  CONSTRAINT `ck_wms_logical_merge_order_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS逻辑归属合并父单';
+
+CREATE TABLE IF NOT EXISTS `wms_logical_merge_batch` (
+  `batch_id` bigint NOT NULL COMMENT '固定批次主键',
+  `merge_order_id` bigint NOT NULL COMMENT '逻辑合并父单ID',
+  `batch_no` int NOT NULL COMMENT '从1开始的固定批号',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '批次业务任务键',
+  `plan_instance_id` bigint NOT NULL COMMENT '批次计划实例ID',
+  `business_task_id` bigint NOT NULL COMMENT '批次业务任务ID',
+  `input_hash` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '批次冻结输入摘要',
+  `input_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '批次冻结命令原文',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'CREATED' COMMENT 'CREATED/RUNNING/APPLIED/CLOSED/CONFLICT/FAILED/CANCELLED',
+  `migrated_count` int NOT NULL DEFAULT 0 COMMENT '本批迁移数量',
+  `conflict_retained_count` int NOT NULL DEFAULT 0 COMMENT '本批保留旧归属数量',
+  `revision` int NOT NULL DEFAULT 1 COMMENT '批次修订号',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`batch_id`),
+  UNIQUE KEY `uk_wms_logical_merge_batch_no` (`merge_order_id`,`batch_no`),
+  UNIQUE KEY `uk_wms_logical_merge_batch_task_key` (`task_key`),
+  UNIQUE KEY `uk_wms_logical_merge_batch_instance` (`plan_instance_id`),
+  UNIQUE KEY `uk_wms_logical_merge_batch_business_task` (`business_task_id`),
+  KEY `idx_wms_logical_merge_batch_status` (`merge_order_id`,`status`),
+  CONSTRAINT `ck_wms_logical_merge_batch_no` CHECK (`batch_no` >= 1),
+  CONSTRAINT `ck_wms_logical_merge_batch_status` CHECK (`status` IN ('CREATED','RUNNING','APPLIED','CLOSED','CONFLICT','FAILED','CANCELLED')),
+  CONSTRAINT `ck_wms_logical_merge_batch_hash` CHECK (REGEXP_LIKE(`input_hash`, _utf8mb4'^[0-9a-f]{64}$', 'c')),
+  CONSTRAINT `ck_wms_logical_merge_batch_counts` CHECK (`migrated_count` >= 0 AND `conflict_retained_count` >= 0),
+  CONSTRAINT `ck_wms_logical_merge_batch_revision` CHECK (`revision` >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS逻辑归属合并固定批次';
+
+CREATE TABLE `wms_material_trace_history` (
+  `trace_id` bigint NOT NULL COMMENT '物料事实trace主键，系统生成',
+  `effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '领域效果键WMS:SHA-256',
+  `business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务类型稳定编码',
+  `business_name` varchar(128) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '父业务类型名称快照',
+  `business_id` bigint NOT NULL COMMENT '父业务内部ID',
+  `business_no` varchar(100) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '父业务号快照',
+  `business_line_id` bigint DEFAULT NULL COMMENT '父业务明细ID',
+  `root_business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '根父业务类型稳定编码',
+  `root_business_id` bigint NOT NULL COMMENT '根父业务内部ID',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT 'WMS任务键',
+  `plan_instance_id` bigint DEFAULT NULL COMMENT '计划实例ID',
+  `plan_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '计划编码',
+  `plan_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '计划类型',
+  `definition_version` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '计划定义版本',
+  `event_id` bigint DEFAULT NULL COMMENT '计划事件ID',
+  `attempt_id` bigint DEFAULT NULL COMMENT '计划尝试ID',
+  `input_hash` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '规范化输入SHA-256小写十六进制',
+  `reverse_trace_id` bigint DEFAULT NULL COMMENT '新COMPENSATION行引用被补偿的原trace ID，不更新原FACT',
+  `trace_kind` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '事实类型：FACT/COMPENSATION',
+  `effect_result` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '成功事实结果，未闭合代码由后续合同约束',
+  `reason` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '业务原因',
+  `evidence_ref` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '脱敏证据引用',
+  `actor_id` bigint DEFAULT NULL COMMENT '实际操作者ID快照',
+  `actor_name` varchar(128) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '实际操作者名称快照',
+  `initiator_id` varchar(128) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '发起人标识快照',
+  `initiator_name` varchar(128) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '发起人名称快照',
+  `department_id` bigint DEFAULT NULL COMMENT '操作者部门ID快照',
+  `department_name` varchar(128) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '操作者部门名称快照',
+  `execution_subject` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '执行主体快照，代码集待后续合同确定',
+  `execution_account` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '执行账号快照',
+  `on_behalf_of` varchar(128) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '授权代办身份快照',
+  `source_system` varchar(64) COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '来源系统',
+  `terminal_id` varchar(128) COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '来源终端标识',
+  `request_id` varchar(64) COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '请求ID',
+  `source_trace_id` varchar(128) COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '上游链路追踪ID',
+  `occurred_at` datetime(3) NOT NULL COMMENT '真实业务发生时间',
+  `recorded_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '事实记录时间',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者，追加事实由服务禁止更新',
+  `update_time` datetime(3) DEFAULT NULL COMMENT '更新时间，追加事实由服务禁止更新',
+  PRIMARY KEY (`trace_id`),
+  UNIQUE KEY `uk_wms_material_trace_history_effect` (`effect_key`),
+  KEY `idx_wms_material_trace_history_business` (`business_type`,`business_id`,`occurred_at`),
+  KEY `idx_wms_material_trace_history_task` (`task_key`,`occurred_at`),
+  KEY `idx_wms_material_trace_history_instance` (`plan_instance_id`),
+  KEY `idx_wms_material_trace_history_reverse` (`reverse_trace_id`),
+  CONSTRAINT `ck_wms_material_trace_history_effect_format` CHECK (
+    REGEXP_LIKE(`effect_key`, _utf8mb4'^WMS:[0-9a-f]{64}$', 'c')
+  ),
+  CONSTRAINT `ck_wms_material_trace_history_effect_length` CHECK (CHAR_LENGTH(`effect_key`) <= 128),
+  CONSTRAINT `ck_wms_material_trace_history_input_hash` CHECK (
+    REGEXP_LIKE(`input_hash`, _utf8mb4'^[0-9a-f]{64}$', 'c')
+  ),
+  CONSTRAINT `ck_wms_material_trace_history_kind` CHECK (`trace_kind` IN ('FACT','COMPENSATION')),
+  CONSTRAINT `ck_wms_material_trace_history_reverse_not_self` CHECK (`reverse_trace_id` IS NULL OR `reverse_trace_id` <> `trace_id`),
+  CONSTRAINT `ck_wms_material_trace_history_reverse_shape` CHECK (
+    (`trace_kind` = 'FACT' AND `reverse_trace_id` IS NULL)
+    OR
+    (`trace_kind` = 'COMPENSATION' AND `reverse_trace_id` IS NOT NULL)
+  )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS成功物料事实trace头';
+
+CREATE TABLE `wms_material_trace_item` (
+  `item_id` bigint NOT NULL COMMENT 'trace物料项主键，系统生成',
+  `trace_id` bigint NOT NULL COMMENT '物料事实trace头ID，逻辑关联 wms_material_trace_history.trace_id',
+  `inventory_id` bigint NOT NULL COMMENT '库存单元ID，逻辑关联 wms_inventory.inventory_id',
+  `stock_unit_code` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '原始标签/库存单元编码快照',
+  `material_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '料号快照，可空，不伪造默认料号',
+  `production_info_id` bigint DEFAULT NULL COMMENT '生产信息ID快照',
+  `production_revision` int DEFAULT NULL COMMENT '生产信息修订号快照',
+  `production_snapshot` json DEFAULT NULL COMMENT '事实发生时生产属性完整快照，后续服务构造并与事实同事务落盘',
+  `quantity` decimal(20,6) DEFAULT NULL COMMENT '事实数量',
+  `unit` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '事实单位',
+  `before_qty` decimal(20,6) DEFAULT NULL COMMENT '变更前数量，可为0',
+  `delta_qty` decimal(20,6) DEFAULT NULL COMMENT '数量增量，可为负',
+  `after_qty` decimal(20,6) DEFAULT NULL COMMENT '变更后数量，可为0',
+  `physical_from_storage_id` bigint DEFAULT NULL COMMENT '物理源储位ID快照',
+  `physical_from_storage_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '物理源储位编码快照',
+  `physical_to_storage_id` bigint DEFAULT NULL COMMENT '物理目标储位ID快照',
+  `physical_to_storage_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '物理目标储位编码快照',
+  `logical_from_scope_version_id` bigint DEFAULT NULL COMMENT '变更前逻辑归属版本ID快照',
+  `logical_to_scope_version_id` bigint DEFAULT NULL COMMENT '变更后逻辑归属版本ID快照',
+  `load_parent_before_id` bigint DEFAULT NULL COMMENT '变更前装载父级节点ID快照',
+  `load_parent_after_id` bigint DEFAULT NULL COMMENT '变更后装载父级节点ID快照',
+  `load_root_before_id` bigint DEFAULT NULL COMMENT '变更前装载根节点ID快照',
+  `load_root_after_id` bigint DEFAULT NULL COMMENT '变更后装载根节点ID快照',
+  `lifecycle_before` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '变更前生命周期快照',
+  `lifecycle_after` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '变更后生命周期快照',
+  `rule_package_version_id` bigint DEFAULT NULL COMMENT '适用规则包版本ID快照',
+  `recorded_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '事实记录时间',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者，追加事实由服务禁止更新',
+  `update_time` datetime(3) DEFAULT NULL COMMENT '更新时间，追加事实由服务禁止更新',
+  PRIMARY KEY (`item_id`),
+  KEY `idx_wms_material_trace_item_trace` (`trace_id`,`inventory_id`),
+  KEY `idx_wms_material_trace_item_inventory_time` (`inventory_id`,`recorded_at`),
+  KEY `idx_wms_material_trace_item_material` (`material_code`,`recorded_at`),
+  KEY `idx_wms_material_trace_item_production` (`production_info_id`),
+  CONSTRAINT `ck_wms_material_trace_item_production_revision` CHECK (
+    `production_revision` IS NULL OR `production_revision` >= 1
+  ),
+  CONSTRAINT `ck_wms_material_trace_item_before_qty` CHECK (`before_qty` IS NULL OR `before_qty` >= 0),
+  CONSTRAINT `ck_wms_material_trace_item_quantity` CHECK (`quantity` IS NULL OR `quantity` >= 0),
+  CONSTRAINT `ck_wms_material_trace_item_after_qty` CHECK (`after_qty` IS NULL OR `after_qty` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS物料事实逐物料项';
+
+CREATE TABLE `wms_material_trace_edge` (
+  `trace_edge_id` bigint NOT NULL COMMENT '生产家谱边主键，系统生成',
+  `trace_id` bigint NOT NULL COMMENT '所属物料事实trace头ID，逻辑关联 wms_material_trace_history.trace_id',
+  `source_item_id` bigint NOT NULL COMMENT '来源物料项ID，逻辑关联 wms_material_trace_item.item_id',
+  `target_item_id` bigint NOT NULL COMMENT '目标物料项ID，逻辑关联 wms_material_trace_item.item_id',
+  `quantity` decimal(20,6) NOT NULL COMMENT '来源到目标的正物料数量',
+  `unit` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '家谱数量单位',
+  `group_no` int NOT NULL COMMENT '拆合关系组序号',
+  `recorded_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '事实记录时间',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者，追加事实由服务禁止更新',
+  `update_time` datetime(3) DEFAULT NULL COMMENT '更新时间，追加事实由服务禁止更新',
+  PRIMARY KEY (`trace_edge_id`),
+  UNIQUE KEY `uk_wms_material_trace_edge` (`trace_id`,`source_item_id`,`target_item_id`,`group_no`),
+  KEY `idx_wms_material_trace_edge_source` (`source_item_id`),
+  KEY `idx_wms_material_trace_edge_target` (`target_item_id`),
+  CONSTRAINT `ck_wms_material_trace_edge_group` CHECK (`group_no` >= 1),
+  CONSTRAINT `ck_wms_material_trace_edge_qty` CHECK (`quantity` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS物料生产家谱N:M边';
+
+-- P5 分配、锁、释放与数量预留六表目标结构。
+-- 定义取自 iws_inventory_management_allocation_foundation.sql 在 MySQL 8.0.45
+-- 隔离执行后的 INFORMATION_SCHEMA 目标态；空库直接建最终结构，不写业务 seed。
+CREATE TABLE `wms_access_channel_lock` (
+  `channel_lock_id` bigint NOT NULL COMMENT '通道锁主键，服务显式分配',
+  `channel_id` bigint NOT NULL COMMENT '访问通道ID，逻辑关联 wms_access_channel.channel_id',
+  `business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务类型稳定编码',
+  `business_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '父业务类型名称快照',
+  `business_id` bigint NOT NULL COMMENT '父业务内部ID',
+  `business_no` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '父业务号快照',
+  `business_line_id` bigint DEFAULT NULL COMMENT '父业务明细ID',
+  `allocation_unit_id` bigint NOT NULL COMMENT '不可拆分配单元ID',
+  `round_no` int NOT NULL COMMENT '分配轮次',
+  `phase` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '任务阶段：LOCK/RELEASE',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '稳定任务键',
+  `plan_instance_id` bigint NOT NULL COMMENT '计划实例ID',
+  `lock_effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '通道锁效果键WMS:SHA-256',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '状态：LOCKED/CONSUMED/RELEASED',
+  `effect_result` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'NONE' COMMENT '外部效果：NONE/SEND_INTENT/ACCEPTED/UNKNOWN/CONSUMED/NO_EFFECT',
+  `active_channel_key` bigint GENERATED ALWAYS AS (if((`status` = _utf8mb4'LOCKED'),`channel_id`,NULL)) STORED COMMENT '活动通道ID，终态为NULL',
+  `path_member_ids_json` json NOT NULL COMMENT '锁内路径成员ID数组快照',
+  `path_revision` int NOT NULL COMMENT '通道路径修订号快照',
+  `evidence_revision` int NOT NULL DEFAULT '0' COMMENT '无效果或外部效果证据修订号',
+  `terminal_effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '通道锁终态效果键',
+  `terminal_release_id` bigint DEFAULT NULL COMMENT '终态释放流水ID',
+  `consumption_trace_id` bigint DEFAULT NULL COMMENT '消费trace头ID',
+  `terminal_at` datetime(3) DEFAULT NULL COMMENT '终态时间',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '通道锁修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`channel_lock_id`),
+  UNIQUE KEY `uk_wms_access_channel_lock_effect` (`lock_effect_key`),
+  UNIQUE KEY `uk_wms_access_channel_lock_terminal_effect` (`terminal_effect_key`),
+  UNIQUE KEY `uk_wms_access_channel_lock_terminal_release` (`terminal_release_id`),
+  UNIQUE KEY `uk_wms_access_channel_lock_active` (`active_channel_key`),
+  KEY `idx_wms_access_channel_lock_business` (`business_type`,`business_id`,`business_line_id`),
+  KEY `idx_wms_access_channel_lock_task` (`business_type`,`task_key`),
+  KEY `idx_wms_access_channel_lock_channel_status` (`channel_id`,`status`,`evidence_revision`),
+  CONSTRAINT `ck_wms_access_channel_lock_active` CHECK ((((`status` = _utf8mb4'LOCKED') and (`active_channel_key` is not null) and (`terminal_effect_key` is null) and (`terminal_release_id` is null) and (`consumption_trace_id` is null) and (`terminal_at` is null) and (`effect_result` in (_utf8mb4'NONE',_utf8mb4'SEND_INTENT',_utf8mb4'ACCEPTED',_utf8mb4'UNKNOWN'))) or ((`status` = _utf8mb4'CONSUMED') and (`active_channel_key` is null) and (`terminal_effect_key` is not null) and (`consumption_trace_id` is not null) and (`terminal_release_id` is null) and (`terminal_at` is not null) and (`effect_result` = _utf8mb4'CONSUMED')) or ((`status` = _utf8mb4'RELEASED') and (`active_channel_key` is null) and (`terminal_effect_key` is not null) and (`terminal_release_id` is not null) and (`consumption_trace_id` is null) and (`terminal_at` is not null) and (`effect_result` = _utf8mb4'NO_EFFECT')))),
+  CONSTRAINT `ck_wms_access_channel_lock_effect` CHECK (regexp_like(`lock_effect_key`,_utf8mb4'^WMS:[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_access_channel_lock_evidence_revision` CHECK ((`evidence_revision` >= 0)),
+  CONSTRAINT `ck_wms_access_channel_lock_path_json` CHECK ((json_type(`path_member_ids_json`) = _utf8mb4'ARRAY')),
+  CONSTRAINT `ck_wms_access_channel_lock_path_revision` CHECK ((`path_revision` >= 1)),
+  CONSTRAINT `ck_wms_access_channel_lock_phase` CHECK ((`phase` in (_utf8mb4'LOCK',_utf8mb4'RELEASE'))),
+  CONSTRAINT `ck_wms_access_channel_lock_result` CHECK ((`effect_result` in (_utf8mb4'NONE',_utf8mb4'SEND_INTENT',_utf8mb4'ACCEPTED',_utf8mb4'UNKNOWN',_utf8mb4'CONSUMED',_utf8mb4'NO_EFFECT'))),
+  CONSTRAINT `ck_wms_access_channel_lock_revision` CHECK ((`revision` >= 1)),
+  CONSTRAINT `ck_wms_access_channel_lock_round` CHECK ((`round_no` >= 1)),
+  CONSTRAINT `ck_wms_access_channel_lock_status` CHECK ((`status` in (_utf8mb4'LOCKED',_utf8mb4'CONSUMED',_utf8mb4'RELEASED'))),
+  CONSTRAINT `ck_wms_access_channel_lock_terminal_effect` CHECK (((`terminal_effect_key` is null) or regexp_like(`terminal_effect_key`,_utf8mb4'^WMS:[0-9a-f]{64}$',_utf8mb4'c')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS持久通道锁';
+CREATE TABLE `wms_allocation_decision` (
+  `decision_id` bigint NOT NULL COMMENT '分配决策主键，服务显式分配',
+  `business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务类型稳定编码',
+  `business_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '父业务类型名称快照',
+  `business_id` bigint NOT NULL COMMENT '父业务内部ID',
+  `business_no` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '父业务号快照',
+  `business_line_id` bigint DEFAULT NULL COMMENT '父业务明细ID',
+  `allocation_unit_id` bigint NOT NULL COMMENT '不可拆分配单元ID',
+  `round_no` int NOT NULL COMMENT '分配轮次',
+  `phase` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '任务阶段：LOCK/RELEASE',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '稳定任务键',
+  `plan_instance_id` bigint NOT NULL COMMENT '计划实例ID',
+  `effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '决策效果键WMS:SHA-256',
+  `input_hash` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '规范化输入SHA-256小写十六进制',
+  `rule_package_version_id` bigint NOT NULL COMMENT '规则包版本ID快照',
+  `logical_scope_version_id` bigint NOT NULL COMMENT '逻辑归属版本ID快照',
+  `space_snapshot_hash` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '空间配置快照SHA-256',
+  `capacity_snapshot_hash` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '容量账快照SHA-256',
+  `candidate_summary_json` json NOT NULL COMMENT '候选摘要与筛选解释JSON',
+  `result` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '结果：EVALUATED/LOCKED/NO_CANDIDATE/BLOCKED',
+  `result_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '无解或阻断原因',
+  `decided_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '决策时间',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '决策修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`decision_id`),
+  UNIQUE KEY `uk_wms_allocation_decision_effect` (`effect_key`),
+  UNIQUE KEY `uk_wms_allocation_decision_task` (`business_type`,`task_key`),
+  UNIQUE KEY `uk_wms_allocation_decision_instance` (`plan_instance_id`),
+  KEY `idx_wms_allocation_decision_business` (`business_type`,`business_id`,`business_line_id`),
+  KEY `idx_wms_allocation_decision_unit` (`business_type`,`business_id`,`allocation_unit_id`,`round_no`),
+  KEY `idx_wms_allocation_decision_result` (`result`,`decided_at`),
+  CONSTRAINT `ck_wms_allocation_decision_capacity_hash` CHECK (regexp_like(`capacity_snapshot_hash`,_utf8mb4'^[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_allocation_decision_effect` CHECK (regexp_like(`effect_key`,_utf8mb4'^WMS:[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_allocation_decision_input_hash` CHECK (regexp_like(`input_hash`,_utf8mb4'^[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_allocation_decision_phase` CHECK ((`phase` in (_utf8mb4'LOCK',_utf8mb4'RELEASE'))),
+  CONSTRAINT `ck_wms_allocation_decision_result` CHECK ((`result` in (_utf8mb4'EVALUATED',_utf8mb4'LOCKED',_utf8mb4'NO_CANDIDATE',_utf8mb4'BLOCKED'))),
+  CONSTRAINT `ck_wms_allocation_decision_revision` CHECK ((`revision` >= 1)),
+  CONSTRAINT `ck_wms_allocation_decision_round` CHECK ((`round_no` >= 1)),
+  CONSTRAINT `ck_wms_allocation_decision_space_hash` CHECK (regexp_like(`space_snapshot_hash`,_utf8mb4'^[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_allocation_decision_summary` CHECK ((json_type(`candidate_summary_json`) = _utf8mb4'OBJECT'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS分配决策';
+CREATE TABLE `wms_allocation_candidate` (
+  `candidate_id` bigint NOT NULL COMMENT '候选主键，服务显式分配',
+  `decision_id` bigint NOT NULL COMMENT '分配决策ID，逻辑关联 wms_allocation_decision.decision_id',
+  `storage_id` bigint NOT NULL COMMENT '候选储位ID，逻辑关联 wms_storage.storage_id',
+  `rank_no` int NOT NULL COMMENT '稳定排序序号',
+  `eligible_flag` tinyint(1) NOT NULL DEFAULT '1' COMMENT '硬筛选后是否可用：1可用，0不可用',
+  `selected_flag` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否选中：1选中，0未选中',
+  `sort_key_json` json NOT NULL COMMENT '冻结排序键数组',
+  `residual_vector_json` json NOT NULL COMMENT '多维残余向量对象',
+  `protection_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '稀缺/深位保护原因',
+  `block_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '硬阻挡原因',
+  `selected_decision_key` bigint GENERATED ALWAYS AS (if((`selected_flag` = 1),`decision_id`,NULL)) STORED COMMENT '选中候选决策唯一键，未选中为NULL',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`candidate_id`),
+  UNIQUE KEY `uk_wms_allocation_candidate_decision_storage` (`decision_id`,`storage_id`),
+  UNIQUE KEY `uk_wms_allocation_candidate_decision_rank` (`decision_id`,`rank_no`),
+  UNIQUE KEY `uk_wms_allocation_candidate_selected` (`selected_decision_key`),
+  KEY `idx_wms_allocation_candidate_storage` (`storage_id`,`decision_id`),
+  KEY `idx_wms_allocation_candidate_eligible` (`decision_id`,`eligible_flag`,`rank_no`),
+  CONSTRAINT `ck_wms_allocation_candidate_eligible` CHECK ((`eligible_flag` in (0,1))),
+  CONSTRAINT `ck_wms_allocation_candidate_rank` CHECK ((`rank_no` >= 1)),
+  CONSTRAINT `ck_wms_allocation_candidate_residual_json` CHECK ((json_type(`residual_vector_json`) = _utf8mb4'OBJECT')),
+  CONSTRAINT `ck_wms_allocation_candidate_selected` CHECK ((`selected_flag` in (0,1))),
+  CONSTRAINT `ck_wms_allocation_candidate_selected_eligible` CHECK (((`selected_flag` = 0) or ((`eligible_flag` = 1) and (`block_reason` is null)))),
+  CONSTRAINT `ck_wms_allocation_candidate_sort_json` CHECK ((json_type(`sort_key_json`) = _utf8mb4'ARRAY'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS分配候选与排序证据';
+CREATE TABLE `wms_allocation_lock` (
+  `allocation_lock_id` bigint NOT NULL COMMENT '分配锁主键，服务显式分配',
+  `decision_id` bigint NOT NULL COMMENT '分配决策ID，逻辑关联 wms_allocation_decision.decision_id',
+  `candidate_id` bigint NOT NULL COMMENT '候选ID，逻辑关联 wms_allocation_candidate.candidate_id',
+  `channel_lock_id` bigint DEFAULT NULL COMMENT '通道锁ID，资源域为CHANNEL时必填',
+  `business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务类型稳定编码',
+  `business_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '父业务类型名称快照',
+  `business_id` bigint NOT NULL COMMENT '父业务内部ID',
+  `business_no` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '父业务号快照',
+  `business_line_id` bigint DEFAULT NULL COMMENT '父业务明细ID',
+  `allocation_unit_id` bigint NOT NULL COMMENT '不可拆分配单元ID',
+  `round_no` int NOT NULL COMMENT '分配轮次',
+  `phase` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '任务阶段：LOCK/RELEASE',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '稳定任务键',
+  `plan_instance_id` bigint NOT NULL COMMENT '计划实例ID',
+  `storage_id` bigint NOT NULL COMMENT '锁定的物理储位ID',
+  `resource_domain` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '锁域：STORAGE/CHANNEL',
+  `lock_kind` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '锁类型：CAPACITY_SHARE/ENTITY_SLOT',
+  `dimension_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '容量份额维度键',
+  `unit` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '容量份额单位',
+  `locked_qty` decimal(38,12) DEFAULT NULL COMMENT '容量份额数量',
+  `slot_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '实体槽稳定键',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '状态：LOCKED/CONSUMED/RELEASED',
+  `effect_result` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'NONE' COMMENT '外部效果：NONE/SEND_INTENT/ACCEPTED/UNKNOWN/CONSUMED/NO_EFFECT',
+  `effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '分配锁效果键WMS:SHA-256',
+  `evidence_revision` int NOT NULL DEFAULT '0' COMMENT '证据版本：无效果或外部效果',
+  `candidate_share_key` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin GENERATED ALWAYS AS ((case when (`lock_kind` = _utf8mb4'CAPACITY_SHARE') then concat(_utf8mb4'C:',lpad(hex(`candidate_id`),16,_utf8mb4'0'),_utf8mb4':',hex(cast(`dimension_key` as char charset binary))) when (`lock_kind` = _utf8mb4'ENTITY_SLOT') then concat(_utf8mb4'E:',lpad(hex(`candidate_id`),16,_utf8mb4'0'),_utf8mb4':',hex(cast(`slot_key` as char charset binary))) end)) STORED COMMENT '候选容量维度/实体槽唯一键，支持同一候选多维或多槽',
+  `active_share_key` varchar(560) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin GENERATED ALWAYS AS ((case when ((`status` = _utf8mb4'LOCKED') and (`lock_kind` = _utf8mb4'ENTITY_SLOT')) then concat(_utf8mb4'S:',lpad(hex(`storage_id`),16,_utf8mb4'0'),_utf8mb4':',hex(cast(`slot_key` as char charset binary))) when (`status` = _utf8mb4'LOCKED') then concat(_utf8mb4'C:',lpad(hex(`allocation_lock_id`),16,_utf8mb4'0')) else NULL end)) STORED COMMENT '活动份额/实体槽唯一键，终态为NULL',
+  `terminal_effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '锁终态效果键',
+  `consumption_trace_id` bigint DEFAULT NULL COMMENT '消费trace头ID',
+  `terminal_release_id` bigint DEFAULT NULL COMMENT '终态释放流水ID',
+  `terminal_at` datetime(3) DEFAULT NULL COMMENT '终态时间',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '分配锁修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`allocation_lock_id`),
+  UNIQUE KEY `uk_wms_allocation_lock_effect` (`effect_key`),
+  UNIQUE KEY `uk_wms_allocation_lock_candidate_share` (`candidate_share_key`),
+  UNIQUE KEY `uk_wms_allocation_lock_terminal_effect` (`terminal_effect_key`),
+  UNIQUE KEY `uk_wms_allocation_lock_terminal_release` (`terminal_release_id`),
+  UNIQUE KEY `uk_wms_allocation_lock_active_share` (`active_share_key`),
+  KEY `idx_wms_allocation_lock_decision` (`decision_id`,`status`),
+  KEY `idx_wms_allocation_lock_business` (`business_type`,`business_id`,`business_line_id`),
+  KEY `idx_wms_allocation_lock_task` (`business_type`,`task_key`),
+  KEY `idx_wms_allocation_lock_storage` (`storage_id`,`status`,`resource_domain`),
+  KEY `idx_wms_allocation_lock_channel` (`channel_lock_id`),
+  CONSTRAINT `ck_wms_allocation_lock_active_share` CHECK ((((`status` = _utf8mb4'LOCKED') and (`active_share_key` is not null) and (`terminal_effect_key` is null) and (`terminal_release_id` is null) and (`consumption_trace_id` is null) and (`terminal_at` is null) and (`effect_result` in (_utf8mb4'NONE',_utf8mb4'SEND_INTENT',_utf8mb4'ACCEPTED',_utf8mb4'UNKNOWN'))) or ((`status` = _utf8mb4'CONSUMED') and (`active_share_key` is null) and (`terminal_effect_key` is not null) and (`consumption_trace_id` is not null) and (`terminal_release_id` is null) and (`terminal_at` is not null) and (`effect_result` = _utf8mb4'CONSUMED')) or ((`status` = _utf8mb4'RELEASED') and (`active_share_key` is null) and (`terminal_effect_key` is not null) and (`terminal_release_id` is not null) and (`consumption_trace_id` is null) and (`terminal_at` is not null) and (`effect_result` = _utf8mb4'NO_EFFECT')))),
+  CONSTRAINT `ck_wms_allocation_lock_domain` CHECK ((`resource_domain` in (_utf8mb4'STORAGE',_utf8mb4'CHANNEL'))),
+  CONSTRAINT `ck_wms_allocation_lock_domain_ref` CHECK ((((`resource_domain` = _utf8mb4'CHANNEL') and (`channel_lock_id` is not null)) or ((`resource_domain` = _utf8mb4'STORAGE') and (`channel_lock_id` is null)))),
+  CONSTRAINT `ck_wms_allocation_lock_effect` CHECK (regexp_like(`effect_key`,_utf8mb4'^WMS:[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_allocation_lock_evidence_revision` CHECK ((`evidence_revision` >= 0)),
+  CONSTRAINT `ck_wms_allocation_lock_kind` CHECK ((`lock_kind` in (_utf8mb4'CAPACITY_SHARE',_utf8mb4'ENTITY_SLOT'))),
+  CONSTRAINT `ck_wms_allocation_lock_phase` CHECK ((`phase` in (_utf8mb4'LOCK',_utf8mb4'RELEASE'))),
+  CONSTRAINT `ck_wms_allocation_lock_result` CHECK ((`effect_result` in (_utf8mb4'NONE',_utf8mb4'SEND_INTENT',_utf8mb4'ACCEPTED',_utf8mb4'UNKNOWN',_utf8mb4'CONSUMED',_utf8mb4'NO_EFFECT'))),
+  CONSTRAINT `ck_wms_allocation_lock_revision` CHECK ((`revision` >= 1)),
+  CONSTRAINT `ck_wms_allocation_lock_round` CHECK ((`round_no` >= 1)),
+  CONSTRAINT `ck_wms_allocation_lock_share_shape` CHECK ((((`lock_kind` = _utf8mb4'CAPACITY_SHARE') and (`dimension_key` is not null) and (`unit` is not null) and (`locked_qty` is not null) and (`locked_qty` > 0) and (`slot_key` is null)) or ((`lock_kind` = _utf8mb4'ENTITY_SLOT') and (`dimension_key` is null) and (`unit` is null) and (`locked_qty` is null) and (`slot_key` is not null)))),
+  CONSTRAINT `ck_wms_allocation_lock_status` CHECK ((`status` in (_utf8mb4'LOCKED',_utf8mb4'CONSUMED',_utf8mb4'RELEASED'))),
+  CONSTRAINT `ck_wms_allocation_lock_terminal_effect` CHECK (((`terminal_effect_key` is null) or regexp_like(`terminal_effect_key`,_utf8mb4'^WMS:[0-9a-f]{64}$',_utf8mb4'c')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS分配锁/实体槽锁';
+CREATE TABLE `wms_inventory_reservation` (
+  `reservation_id` bigint NOT NULL COMMENT '数量预留主键，服务显式分配',
+  `inventory_id` bigint NOT NULL COMMENT '库存单元ID，逻辑关联 wms_inventory.inventory_id',
+  `business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务类型稳定编码',
+  `business_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '父业务类型名称快照',
+  `business_id` bigint NOT NULL COMMENT '父业务内部ID',
+  `business_no` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '父业务号快照',
+  `business_line_id` bigint DEFAULT NULL COMMENT '父业务明细ID',
+  `allocation_unit_id` bigint NOT NULL COMMENT '不可拆分配单元ID',
+  `round_no` int NOT NULL COMMENT '分配轮次',
+  `phase` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '任务阶段：LOCK/RELEASE',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '稳定任务键',
+  `plan_instance_id` bigint NOT NULL COMMENT '计划实例ID',
+  `reserved_qty` decimal(20,6) NOT NULL COMMENT '预留数量',
+  `unit` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '预留单位',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '状态：ACTIVE/CONSUMED/RELEASED',
+  `effect_result` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'NONE' COMMENT '外部效果：NONE/SEND_INTENT/ACCEPTED/UNKNOWN/CONSUMED/NO_EFFECT',
+  `effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '预留效果键WMS:SHA-256',
+  `evidence_revision` int NOT NULL DEFAULT '0' COMMENT '证据修订号',
+  `expires_at` datetime(3) DEFAULT NULL COMMENT '预留到期时间，不自动释放依据',
+  `active_marker` tinyint GENERATED ALWAYS AS (if((`status` = _utf8mb4'ACTIVE'),1,NULL)) STORED COMMENT '活动预留标志，终态为NULL',
+  `terminal_effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin DEFAULT NULL COMMENT '预留终态效果键',
+  `consumption_trace_id` bigint DEFAULT NULL COMMENT '消费trace头ID',
+  `terminal_release_id` bigint DEFAULT NULL COMMENT '终态释放流水ID',
+  `terminal_at` datetime(3) DEFAULT NULL COMMENT '终态时间',
+  `revision` int NOT NULL DEFAULT '1' COMMENT '预留修订号',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者',
+  `update_time` datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  PRIMARY KEY (`reservation_id`),
+  UNIQUE KEY `uk_wms_inventory_reservation_effect` (`effect_key`),
+  UNIQUE KEY `uk_wms_inventory_reservation_terminal_effect` (`terminal_effect_key`),
+  UNIQUE KEY `uk_wms_inventory_reservation_terminal_release` (`terminal_release_id`),
+  UNIQUE KEY `uk_wms_inventory_reservation_active_task` (`business_type`,`task_key`,`inventory_id`,`active_marker`),
+  KEY `idx_wms_inventory_reservation_inventory` (`inventory_id`,`status`),
+  KEY `idx_wms_inventory_reservation_business` (`business_type`,`business_id`,`business_line_id`),
+  CONSTRAINT `ck_wms_inventory_reservation_active` CHECK ((((`status` = _utf8mb4'ACTIVE') and (`active_marker` is not null) and (`terminal_effect_key` is null) and (`terminal_release_id` is null) and (`consumption_trace_id` is null) and (`terminal_at` is null) and (`effect_result` in (_utf8mb4'NONE',_utf8mb4'SEND_INTENT',_utf8mb4'ACCEPTED',_utf8mb4'UNKNOWN'))) or ((`status` = _utf8mb4'CONSUMED') and (`active_marker` is null) and (`terminal_effect_key` is not null) and (`consumption_trace_id` is not null) and (`terminal_release_id` is null) and (`terminal_at` is not null) and (`effect_result` = _utf8mb4'CONSUMED')) or ((`status` = _utf8mb4'RELEASED') and (`active_marker` is null) and (`terminal_effect_key` is not null) and (`terminal_release_id` is not null) and (`consumption_trace_id` is null) and (`terminal_at` is not null) and (`effect_result` = _utf8mb4'NO_EFFECT')))),
+  CONSTRAINT `ck_wms_inventory_reservation_effect` CHECK (regexp_like(`effect_key`,_utf8mb4'^WMS:[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_inventory_reservation_evidence_revision` CHECK ((`evidence_revision` >= 0)),
+  CONSTRAINT `ck_wms_inventory_reservation_phase` CHECK ((`phase` in (_utf8mb4'LOCK',_utf8mb4'RELEASE'))),
+  CONSTRAINT `ck_wms_inventory_reservation_qty` CHECK ((`reserved_qty` > 0)),
+  CONSTRAINT `ck_wms_inventory_reservation_result` CHECK ((`effect_result` in (_utf8mb4'NONE',_utf8mb4'SEND_INTENT',_utf8mb4'ACCEPTED',_utf8mb4'UNKNOWN',_utf8mb4'CONSUMED',_utf8mb4'NO_EFFECT'))),
+  CONSTRAINT `ck_wms_inventory_reservation_revision` CHECK ((`revision` >= 1)),
+  CONSTRAINT `ck_wms_inventory_reservation_round` CHECK ((`round_no` >= 1)),
+  CONSTRAINT `ck_wms_inventory_reservation_status` CHECK ((`status` in (_utf8mb4'ACTIVE',_utf8mb4'CONSUMED',_utf8mb4'RELEASED'))),
+  CONSTRAINT `ck_wms_inventory_reservation_terminal_effect` CHECK (((`terminal_effect_key` is null) or regexp_like(`terminal_effect_key`,_utf8mb4'^WMS:[0-9a-f]{64}$',_utf8mb4'c')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS数量预留账';
+CREATE TABLE `wms_allocation_release` (
+  `release_id` bigint NOT NULL COMMENT '释放流水主键，服务显式分配',
+  `allocation_lock_id` bigint NOT NULL COMMENT '被释放分配锁ID，逻辑关联 wms_allocation_lock.allocation_lock_id',
+  `channel_lock_id` bigint DEFAULT NULL COMMENT '关联通道锁ID',
+  `business_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '父业务类型稳定编码',
+  `business_name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '父业务类型名称快照',
+  `business_id` bigint NOT NULL COMMENT '父业务内部ID',
+  `business_no` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '父业务号快照',
+  `business_line_id` bigint DEFAULT NULL COMMENT '父业务明细ID',
+  `allocation_unit_id` bigint NOT NULL COMMENT '不可拆分配单元ID',
+  `round_no` int NOT NULL COMMENT '分配轮次',
+  `phase` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '释放阶段：RELEASE',
+  `task_key` varchar(96) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '稳定任务键',
+  `plan_instance_id` bigint NOT NULL COMMENT '计划实例ID',
+  `evidence_revision` int NOT NULL COMMENT '无效果证据修订号',
+  `evidence_ref` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '脱敏证据引用',
+  `effect_key` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '释放效果键WMS:SHA-256',
+  `before_status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '释放前锁状态',
+  `after_status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL COMMENT '释放后锁状态',
+  `release_reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '释放原因',
+  `operator_id` bigint DEFAULT NULL COMMENT '操作者ID',
+  `occurred_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '释放发生时间',
+  `recorded_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '释放事实记录时间',
+  `create_dept` bigint DEFAULT NULL COMMENT '创建部门',
+  `create_by` bigint DEFAULT NULL COMMENT '创建者',
+  `create_time` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  `update_by` bigint DEFAULT NULL COMMENT '更新者，释放事实由服务禁止更新',
+  `update_time` datetime(3) DEFAULT NULL COMMENT '更新时间，释放事实由服务禁止更新',
+  PRIMARY KEY (`release_id`),
+  UNIQUE KEY `uk_wms_allocation_release_effect` (`effect_key`),
+  UNIQUE KEY `uk_wms_allocation_release_lock` (`allocation_lock_id`),
+  KEY `idx_wms_allocation_release_channel` (`channel_lock_id`),
+  KEY `idx_wms_allocation_release_business` (`business_type`,`business_id`,`business_line_id`),
+  KEY `idx_wms_allocation_release_task` (`business_type`,`task_key`),
+  KEY `idx_wms_allocation_release_time` (`occurred_at`,`release_id`),
+  CONSTRAINT `ck_wms_allocation_release_after_status` CHECK ((`after_status` = _utf8mb4'RELEASED')),
+  CONSTRAINT `ck_wms_allocation_release_before_status` CHECK ((`before_status` = _utf8mb4'LOCKED')),
+  CONSTRAINT `ck_wms_allocation_release_effect` CHECK (regexp_like(`effect_key`,_utf8mb4'^WMS:[0-9a-f]{64}$',_utf8mb4'c')),
+  CONSTRAINT `ck_wms_allocation_release_evidence_revision` CHECK ((`evidence_revision` >= 0)),
+  CONSTRAINT `ck_wms_allocation_release_phase` CHECK ((`phase` = _utf8mb4'RELEASE')),
+  CONSTRAINT `ck_wms_allocation_release_round` CHECK ((`round_no` >= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='WMS分配锁释放流水'
+;
 
 -- ----------------------------------------------------------------------------
 -- 系统必要种子数据：默认模板账号、角色、菜单、字典、参数、客户端、OSS 模板与流程基础配置
 -- ----------------------------------------------------------------------------
 
--- 沿用基础初始化脚本的 SnailJob 模板管理员；部署后更换默认密码。
+-- SnailJob 控制台默认账号：innolux；部署后更换默认密码。
 INSERT INTO `sj_system_user` (`username`, `password`, `role`)
-VALUES ('admin', '465c194afb65670f38322df087f0a9bb225cc257e43eb4ac5a0c98ef5b3173ac', 2);
+VALUES ('innolux', 'b60d758e3a5e5fcd41375f0aea397e43ae731bc9c2251396550908c1fae79a76', 2);
 
 -- SnailJob 命名空间与默认组：客户端按 snail-job.namespace（默认取 profile 名）和 group 注册；
 -- 组缺失或令牌不一致时执行器注册失败，QUEUE 事件与监督任务无处可派。
@@ -2584,7 +4260,7 @@ INSERT INTO `sys_dept` (`dept_id`, `parent_id`, `ancestors`, `dept_name`, `dept_
 INSERT INTO `sys_dept` (`dept_id`, `parent_id`, `ancestors`, `dept_name`, `dept_category`, `order_num`, `leader`, `phone`, `email`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1761000000000000107,1761000000000000101,'0,1761000000000000100,1761000000000000101','设备运维部',NULL,5,NULL,'15888888888','wms@innolux.com','0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:51',NULL,NULL);
 INSERT INTO `sys_dept` (`dept_id`, `parent_id`, `ancestors`, `dept_name`, `dept_category`, `order_num`, `leader`, `phone`, `email`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1761000000000000108,1761000000000000102,'0,1761000000000000100,1761000000000000102','入库管理组',NULL,1,NULL,'15888888888','wms@innolux.com','0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:51',NULL,NULL);
 INSERT INTO `sys_dept` (`dept_id`, `parent_id`, `ancestors`, `dept_name`, `dept_category`, `order_num`, `leader`, `phone`, `email`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1761000000000000109,1761000000000000102,'0,1761000000000000100,1761000000000000102','出库管理组',NULL,2,NULL,'15888888888','wms@innolux.com','0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:51',NULL,NULL);
-INSERT INTO `sys_user` (`user_id`, `dept_id`, `user_name`, `nick_name`, `user_type`, `email`, `phone_number`, `gender`, `avatar`, `password`, `status`, `del_flag`, `login_ip`, `login_date`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761100000000000001,1761000000000000103,'admin','INNOLUX管理员','sys_user','wms@innolux.com','15888888888','1',NULL,'$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2','0','0','127.0.0.1','2026-10-23 21:05:52',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'管理员');
+INSERT INTO `sys_user` (`user_id`, `dept_id`, `user_name`, `nick_name`, `user_type`, `email`, `phone_number`, `gender`, `avatar`, `password`, `status`, `del_flag`, `login_ip`, `login_date`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761100000000000001,1761000000000000103,'innolux','INNOLUX管理员','sys_user','wms@innolux.com','15888888888','1',NULL,'$2a$10$RSIyc3MpGVMKPGxfE6no3.EV3Hn0iq88rjqPt1xToGkwuXSZ0wfVm','0','0','127.0.0.1','2026-10-23 21:05:52',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'管理员');
 INSERT INTO `sys_post` (`post_id`, `dept_id`, `post_code`, `post_category`, `post_name`, `post_sort`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761200000000000001,1761000000000000103,'ceo',NULL,'董事长',1,'0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'');
 INSERT INTO `sys_post` (`post_id`, `dept_id`, `post_code`, `post_category`, `post_name`, `post_sort`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761200000000000002,1761000000000000100,'se',NULL,'项目经理',2,'0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'');
 INSERT INTO `sys_post` (`post_id`, `dept_id`, `post_code`, `post_category`, `post_name`, `post_sort`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761200000000000003,1761000000000000100,'hr',NULL,'人力资源',3,'0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'');
@@ -3047,7 +4723,7 @@ INSERT INTO `flow_category` (`category_id`, `parent_id`, `ancestors`, `category_
 INSERT INTO `flow_category` (`category_id`, `parent_id`, `ancestors`, `category_name`, `order_num`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1762300000000000109,1762300000000000102,'0,1762300000000000100,1762300000000000102','离职',2,'0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:57',NULL,NULL);
 INSERT INTO `flow_spel` (`id`, `component_name`, `method_name`, `method_params`, `view_spel`, `remark`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1762400000000000001,'spelRuleComponent','selectDeptLeaderById','initiatorDeptId','#{@spelRuleComponent.selectDeptLeaderById(#initiatorDeptId)}','根据部门id获取部门负责人','0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:57',1761100000000000001,'2026-10-23 21:05:57');
 INSERT INTO `flow_spel` (`id`, `component_name`, `method_name`, `method_params`, `view_spel`, `remark`, `status`, `del_flag`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES (1762400000000000002,NULL,NULL,'initiator','${initiator}','流程发起人','0','0',1761000000000000103,1761100000000000001,'2026-10-23 21:05:57',1761100000000000001,'2026-10-23 21:05:57');
-INSERT INTO `sai_user` (`id`, `role`, `totals`, `username`, `nickname`, `email`, `password`, `resource_id`, `create_dt`, `update_dt`) VALUES (1,2,NULL,'admin','admin','','pbkdf2$120000$c25haWwtYWktYWRtaW4tMQ==$kakglT/wYKOgv/77Ah1stie58d/JbY2nGgq5DwgUBw4=',NULL,'2026-10-23 21:05:59','2026-10-23 21:05:59');
+INSERT INTO `sai_user` (`id`, `role`, `totals`, `username`, `nickname`, `email`, `password`, `resource_id`, `create_dt`, `update_dt`) VALUES (1,2,NULL,'innolux','innolux','','pbkdf2$120000$OoM9lF194wXQ9YrojI/J7g==$uw/uCpY4k9OmdLTb4ij4i0siMnb5EzJnjoOpeuRD1Y0=',NULL,'2026-10-23 21:05:59','2026-10-23 21:05:59');
 INSERT INTO `sai_model_provider` (`id`, `provider_name`, `provider_key`, `description`, `icon_url`, `is_enabled`, `created_dt`, `updated_dt`) VALUES (1,'OpenAI','openai','OpenAI官方模型 (GPT-4, GPT-3.5等)',NULL,1,'2026-10-23 13:05:59','2026-10-23 13:05:59');
 INSERT INTO `sai_model_provider` (`id`, `provider_name`, `provider_key`, `description`, `icon_url`, `is_enabled`, `created_dt`, `updated_dt`) VALUES (2,'Claude','claude','Anthropic Claude模型',NULL,1,'2026-10-23 13:05:59','2026-10-23 13:05:59');
 INSERT INTO `sai_model_provider` (`id`, `provider_name`, `provider_key`, `description`, `icon_url`, `is_enabled`, `created_dt`, `updated_dt`) VALUES (3,'Ollama','ollama','本地开源模型 (Llama, Mistral等)',NULL,1,'2026-10-23 13:05:59','2026-10-23 13:05:59');
@@ -5580,6 +7256,40 @@ INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040003,'发布/初始化',1761400000000040000,3,'',NULL,NULL,'N','Y','F','0','0','system:apk:publish','#','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040004,'APK下载',1761400000000040000,4,'',NULL,NULL,'N','Y','F','0','0','system:apk:download','#','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'');
 
+-- 在库管理公司最小闭环：复用既有在库管理目录作为父级（visible 0 显示、1 隐藏）；只登记权限，不授予角色。
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000050100,'公司管理',1761400000000020004,1,'company','wms/inventory/company/index','','N','Y','C','0','0','inventory:company:query','peoples','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'公司最小闭环');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000051001,'公司新增',1761400000000050100,1,'',NULL,'','N','Y','F','0','0','inventory:company:create','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000051002,'公司修改',1761400000000050100,2,'',NULL,'','N','Y','F','0','0','inventory:company:update','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000051003,'公司启用',1761400000000050100,3,'',NULL,'','N','Y','F','0','0','inventory:company:enable','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000051004,'公司停用',1761400000000050100,4,'',NULL,'','N','Y','F','0','0','inventory:company:disable','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000051005,'跨公司范围',1761400000000050100,5,'',NULL,'','N','Y','F','0','0','inventory:company:scope:all','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000051006,'管理范围授权',1761400000000050100,6,'',NULL,'','N','Y','F','0','0','inventory:company:scope:manage','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+
+-- 空间菜单复用既有在库管理根；登记页面、查询与生命周期命令权限，不授予角色。
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000050200,'空间查询',1761400000000020004,2,'space','wms/inventory/space/index','','N','Y','C','0','0','','tree','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000052001,'仓库查询',1761400000000050200,1,'',NULL,'','N','Y','F','0','0','inventory:warehouse:query','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000052002,'库区查询',1761400000000050200,2,'',NULL,'','N','Y','F','0','0','inventory:zone:query','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000052003,'储位查询',1761400000000050200,3,'',NULL,'','N','Y','F','0','0','inventory:storage:query','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000052004,'空间变更',1761400000000050200,4,'',NULL,'','N','Y','F','0','0','inventory:space:change','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+
+-- 库存业务目录复用既有在库管理根；只登记页面，不创建子按钮或角色授权。
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000050300,'库存业务目录',1761400000000020004,3,'catalog','wms/inventory/catalog/index','','N','Y','C','0','0','inventory:business:query','list','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+
+-- 在库管理 P7 只读页面与权限：业务任务使用独立 inventory:task:query；只登记，不授予角色。
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000050400,'在库物料',1761400000000020004,4,'materials','wms/inventory/material/index','','N','Y','C','0','0','','goods','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000054001,'物料查询',1761400000000050400,1,'',NULL,'','N','Y','F','0','0','inventory:material:query','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000050500,'在库规则',1761400000000020004,5,'rules','wms/inventory/rules/index','','N','Y','C','0','0','','skill','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000055001,'规则查询',1761400000000050500,1,'',NULL,'','N','Y','F','0','0','inventory:rule:query','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000055002,'草稿预览',1761400000000050500,2,'',NULL,'','N','Y','F','0','0','inventory:rule:draft','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000055003,'规则发布',1761400000000050500,3,'',NULL,'','N','Y','F','0','0','inventory:rule:publish','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000055004,'逻辑合并',1761400000000050500,4,'',NULL,'','N','Y','F','0','0','inventory:logical-merge:manage','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000050600,'物料追踪',1761400000000020004,6,'traces','wms/inventory/trace/index','','N','Y','C','0','0','','chart','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000056001,'追踪查询',1761400000000050600,1,'',NULL,'','N','Y','F','0','0','inventory:trace:query','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000056002,'追踪导出',1761400000000050600,2,'',NULL,'','N','Y','F','0','0','inventory:trace:export','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000056003,'UNKNOWN查证',1761400000000050600,3,'',NULL,'','N','Y','F','0','0','inventory:allocation:investigate','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000050700,'在库业务',1761400000000020004,7,'business','wms/inventory/business/index','','N','Y','C','0','0','','log','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000057001,'业务任务查询',1761400000000050700,1,'',NULL,'','N','Y','F','0','0','inventory:task:query','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+
 -- ----------------------------------------------------------------------------
 -- 最终验收：结构数量、必要种子和空业务表不变量
 -- ----------------------------------------------------------------------------
@@ -5593,9 +7303,464 @@ SET @init_final_event_menu_count = (
     WHERE menu_id BETWEEN 1761400000000030001 AND 1761400000000031043
 );
 SET @init_final_role_menu_count = (SELECT COUNT(*) FROM sys_role_menu);
+SET @init_final_space_conflict_count = (
+    SELECT COUNT(*)
+    FROM sys_menu m
+    WHERE (m.menu_id <> 1761400000000050200
+           AND m.parent_id = 1761400000000020004
+           AND CONVERT(m.path USING utf8mb4) COLLATE utf8mb4_general_ci = 'space')
+       OR (m.menu_id NOT IN (
+               1761400000000052001, 1761400000000052002,
+               1761400000000052003, 1761400000000052004
+           )
+           AND CONVERT(m.perms USING utf8mb4) COLLATE utf8mb4_general_ci IN (
+               'inventory:warehouse:query',
+               'inventory:zone:query',
+               'inventory:storage:query',
+               'inventory:space:change'
+           ))
+       OR (m.menu_id <> 1761400000000020004
+           AND m.parent_id = 0
+           AND CONVERT(m.menu_name USING utf8mb4) COLLATE utf8mb4_general_ci = '在库管理')
+);
+SET @init_final_space_root_ok = (
+    SELECT COUNT(*) = 1
+    FROM sys_menu
+    WHERE menu_id = 1761400000000020004
+      AND (CAST(menu_name AS BINARY) <=> CAST('在库管理' AS BINARY))
+      AND parent_id = 0
+      AND order_num = 13
+      AND (CAST(path AS BINARY) <=> CAST('iws-inventory' AS BINARY))
+      AND component IS NULL
+      AND (CAST(query_param AS BINARY) <=> CAST('' AS BINARY))
+      AND is_frame = 'N'
+      AND is_cache = 'Y'
+      AND menu_type = 'M'
+      AND visible = '0'
+      AND status = '0'
+      AND (CAST(perms AS BINARY) <=> CAST('' AS BINARY))
+      AND (CAST(icon AS BINARY) <=> CAST('list' AS BINARY))
+      AND (CAST(active_menu AS BINARY) <=> CAST('' AS BINARY))
+      AND (CAST(ext AS BINARY) <=> CAST('' AS BINARY))
+);
+SET @init_final_space_menu_ok = (
+    SELECT COUNT(*) = 5
+    FROM sys_menu
+    WHERE (
+        menu_id = 1761400000000050200
+        AND (CAST(menu_name AS BINARY) <=> CAST('空间查询' AS BINARY))
+        AND parent_id = 1761400000000020004
+        AND order_num = 2
+        AND (CAST(path AS BINARY) <=> CAST('space' AS BINARY))
+        AND (CAST(component AS BINARY) <=> CAST('wms/inventory/space/index' AS BINARY))
+        AND (CAST(query_param AS BINARY) <=> CAST('' AS BINARY))
+        AND is_frame = 'N'
+        AND is_cache = 'Y'
+        AND menu_type = 'C'
+        AND visible = '0'
+        AND status = '0'
+        AND (CAST(perms AS BINARY) <=> CAST('' AS BINARY))
+        AND (CAST(icon AS BINARY) <=> CAST('tree' AS BINARY))
+        AND (CAST(active_menu AS BINARY) <=> CAST('' AS BINARY))
+        AND (CAST(ext AS BINARY) <=> CAST('' AS BINARY))
+    ) OR (
+        menu_id = 1761400000000052001
+        AND (CAST(menu_name AS BINARY) <=> CAST('仓库查询' AS BINARY))
+        AND parent_id = 1761400000000050200
+        AND order_num = 1
+        AND (CAST(path AS BINARY) <=> CAST('' AS BINARY))
+        AND component IS NULL
+        AND (CAST(query_param AS BINARY) <=> CAST('' AS BINARY))
+        AND is_frame = 'N'
+        AND is_cache = 'Y'
+        AND menu_type = 'F'
+        AND visible = '0'
+        AND status = '0'
+        AND (CAST(perms AS BINARY) <=> CAST('inventory:warehouse:query' AS BINARY))
+        AND (CAST(icon AS BINARY) <=> CAST('#' AS BINARY))
+        AND (CAST(active_menu AS BINARY) <=> CAST('' AS BINARY))
+        AND (CAST(ext AS BINARY) <=> CAST('' AS BINARY))
+    ) OR (
+        menu_id = 1761400000000052002
+        AND (CAST(menu_name AS BINARY) <=> CAST('库区查询' AS BINARY))
+        AND parent_id = 1761400000000050200
+        AND order_num = 2
+        AND (CAST(path AS BINARY) <=> CAST('' AS BINARY))
+        AND component IS NULL
+        AND (CAST(query_param AS BINARY) <=> CAST('' AS BINARY))
+        AND is_frame = 'N'
+        AND is_cache = 'Y'
+        AND menu_type = 'F'
+        AND visible = '0'
+        AND status = '0'
+        AND (CAST(perms AS BINARY) <=> CAST('inventory:zone:query' AS BINARY))
+        AND (CAST(icon AS BINARY) <=> CAST('#' AS BINARY))
+        AND (CAST(active_menu AS BINARY) <=> CAST('' AS BINARY))
+        AND (CAST(ext AS BINARY) <=> CAST('' AS BINARY))
+    ) OR (
+        menu_id = 1761400000000052003
+        AND (CAST(menu_name AS BINARY) <=> CAST('储位查询' AS BINARY))
+        AND parent_id = 1761400000000050200
+        AND order_num = 3
+        AND (CAST(path AS BINARY) <=> CAST('' AS BINARY))
+        AND component IS NULL
+        AND (CAST(query_param AS BINARY) <=> CAST('' AS BINARY))
+        AND is_frame = 'N'
+        AND is_cache = 'Y'
+        AND menu_type = 'F'
+        AND visible = '0'
+        AND status = '0'
+        AND (CAST(perms AS BINARY) <=> CAST('inventory:storage:query' AS BINARY))
+        AND (CAST(icon AS BINARY) <=> CAST('#' AS BINARY))
+        AND (CAST(active_menu AS BINARY) <=> CAST('' AS BINARY))
+        AND (CAST(ext AS BINARY) <=> CAST('' AS BINARY))
+    ) OR (
+        menu_id = 1761400000000052004
+        AND (CAST(menu_name AS BINARY) <=> CAST('空间变更' AS BINARY))
+        AND parent_id = 1761400000000050200
+        AND order_num = 4
+        AND (CAST(path AS BINARY) <=> CAST('' AS BINARY))
+        AND component IS NULL
+        AND (CAST(query_param AS BINARY) <=> CAST('' AS BINARY))
+        AND is_frame = 'N'
+        AND is_cache = 'Y'
+        AND menu_type = 'F'
+        AND visible = '0'
+        AND status = '0'
+        AND (CAST(perms AS BINARY) <=> CAST('inventory:space:change' AS BINARY))
+        AND (CAST(icon AS BINARY) <=> CAST('#' AS BINARY))
+        AND (CAST(active_menu AS BINARY) <=> CAST('' AS BINARY))
+        AND (CAST(ext AS BINARY) <=> CAST('' AS BINARY))
+    )
+);
+SET @init_final_space_menu_ok = (@init_final_space_menu_ok = 1 AND @init_final_space_conflict_count = 0);
+SET @init_final_catalog_menu_ok = (
+    SELECT COUNT(*) = 1
+    FROM sys_menu
+    WHERE menu_id = 1761400000000050300
+      AND (CAST(menu_name AS BINARY) <=> CAST('库存业务目录' AS BINARY))
+      AND parent_id = 1761400000000020004
+      AND order_num = 3
+      AND (CAST(path AS BINARY) <=> CAST('catalog' AS BINARY))
+      AND (CAST(component AS BINARY) <=> CAST('wms/inventory/catalog/index' AS BINARY))
+      AND (CAST(query_param AS BINARY) <=> CAST('' AS BINARY))
+      AND is_frame = 'N'
+      AND is_cache = 'Y'
+      AND menu_type = 'C'
+      AND visible = '0'
+      AND status = '0'
+      AND (CAST(perms AS BINARY) <=> CAST('inventory:business:query' AS BINARY))
+      AND (CAST(icon AS BINARY) <=> CAST('list' AS BINARY))
+      AND (CAST(active_menu AS BINARY) <=> CAST('' AS BINARY))
+      AND (CAST(ext AS BINARY) <=> CAST('' AS BINARY))
+      AND create_dept IS NULL
+      AND create_by IS NULL
+      AND create_time IS NOT NULL
+      AND update_by IS NULL
+      AND update_time IS NULL
+      AND (CAST(remark AS BINARY) <=> CAST('' AS BINARY))
+);
+DROP TEMPORARY TABLE IF EXISTS tmp_iws_init_p7_expected;
+CREATE TEMPORARY TABLE tmp_iws_init_p7_expected (
+    menu_id bigint NOT NULL PRIMARY KEY,
+    menu_name varchar(50) NOT NULL,
+    parent_id bigint NOT NULL,
+    order_num int NOT NULL,
+    path varchar(200) NOT NULL,
+    component varchar(255) DEFAULT NULL,
+    query_param varchar(255) NOT NULL,
+    is_frame char(1) NOT NULL,
+    is_cache char(1) NOT NULL,
+    menu_type char(1) NOT NULL,
+    visible char(1) NOT NULL,
+    status char(1) NOT NULL,
+    perms varchar(100) NOT NULL,
+    icon varchar(100) NOT NULL,
+    active_menu varchar(255) NOT NULL,
+    ext varchar(2000) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+INSERT INTO tmp_iws_init_p7_expected
+    (menu_id, menu_name, parent_id, order_num, path, component, query_param,
+     is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext)
+VALUES
+    (1761400000000020004, '在库管理', 0, 13, 'iws-inventory', NULL, '',
+     'N', 'Y', 'M', '0', '0', '', 'list', '', ''),
+    (1761400000000050400, '在库物料', 1761400000000020004, 4, 'materials',
+     'wms/inventory/material/index', '', 'N', 'Y', 'C', '0', '0', '', 'goods', '', ''),
+    (1761400000000054001, '物料查询', 1761400000000050400, 1, '', NULL, '',
+     'N', 'Y', 'F', '0', '0', 'inventory:material:query', '#', '', ''),
+    (1761400000000050500, '在库规则', 1761400000000020004, 5, 'rules',
+     'wms/inventory/rules/index', '', 'N', 'Y', 'C', '0', '0', '', 'skill', '', ''),
+    (1761400000000055001, '规则查询', 1761400000000050500, 1, '', NULL, '',
+     'N', 'Y', 'F', '0', '0', 'inventory:rule:query', '#', '', ''),
+    (1761400000000055002, '草稿预览', 1761400000000050500, 2, '', NULL, '',
+     'N', 'Y', 'F', '0', '0', 'inventory:rule:draft', '#', '', ''),
+    (1761400000000055003, '规则发布', 1761400000000050500, 3, '', NULL, '',
+     'N', 'Y', 'F', '0', '0', 'inventory:rule:publish', '#', '', ''),
+    (1761400000000055004, '逻辑合并', 1761400000000050500, 4, '', NULL, '',
+     'N', 'Y', 'F', '0', '0', 'inventory:logical-merge:manage', '#', '', ''),
+    (1761400000000050600, '物料追踪', 1761400000000020004, 6, 'traces',
+     'wms/inventory/trace/index', '', 'N', 'Y', 'C', '0', '0', '', 'chart', '', ''),
+    (1761400000000056001, '追踪查询', 1761400000000050600, 1, '', NULL, '',
+     'N', 'Y', 'F', '0', '0', 'inventory:trace:query', '#', '', ''),
+    (1761400000000056002, '追踪导出', 1761400000000050600, 2, '', NULL, '',
+     'N', 'Y', 'F', '0', '0', 'inventory:trace:export', '#', '', ''),
+    (1761400000000056003, 'UNKNOWN查证', 1761400000000050600, 3, '', NULL, '',
+     'N', 'Y', 'F', '0', '0', 'inventory:allocation:investigate', '#', '', ''),
+    (1761400000000050700, '在库业务', 1761400000000020004, 7, 'business',
+     'wms/inventory/business/index', '', 'N', 'Y', 'C', '0', '0', '', 'log', '', ''),
+    (1761400000000057001, '业务任务查询', 1761400000000050700, 1, '', NULL, '',
+     'N', 'Y', 'F', '0', '0', 'inventory:task:query', '#', '', '');
+SET @init_final_p7_conflict_count = (
+    SELECT COUNT(*)
+    FROM tmp_iws_init_p7_expected e
+    JOIN sys_menu m ON m.menu_id <> e.menu_id
+    WHERE (e.path <> '' AND m.parent_id = e.parent_id
+           AND CONVERT(m.path USING utf8mb4) COLLATE utf8mb4_general_ci = e.path)
+       OR (e.perms <> ''
+           AND CONVERT(m.perms USING utf8mb4) COLLATE utf8mb4_general_ci = e.perms)
+       OR (e.menu_type IN ('M', 'C') AND m.parent_id = e.parent_id
+           AND CONVERT(m.menu_name USING utf8mb4) COLLATE utf8mb4_general_ci = e.menu_name)
+);
+SET @init_final_p7_menu_ok = (
+    SELECT COUNT(*) = 14
+    FROM tmp_iws_init_p7_expected e JOIN sys_menu m ON m.menu_id = e.menu_id
+    WHERE (CAST(m.menu_name AS BINARY) <=> CAST(e.menu_name AS BINARY))
+      AND (m.parent_id <=> e.parent_id) AND (m.order_num <=> e.order_num)
+      AND (CAST(m.path AS BINARY) <=> CAST(e.path AS BINARY))
+      AND (CAST(m.component AS BINARY) <=> CAST(e.component AS BINARY))
+      AND (CAST(m.query_param AS BINARY) <=> CAST(e.query_param AS BINARY))
+      AND (CAST(m.is_frame AS BINARY) <=> CAST(e.is_frame AS BINARY))
+      AND (CAST(m.is_cache AS BINARY) <=> CAST(e.is_cache AS BINARY))
+      AND (CAST(m.menu_type AS BINARY) <=> CAST(e.menu_type AS BINARY))
+      AND (CAST(m.visible AS BINARY) <=> CAST(e.visible AS BINARY))
+      AND (CAST(m.status AS BINARY) <=> CAST(e.status AS BINARY))
+      AND (CAST(m.perms AS BINARY) <=> CAST(e.perms AS BINARY))
+      AND (CAST(m.icon AS BINARY) <=> CAST(e.icon AS BINARY))
+      AND (CAST(m.active_menu AS BINARY) <=> CAST(e.active_menu AS BINARY))
+      AND (CAST(m.ext AS BINARY) <=> CAST(e.ext AS BINARY))
+);
+SET @init_final_p7_menu_ok = (@init_final_p7_menu_ok = 1 AND @init_final_p7_conflict_count = 0);
+DROP TEMPORARY TABLE IF EXISTS tmp_iws_init_p7_expected;
+
+-- WMS 在库管理计划目录与挂载 seed。计划定义由当前应用在计划事件启用时
+-- 通过计划定义服务幂等 provision，空库脚本不直接伪造已发布定义或运行实例。
+SET @init_seed_schedule_id = 1761400000000060001;
+SET @init_seed_plan_type_id = 1761400000000060101;
+SET @init_seed_space_schedule_id = 1761400000000060002;
+SET @init_seed_space_change_type_id = 1761400000000060102;
+SET @init_seed_space_retire_type_id = 1761400000000060103;
+SET @init_seed_logical_schedule_id = 1761400000000060003;
+SET @init_seed_logical_batch_type_id = 1761400000000060104;
+SET @init_seed_logical_close_type_id = 1761400000000060105;
+SET @init_seed_business_type = 'WMS_RULESET_PUBLISH';
+SET @init_seed_plan_type = 'RULESET_PUBLISH';
+SET @init_seed_schedule_code = 'INVENTORY_CONFIG';
+SET @init_seed_mount_id = 1761400000000060201;
+SET @init_seed_space_business_type = 'WMS_SPACE_CHANGE';
+SET @init_seed_logical_business_type = 'WMS_LOGICAL_MERGE';
+SET @init_seed_space_schedule_code = 'SPACE_CONFIG';
+SET @init_seed_logical_schedule_code = 'LOGICAL_MERGE';
+SET @init_seed_space_mount_id = 1761400000000060202;
+SET @init_seed_space_retire_mount_id = 1761400000000060203;
+SET @init_seed_logical_batch_mount_id = 1761400000000060204;
+SET @init_seed_logical_close_mount_id = 1761400000000060205;
+
+INSERT INTO iws_business_schedule
+    (id, business_code, business_name, enabled, fairness_window_size,
+     revision, remark, del_flag, create_time, update_time)
+SELECT @init_seed_schedule_id, @init_seed_schedule_code, '库存配置', 1, 32,
+       0, 'WMS 在库管理配置类计划统一调度', '0',
+       CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM iws_business_schedule
+    WHERE CAST(business_code AS BINARY) = CAST(@init_seed_schedule_code AS BINARY)
+);
+
+INSERT INTO iws_business_schedule
+    (id, business_code, business_name, enabled, fairness_window_size,
+     revision, remark, del_flag, create_time, update_time)
+SELECT @init_seed_space_schedule_id, @init_seed_space_schedule_code, '空间配置',
+       1, 32, 0, 'WMS 空间生命周期计划统一调度', '0',
+       CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM iws_business_schedule
+    WHERE CAST(business_code AS BINARY) = CAST(@init_seed_space_schedule_code AS BINARY)
+);
+
+INSERT INTO iws_business_schedule
+    (id, business_code, business_name, enabled, fairness_window_size,
+     revision, remark, del_flag, create_time, update_time)
+SELECT @init_seed_logical_schedule_id, @init_seed_logical_schedule_code,
+       '逻辑归属合并', 1, 32, 0, 'WMS 逻辑归属合并计划统一调度', '0',
+       CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM iws_business_schedule
+    WHERE CAST(business_code AS BINARY) = CAST(@init_seed_logical_schedule_code AS BINARY)
+);
+
+INSERT INTO iws_business_schedule_plan_type
+    (id, schedule_id, plan_type, plan_type_name, priority, enabled,
+     create_time, update_time)
+SELECT @init_seed_plan_type_id, schedule.id, @init_seed_plan_type,
+       '规则包发布', 10, 1, CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+FROM iws_business_schedule schedule
+WHERE CAST(schedule.business_code AS BINARY) = CAST(@init_seed_schedule_code AS BINARY)
+  AND NOT EXISTS (
+      SELECT 1 FROM iws_business_schedule_plan_type type_row
+      WHERE type_row.schedule_id = schedule.id
+        AND CAST(type_row.plan_type AS BINARY) = CAST(@init_seed_plan_type AS BINARY)
+  );
+
+INSERT INTO iws_business_schedule_plan_type
+    (id, schedule_id, plan_type, plan_type_name, priority, enabled,
+     create_time, update_time)
+SELECT @init_seed_space_change_type_id, schedule.id, 'SPACE_CHANGE',
+       '空间配置变更', 10, 1, CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+FROM iws_business_schedule schedule
+WHERE CAST(schedule.business_code AS BINARY) = CAST(@init_seed_space_schedule_code AS BINARY)
+  AND NOT EXISTS (
+      SELECT 1 FROM iws_business_schedule_plan_type type_row
+      WHERE type_row.schedule_id = schedule.id
+        AND CAST(type_row.plan_type AS BINARY) = CAST('SPACE_CHANGE' AS BINARY)
+  );
+
+INSERT INTO iws_business_schedule_plan_type
+    (id, schedule_id, plan_type, plan_type_name, priority, enabled,
+     create_time, update_time)
+SELECT @init_seed_logical_batch_type_id, schedule.id, 'LOGICAL_MERGE',
+       '逻辑合并批次', 10, 1, CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+FROM iws_business_schedule schedule
+WHERE CAST(schedule.business_code AS BINARY) = CAST(@init_seed_logical_schedule_code AS BINARY)
+  AND NOT EXISTS (
+      SELECT 1 FROM iws_business_schedule_plan_type type_row
+      WHERE type_row.schedule_id = schedule.id
+        AND CAST(type_row.plan_type AS BINARY) = CAST('LOGICAL_MERGE' AS BINARY)
+  );
+
+INSERT INTO iws_business_schedule_plan_type
+    (id, schedule_id, plan_type, plan_type_name, priority, enabled,
+     create_time, update_time)
+SELECT @init_seed_logical_close_type_id, schedule.id, 'LOGICAL_MERGE_CLOSE',
+       '逻辑合并收敛', 20, 1, CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+FROM iws_business_schedule schedule
+WHERE CAST(schedule.business_code AS BINARY) = CAST(@init_seed_logical_schedule_code AS BINARY)
+  AND NOT EXISTS (
+      SELECT 1 FROM iws_business_schedule_plan_type type_row
+      WHERE type_row.schedule_id = schedule.id
+        AND CAST(type_row.plan_type AS BINARY) = CAST('LOGICAL_MERGE_CLOSE' AS BINARY)
+  );
+
+INSERT INTO iws_business_schedule_plan_type
+    (id, schedule_id, plan_type, plan_type_name, priority, enabled,
+     create_time, update_time)
+SELECT @init_seed_space_retire_type_id, schedule.id, 'SPACE_RETIRE',
+       '空间退役', 20, 1, CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)
+FROM iws_business_schedule schedule
+WHERE CAST(schedule.business_code AS BINARY) = CAST(@init_seed_space_schedule_code AS BINARY)
+  AND NOT EXISTS (
+      SELECT 1 FROM iws_business_schedule_plan_type type_row
+      WHERE type_row.schedule_id = schedule.id
+        AND CAST(type_row.plan_type AS BINARY) = CAST('SPACE_RETIRE' AS BINARY)
+  );
+
+INSERT INTO wms_business_type
+    (business_type_code, business_type_name, status, contract_version,
+     object_policy_key, revision, create_time)
+SELECT @init_seed_business_type, '规则包发布', 'ACTIVE', '1',
+       @init_seed_business_type, 1, CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM wms_business_type
+    WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_business_type AS BINARY)
+);
+
+INSERT INTO wms_business_type
+    (business_type_code, business_type_name, status, contract_version,
+     object_policy_key, revision, create_time)
+SELECT @init_seed_space_business_type, '空间配置变更', 'ACTIVE', '1',
+       @init_seed_space_business_type, 1, CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM wms_business_type
+    WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_space_business_type AS BINARY)
+);
+
+INSERT INTO wms_business_type
+    (business_type_code, business_type_name, status, contract_version,
+     object_policy_key, revision, create_time)
+SELECT @init_seed_logical_business_type, '逻辑归属合并', 'ACTIVE', '1',
+       @init_seed_logical_business_type, 1, CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM wms_business_type
+    WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_logical_business_type AS BINARY)
+);
+
+INSERT INTO wms_business_plan_mount
+    (mount_id, business_type_code, plan_type_code, schedule_code,
+     contract_version, enabled, revision, create_time)
+SELECT @init_seed_mount_id, @init_seed_business_type, @init_seed_plan_type,
+       @init_seed_schedule_code, '1', 1, 1, CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM wms_business_plan_mount
+    WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_business_type AS BINARY)
+      AND CAST(plan_type_code AS BINARY) = CAST(@init_seed_plan_type AS BINARY)
+      AND CAST(schedule_code AS BINARY) = CAST(@init_seed_schedule_code AS BINARY)
+);
+
+INSERT INTO wms_business_plan_mount
+    (mount_id, business_type_code, plan_type_code, schedule_code,
+     contract_version, enabled, revision, create_time)
+SELECT @init_seed_logical_batch_mount_id, @init_seed_logical_business_type,
+       'LOGICAL_MERGE', @init_seed_logical_schedule_code, '1', 1, 1,
+       CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM wms_business_plan_mount
+    WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_logical_business_type AS BINARY)
+      AND CAST(plan_type_code AS BINARY) = CAST('LOGICAL_MERGE' AS BINARY)
+      AND CAST(schedule_code AS BINARY) = CAST(@init_seed_logical_schedule_code AS BINARY)
+);
+
+INSERT INTO wms_business_plan_mount
+    (mount_id, business_type_code, plan_type_code, schedule_code,
+     contract_version, enabled, revision, create_time)
+SELECT @init_seed_logical_close_mount_id, @init_seed_logical_business_type,
+       'LOGICAL_MERGE_CLOSE', @init_seed_logical_schedule_code, '1', 1, 1,
+       CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM wms_business_plan_mount
+    WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_logical_business_type AS BINARY)
+      AND CAST(plan_type_code AS BINARY) = CAST('LOGICAL_MERGE_CLOSE' AS BINARY)
+      AND CAST(schedule_code AS BINARY) = CAST(@init_seed_logical_schedule_code AS BINARY)
+);
+
+INSERT INTO wms_business_plan_mount
+    (mount_id, business_type_code, plan_type_code, schedule_code,
+     contract_version, enabled, revision, create_time)
+SELECT @init_seed_space_mount_id, @init_seed_space_business_type,
+       'SPACE_CHANGE', @init_seed_space_schedule_code, '1', 1, 1,
+       CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM wms_business_plan_mount
+    WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_space_business_type AS BINARY)
+      AND CAST(plan_type_code AS BINARY) = CAST('SPACE_CHANGE' AS BINARY)
+      AND CAST(schedule_code AS BINARY) = CAST(@init_seed_space_schedule_code AS BINARY)
+);
+
+INSERT INTO wms_business_plan_mount
+    (mount_id, business_type_code, plan_type_code, schedule_code,
+     contract_version, enabled, revision, create_time)
+SELECT @init_seed_space_retire_mount_id, @init_seed_space_business_type,
+       'SPACE_RETIRE', @init_seed_space_schedule_code, '1', 1, 1,
+       CURRENT_TIMESTAMP(3)
+WHERE NOT EXISTS (
+    SELECT 1 FROM wms_business_plan_mount
+    WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_space_business_type AS BINARY)
+      AND CAST(plan_type_code AS BINARY) = CAST('SPACE_RETIRE' AS BINARY)
+      AND CAST(schedule_code AS BINARY) = CAST(@init_seed_space_schedule_code AS BINARY)
+);
+
 SET @init_final_user_count = (SELECT COUNT(*) FROM sys_user);
 SET @init_final_job_admin_count = (
-    SELECT COUNT(*) FROM sj_system_user WHERE username = 'admin' AND role = 2
+    SELECT COUNT(*) FROM sj_system_user WHERE username = 'innolux' AND role = 2
 );
 SET @init_final_snailjob_namespace_count = (
     SELECT COUNT(*) FROM sj_namespace WHERE deleted = 0 AND unique_id IN ('dev', 'prod')
@@ -5664,6 +7829,72 @@ SET @init_final_endpoint_business_rows = (
   + (SELECT COUNT(*) FROM iws_endpoint_system_address)
   + (SELECT COUNT(*) FROM iws_endpoint_audit)
 );
+SET @init_final_plan_catalog_ok = (
+    (SELECT COUNT(*) FROM iws_business_schedule
+     WHERE id = @init_seed_schedule_id
+       AND CAST(business_code AS BINARY) = CAST(@init_seed_schedule_code AS BINARY)
+       AND business_name = '库存配置'
+       AND enabled = 1 AND del_flag = '0') = 1
+    AND
+    (SELECT COUNT(*) FROM iws_business_schedule_plan_type
+     WHERE id = @init_seed_plan_type_id
+       AND schedule_id = @init_seed_schedule_id
+       AND CAST(plan_type AS BINARY) = CAST(@init_seed_plan_type AS BINARY)
+       AND plan_type_name = '规则包发布'
+       AND enabled = 1) = 1
+    AND
+    (SELECT COUNT(*) FROM wms_business_type
+     WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_business_type AS BINARY)
+       AND business_type_name = '规则包发布'
+       AND status = 'ACTIVE'
+       AND CAST(contract_version AS BINARY) = CAST('1' AS BINARY)) = 1
+    AND
+    (SELECT COUNT(*) FROM wms_business_plan_mount
+     WHERE mount_id = @init_seed_mount_id
+       AND CAST(business_type_code AS BINARY) = CAST(@init_seed_business_type AS BINARY)
+       AND CAST(plan_type_code AS BINARY) = CAST(@init_seed_plan_type AS BINARY)
+       AND CAST(schedule_code AS BINARY) = CAST(@init_seed_schedule_code AS BINARY)
+       AND enabled = 1) = 1
+    AND
+    (SELECT COUNT(*) FROM iws_business_schedule
+     WHERE id = @init_seed_space_schedule_id
+       AND CAST(business_code AS BINARY) = CAST(@init_seed_space_schedule_code AS BINARY)
+       AND business_name = '空间配置'
+       AND enabled = 1 AND del_flag = '0') = 1
+    AND
+    (SELECT COUNT(*) FROM iws_business_schedule_plan_type
+     WHERE id IN (@init_seed_space_change_type_id, @init_seed_space_retire_type_id)
+       AND schedule_id = @init_seed_space_schedule_id
+       AND enabled = 1) = 2
+    AND
+    (SELECT COUNT(*) FROM wms_business_type
+     WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_space_business_type AS BINARY)
+       AND business_type_name = '空间配置变更'
+       AND status = 'ACTIVE') = 1
+    AND
+    (SELECT COUNT(*) FROM wms_business_plan_mount
+     WHERE mount_id IN (@init_seed_space_mount_id, @init_seed_space_retire_mount_id)
+       AND enabled = 1) = 2
+    AND
+    (SELECT COUNT(*) FROM iws_business_schedule
+     WHERE id = @init_seed_logical_schedule_id
+       AND CAST(business_code AS BINARY) = CAST(@init_seed_logical_schedule_code AS BINARY)
+       AND business_name = '逻辑归属合并'
+       AND enabled = 1 AND del_flag = '0') = 1
+    AND
+    (SELECT COUNT(*) FROM iws_business_schedule_plan_type
+     WHERE id IN (@init_seed_logical_batch_type_id, @init_seed_logical_close_type_id)
+       AND schedule_id = @init_seed_logical_schedule_id
+       AND enabled = 1) = 2
+    AND
+    (SELECT COUNT(*) FROM wms_business_type
+     WHERE CAST(business_type_code AS BINARY) = CAST(@init_seed_logical_business_type AS BINARY)
+       AND status = 'ACTIVE') = 1
+    AND
+    (SELECT COUNT(*) FROM wms_business_plan_mount
+     WHERE mount_id IN (@init_seed_logical_batch_mount_id, @init_seed_logical_close_mount_id)
+       AND enabled = 1) = 2
+);
 SET @init_final_process_rows = (
     (SELECT COUNT(*) FROM iws_business_schedule)
   + (SELECT COUNT(*) FROM iws_business_schedule_plan_type)
@@ -5682,8 +7913,23 @@ SET @init_final_process_rows = (
   + (SELECT COUNT(*) FROM iws_process_action_audit)
   + (SELECT COUNT(*) FROM iws_process_schedule_control)
 );
+SET @init_final_wms_table_count = (
+    SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE CAST(TABLE_SCHEMA AS BINARY) = CAST(@init_schema AS BINARY)
+      AND TABLE_NAME LIKE 'wms\\_%'
+);
 SET @init_final_wms_rows = (
-    (SELECT COUNT(*) FROM wms_warehouse_zone)
+    (SELECT COUNT(*) FROM wms_business_task)
+  + (SELECT COUNT(*) FROM wms_business_task_barrier)
+  + (SELECT COUNT(*) FROM wms_business_plan_mount)
+  + (SELECT COUNT(*) FROM wms_business_type)
+  + (SELECT COUNT(*) FROM wms_legacy_id_map)
+  + (SELECT COUNT(*) FROM wms_schema_version)
+  + (SELECT COUNT(*) FROM wms_upgrade_checkpoint)
+  + (SELECT COUNT(*) FROM wms_upgrade_issue)
+  + (SELECT COUNT(*) FROM wms_upgrade_run)
+  + (SELECT COUNT(*) FROM wms_warehouse)
+  + (SELECT COUNT(*) FROM wms_warehouse_zone)
   + (SELECT COUNT(*) FROM wms_storage)
   + (SELECT COUNT(*) FROM wms_container_type)
   + (SELECT COUNT(*) FROM wms_container)
@@ -5703,6 +7949,67 @@ SET @init_final_wms_rows = (
   + (SELECT COUNT(*) FROM wms_outbound_order_line_history)
   + (SELECT COUNT(*) FROM wms_inbound_order_push_log)
   + (SELECT COUNT(*) FROM wms_outbound_order_push_log)
+  + (SELECT COUNT(*) FROM wms_company)
+  + (SELECT COUNT(*) FROM wms_company_management_scope)
+  + (SELECT COUNT(*) FROM wms_company_management_grant)
+  + (SELECT COUNT(*) FROM wms_object_audit)
+  + (SELECT COUNT(*) FROM wms_command_attempt)
+  + (SELECT COUNT(*) FROM wms_attribute_catalog)
+  + (SELECT COUNT(*) FROM wms_rule_definition)
+  + (SELECT COUNT(*) FROM wms_rule_version)
+  + (SELECT COUNT(*) FROM wms_rule_package_version)
+  + (SELECT COUNT(*) FROM wms_rule_package_member)
+  + (SELECT COUNT(*) FROM wms_rule_effective_pointer)
+  + (SELECT COUNT(*) FROM wms_rule_seed_ledger)
+  + (SELECT COUNT(*) FROM wms_logical_scope)
+  + (SELECT COUNT(*) FROM wms_logical_scope_version)
+  + (SELECT COUNT(*) FROM wms_logical_scope_storage)
+  + (SELECT COUNT(*) FROM wms_material_logical_assignment)
+  + (SELECT COUNT(*) FROM wms_logical_assignment_history)
+  + (SELECT COUNT(*) FROM wms_warehouse_type)
+  + (SELECT COUNT(*) FROM wms_warehouse_type_config)
+  + (SELECT COUNT(*) FROM wms_access_channel)
+  + (SELECT COUNT(*) FROM wms_storage_access_member)
+  + (SELECT COUNT(*) FROM wms_storage_access_edge)
+  + (SELECT COUNT(*) FROM wms_location_version)
+  + (SELECT COUNT(*) FROM wms_location_effective)
+  + (SELECT COUNT(*) FROM wms_object_visibility)
+  + (SELECT COUNT(*) FROM wms_object_visibility_department)
+  + (SELECT COUNT(*) FROM wms_storage_capacity)
+  + (SELECT COUNT(*) FROM wms_production_info)
+  + (SELECT COUNT(*) FROM wms_material_attribute_value)
+  + (SELECT COUNT(*) FROM wms_load_node)
+  + (SELECT COUNT(*) FROM wms_load_relation)
+  + (SELECT COUNT(*) FROM wms_load_relation_history)
+  + (SELECT COUNT(*) FROM wms_storage_info)
+  + (SELECT COUNT(*) FROM wms_occupancy_effect)
+  + (SELECT COUNT(*) FROM wms_storage_occupancy)
+  + (SELECT COUNT(*) FROM wms_material_trace_history)
+  + (SELECT COUNT(*) FROM wms_material_trace_item)
+  + (SELECT COUNT(*) FROM wms_material_trace_edge)
+  + (SELECT COUNT(*) FROM wms_access_channel_lock)
+  + (SELECT COUNT(*) FROM wms_allocation_candidate)
+  + (SELECT COUNT(*) FROM wms_allocation_decision)
+  + (SELECT COUNT(*) FROM wms_allocation_lock)
+  + (SELECT COUNT(*) FROM wms_allocation_release)
+  + (SELECT COUNT(*) FROM wms_inventory_reservation)
+  + (SELECT COUNT(*) FROM wms_space_change_order)
+  + (SELECT COUNT(*) FROM wms_logical_merge_order)
+  + (SELECT COUNT(*) FROM wms_logical_merge_batch)
+);
+SET @init_final_rules_rows = (
+    (SELECT COUNT(*) FROM wms_attribute_catalog)
+  + (SELECT COUNT(*) FROM wms_rule_definition)
+  + (SELECT COUNT(*) FROM wms_rule_version)
+  + (SELECT COUNT(*) FROM wms_rule_package_version)
+  + (SELECT COUNT(*) FROM wms_rule_package_member)
+  + (SELECT COUNT(*) FROM wms_rule_effective_pointer)
+  + (SELECT COUNT(*) FROM wms_rule_seed_ledger)
+  + (SELECT COUNT(*) FROM wms_logical_scope)
+  + (SELECT COUNT(*) FROM wms_logical_scope_version)
+  + (SELECT COUNT(*) FROM wms_logical_scope_storage)
+  + (SELECT COUNT(*) FROM wms_material_logical_assignment)
+  + (SELECT COUNT(*) FROM wms_logical_assignment_history)
 );
 SET @init_final_demo_rows = (
     (SELECT COUNT(*) FROM test_demo)
@@ -5711,10 +8018,15 @@ SET @init_final_demo_rows = (
 );
 SET @init_final_ok = (
     @init_preflight_ok = 1
-    AND @init_final_table_count = 124
-    AND @init_final_menu_count = 230
+    AND @init_final_table_count = 181
+    AND @init_final_wms_table_count = 77
+    AND @init_final_menu_count = 256
     AND @init_final_event_menu_count = 53
     AND @init_final_role_menu_count = 133
+    AND @init_final_space_root_ok = 1
+    AND @init_final_space_menu_ok = 1
+    AND @init_final_catalog_menu_ok = 1
+    AND @init_final_p7_menu_ok = 1
     AND @init_final_user_count = 1
     AND @init_final_job_admin_count = 1
     AND @init_final_snailjob_namespace_count = 2
@@ -5738,16 +8050,22 @@ SET @init_final_ok = (
     AND @init_final_endpoint_default_environment_ok = 1
     AND @init_final_endpoint_default_system_ok = 1
     AND @init_final_endpoint_business_rows = 1
-    AND @init_final_process_rows = 0
-    AND @init_final_wms_rows = 0
+    AND @init_final_plan_catalog_ok = 1
+    AND @init_final_process_rows = 8
+    AND @init_final_wms_rows = 14
+    AND @init_final_rules_rows = 6
     AND @init_final_demo_rows = 0
 );
 
 SELECT
     @init_schema AS `目标库`,
     @init_final_table_count AS `表数量`,
+    @init_final_wms_table_count AS `WMS表数量`,
     @init_final_menu_count AS `系统菜单总数`,
     @init_final_event_menu_count AS `计划事件菜单数`,
+    @init_final_space_menu_ok AS `空间菜单符合`,
+    @init_final_catalog_menu_ok AS `业务目录菜单符合`,
+    @init_final_p7_menu_ok AS `P7菜单符合`,
     @init_final_user_count AS `默认管理员数`,
     @init_final_job_admin_count AS `调度初始管理员数`,
     @init_final_snailjob_group_ok AS `默认组符合`,
@@ -5757,7 +8075,9 @@ SELECT
     @init_final_control_revision AS `目录控制版本`,
     IF(@init_final_endpoint_default_environment_ok = 1, 'TEST', '缺失') AS `默认环境`,
     IF(@init_final_endpoint_default_system_ok = 1, 'IWS', '缺失') AS `默认系统`,
+    @init_final_plan_catalog_ok AS `计划目录种子符合`,
     @init_final_wms_rows AS `WMS业务行`,
+    @init_final_rules_rows AS `规则表行`,
     @init_final_process_rows AS `计划事件运行行`,
     IF(@init_final_ok = 1, '空库全量初始化完成', '最终验收失败，请检查上述不变量') AS `执行结果`;
 

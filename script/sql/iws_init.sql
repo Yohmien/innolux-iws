@@ -128,7 +128,7 @@ create table sys_user (
 -- ----------------------------
 -- 初始化-用户信息表数据
 -- ----------------------------
-insert into sys_user values(1761100000000000001, 1761000000000000103, 'admin', 'INNOLUX管理员', 'sys_user', 'wms@innolux.com', '15888888888', '1', null, '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), 1761000000000000103, 1761100000000000001, sysdate(), null, null, '管理员');
+insert into sys_user values(1761100000000000001, 1761000000000000103, 'innolux', 'INNOLUX管理员', 'sys_user', 'wms@innolux.com', '15888888888', '1', null, '$2a$10$RSIyc3MpGVMKPGxfE6no3.EV3Hn0iq88rjqPt1xToGkwuXSZ0wfVm', '0', '0', '127.0.0.1', sysdate(), 1761000000000000103, 1761100000000000001, sysdate(), null, null, '管理员');
 insert into sys_user values(1761100000000000003, 1761000000000000108, 'test', 'WMS主管 密码666666', 'sys_user', '', '', '0', null, '$2a$10$b8yUzN0C71sbz.PhNOCgJe.Tu1yWC3RNrTyjSQ8p1W0.aaUXUJ.Ne', '0', '0', '127.0.0.1', sysdate(), 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000003, sysdate(), null);
 insert into sys_user values(1761100000000000004, 1761000000000000102, 'test1', 'WMS作业员 密码666666', 'sys_user', '', '', '0', null, '$2a$10$b8yUzN0C71sbz.PhNOCgJe.Tu1yWC3RNrTyjSQ8p1W0.aaUXUJ.Ne', '0', '0', '127.0.0.1', sysdate(), 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000004, sysdate(), null);
 
@@ -1259,9 +1259,9 @@ CREATE TABLE `sj_system_user`
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='系统用户表';
 
--- pwd: admin
+-- 默认账号：innolux；部署后更换默认密码
 INSERT INTO `sj_system_user` (username, password, role)
-VALUES ('admin', '465c194afb65670f38322df087f0a9bb225cc257e43eb4ac5a0c98ef5b3173ac', 2);
+VALUES ('innolux', 'b60d758e3a5e5fcd41375f0aea397e43ae731bc9c2251396550908c1fae79a76', 2);
 
 CREATE TABLE `sj_system_user_permission`
 (
@@ -2442,8 +2442,8 @@ CREATE TABLE IF NOT EXISTS sai_resource
 -- 九、初始化数据
 -- ============================================================
 
--- 默认管理员：admin / admin123
-INSERT INTO sai_user VALUES (1, 2, NULL, 'admin', 'admin', '',  'pbkdf2$120000$c25haWwtYWktYWRtaW4tMQ==$kakglT/wYKOgv/77Ah1stie58d/JbY2nGgq5DwgUBw4=', NULL, NOW(), NOW());
+-- 默认管理员：innolux；部署后更换默认密码
+INSERT INTO sai_user VALUES (1, 2, NULL, 'innolux', 'innolux', '',  'pbkdf2$120000$OoM9lF194wXQ9YrojI/J7g==$uw/uCpY4k9OmdLTb4ij4i0siMnb5EzJnjoOpeuRD1Y0=', NULL, NOW(), NOW());
 
 -- 插入常见的AI提供商
 INSERT INTO sai_model_provider (provider_name, provider_key, description, is_enabled)
