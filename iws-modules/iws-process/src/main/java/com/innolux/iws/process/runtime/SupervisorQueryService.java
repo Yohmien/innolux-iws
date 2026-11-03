@@ -11,7 +11,6 @@
 
 package com.innolux.iws.process.runtime;
 
-import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.innolux.iws.common.core.domain.PageResult;
@@ -38,7 +37,6 @@ import com.innolux.iws.process.mapper.ProcessInstanceMapper;
 import com.innolux.iws.process.mapper.ProcessScheduleControlMapper;
 import com.innolux.iws.process.support.ProcessText;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.sql.ResultSet;
@@ -70,8 +68,6 @@ public class SupervisorQueryService {
 
     private final ProcessObjectAuthorizer objectAuthorizer;
 
-    private final ObjectProvider<ProcessAccessPolicy> policyProvider;
-
     /**
      * 构造服务。
      *
@@ -82,7 +78,6 @@ public class SupervisorQueryService {
      * @param auditMapper 审计 Mapper
      * @param jdbcTemplate JDBC 模板
      * @param objectAuthorizer 对象范围授权
-     * @param policyProvider 业务范围策略
      */
     public SupervisorQueryService(ProcessInstanceMapper instanceMapper,
                                   ProcessScheduleControlMapper controlMapper,
@@ -90,8 +85,7 @@ public class SupervisorQueryService {
                                   ProcessEventMapper eventMapper,
                                   ProcessActionAuditMapper auditMapper,
                                   JdbcTemplate jdbcTemplate,
-                                  ProcessObjectAuthorizer objectAuthorizer,
-                                  ObjectProvider<ProcessAccessPolicy> policyProvider) {
+                                  ProcessObjectAuthorizer objectAuthorizer) {
         this.instanceMapper = instanceMapper;
         this.controlMapper = controlMapper;
         this.definitionMapper = definitionMapper;
@@ -99,7 +93,6 @@ public class SupervisorQueryService {
         this.auditMapper = auditMapper;
         this.jdbcTemplate = jdbcTemplate;
         this.objectAuthorizer = objectAuthorizer;
-        this.policyProvider = policyProvider;
     }
 
     /**
@@ -127,11 +120,9 @@ public class SupervisorQueryService {
             .eq(statusValue != null, ProcessInstance::getPlanStatus, statusValue)
             .orderByAsc(ProcessInstance::getPlanType)
             .orderByAsc(ProcessInstance::getScheduleScope);
-        boolean superObject = StpUtil.hasPermission("process:object:all");
-        ProcessAccessPolicy policy = policyProvider.getIfAvailable();
         List<SupervisorSummaryVO> visible = new ArrayList<>();
         for (ProcessInstance supervisor : instanceMapper.selectList(wrapper)) {
-            if (superObject || (policy != null && policy.canAccess(childTarget(supervisor)))) {
+            if (objectAuthorizer.canAccess(objectAuthorizer.accessTarget(supervisor, null, "QUERY"))) {
                 visible.add(summary(supervisor));
             }
         }
@@ -376,12 +367,6 @@ public class SupervisorQueryService {
         } catch (IllegalArgumentException ex) {
             throw new ServiceException("非法监督状态: " + status);
         }
-    }
-
-    private static ProcessAccessTarget childTarget(ProcessInstance supervisor) {
-        return new ProcessAccessTarget(supervisor.getId(), null, supervisor.getScheduleId(),
-            supervisor.getPlanType(), supervisor.getSupervisorKey(), supervisor.getTaskKey(),
-            supervisor.getScheduleScope(), "QUERY");
     }
 
     private static int pageNum(PageQuery pageQuery) {

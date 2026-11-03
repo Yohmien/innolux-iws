@@ -62,9 +62,9 @@ public class ProcessJobConfiguration {
      * @param platformPort 平台端口
      * @return 控制服务
      */
-    @Bean
-    public SupervisorControlService supervisorControlService(ProcessSchedulerPort processPort,
-                                                             SchedulerPlatformPort platformPort) {
+    @Bean(name = "jobSupervisorControlService")
+    public SupervisorControlService jobSupervisorControlService(ProcessSchedulerPort processPort,
+                                                                SchedulerPlatformPort platformPort) {
         return new SupervisorControlService(processPort, platformPort);
     }
 

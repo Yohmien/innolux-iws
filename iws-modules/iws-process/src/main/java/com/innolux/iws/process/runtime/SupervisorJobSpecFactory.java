@@ -57,7 +57,7 @@ public final class SupervisorJobSpecFactory {
             + ",\"batchLimit\":" + (definition.getRoundBatchLimit() == null ? 1 : definition.getRoundBatchLimit())
             + ",\"maxDurationMs\":" + (definition.getRoundMaxDurationMs() == null ? 1000L
             : definition.getRoundMaxDurationMs()) + "}";
-        return new JobSpec(EXECUTOR_SUPERVISOR, jobName, "process:supervisor:" + supervisor.getId(),
+        return new JobSpec(EXECUTOR_SUPERVISOR, jobName, "process_supervisor_" + supervisor.getId(),
             scheduleType, "CRON".equals(scheduleType) ? definition.getScheduleCron() : null,
             interval, timeout, definition.getJobMaxRetryTimes() == null ? 0 : definition.getJobMaxRetryTimes(),
             params, "DEFAULT");
@@ -82,7 +82,7 @@ public final class SupervisorJobSpecFactory {
             ? definition.getJobTimeoutMs() : maxDurationMs;
         String params = "{\"scheduleId\":" + schedule.getId()
             + ",\"batchLimit\":" + batchLimit + ",\"maxDurationMs\":" + maxDurationMs + "}";
-        return new JobSpec(EXECUTOR_WORKER, jobName, "process:worker:" + schedule.getId(),
+        return new JobSpec(EXECUTOR_WORKER, jobName, "process_worker_" + schedule.getId(),
             "FIXED_RATE", null, interval, timeout, 0, params, "DEFAULT");
     }
 

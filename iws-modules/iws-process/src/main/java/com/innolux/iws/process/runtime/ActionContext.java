@@ -13,6 +13,7 @@ package com.innolux.iws.process.runtime;
 
 import com.innolux.iws.process.enums.EventDirection;
 import com.innolux.iws.process.enums.PostingMode;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -45,5 +46,23 @@ public record ActionContext(long eventId, long instanceId, String eventKey, long
      */
     public ActionContext {
         facts = facts == null ? Map.of() : Map.copyOf(facts);
+    }
+
+    /**
+     * 用业务冻结输入替换平台基础摘要，并保留事件身份、效果键和租约事实。
+     *
+     * @param input 冻结输入
+     * @return 新上下文
+     */
+    public ActionContext withFrozenInput(LocalActionInput input) {
+        Map<String, String> merged = new LinkedHashMap<>(facts);
+        input.facts().forEach((key, value) -> {
+            if (merged.putIfAbsent(key, value) != null) {
+                throw new IllegalArgumentException("冻结输入附加事实键冲突: " + key);
+            }
+        });
+        return new ActionContext(eventId, instanceId, eventKey, attemptId, requestId, direction,
+            postingMode, effectKey, localEffectKey, idempotencyKey, inputHash, input.payloadJson(),
+            input.evidenceRef(), leaseEpoch, callTimeoutMs, merged);
     }
 }

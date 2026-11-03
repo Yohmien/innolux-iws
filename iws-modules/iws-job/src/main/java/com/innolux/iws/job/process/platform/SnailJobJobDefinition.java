@@ -29,13 +29,14 @@ import java.util.regex.Pattern;
  * @param triggerInterval SnailJob 触发间隔，CRON 为表达式，固定频率为秒
  * @param executorTimeoutSeconds SnailJob 执行超时秒数
  * @param maxRetryTimes 平台重试次数
- * @param routeKey 路由键，空表示 SnailJob 默认
+ * @param routeKey 路由键
  */
 public record SnailJobJobDefinition(JobSpec jobSpec, TriggerTypeEnum triggerType, String triggerInterval,
                                     Integer executorTimeoutSeconds, Integer maxRetryTimes,
                                     AllocationAlgorithmEnum routeKey) {
 
     private static final Pattern HAN = Pattern.compile("\\p{IsHan}");
+    private static final Pattern BIZ_ID = Pattern.compile("[A-Za-z0-9_-]{1,64}");
 
     /**
      * 校验并转换发布任务规格。
@@ -50,6 +51,9 @@ public record SnailJobJobDefinition(JobSpec jobSpec, TriggerTypeEnum triggerType
             throw new IllegalArgumentException("不支持的执行器: " + jobSpec.executorName());
         }
         requireText(jobSpec.bizId(), "bizId");
+        if (!BIZ_ID.matcher(jobSpec.bizId()).matches()) {
+            throw new IllegalArgumentException("bizId 仅支持 1~64 位字母、数字、下划线或连字符");
+        }
         requireText(jobSpec.jobName(), "jobName");
         if (!HAN.matcher(jobSpec.jobName()).find() || jobSpec.jobName().equals(jobSpec.bizId())
             || jobSpec.jobName().equals(jobSpec.executorName())) {
@@ -139,7 +143,7 @@ public record SnailJobJobDefinition(JobSpec jobSpec, TriggerTypeEnum triggerType
 
     private static AllocationAlgorithmEnum routeKey(String routeKey) {
         if (routeKey == null || routeKey.isBlank() || "DEFAULT".equals(routeKey)) {
-            return null;
+            return AllocationAlgorithmEnum.ROUND;
         }
         try {
             return AllocationAlgorithmEnum.valueOf(routeKey);

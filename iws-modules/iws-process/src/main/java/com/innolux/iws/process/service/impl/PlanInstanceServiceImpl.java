@@ -67,6 +67,8 @@ import com.innolux.iws.process.mapper.ProcessTriggerReceiptMapper;
 import com.innolux.iws.process.runtime.EventEligibilityService;
 import com.innolux.iws.process.runtime.PlanActivationService;
 import com.innolux.iws.process.runtime.PlanInstanceActionPolicy;
+import com.innolux.iws.process.runtime.PlanMountGate;
+import com.innolux.iws.process.runtime.PlanMountGateSupport;
 import com.innolux.iws.process.runtime.PlanMaterializer;
 import com.innolux.iws.process.runtime.PlanScopeResolver;
 import com.innolux.iws.process.runtime.ProcessObjectAuthorizer;
@@ -135,6 +137,7 @@ public class PlanInstanceServiceImpl implements PlanInstanceService {
     private final PlanInstanceActionPolicy actionPolicy;
     private final com.innolux.iws.process.mapper.ProcessRequestDetailMapper requestDetailMapper;
     private final org.springframework.beans.factory.ObjectProvider<com.innolux.iws.process.runtime.InboundIdentityPolicy> inboundIdentities;
+    private final org.springframework.beans.factory.ObjectProvider<PlanMountGate> mountGates;
 
     /**
      * 构造实例服务。
@@ -172,7 +175,8 @@ public class PlanInstanceServiceImpl implements PlanInstanceService {
                                    ProcessObjectAuthorizer objectAuthorizer,
                                    PlanInstanceActionPolicy actionPolicy,
                                    com.innolux.iws.process.mapper.ProcessRequestDetailMapper requestDetailMapper,
-                                   org.springframework.beans.factory.ObjectProvider<com.innolux.iws.process.runtime.InboundIdentityPolicy> inboundIdentities) {
+                                   org.springframework.beans.factory.ObjectProvider<com.innolux.iws.process.runtime.InboundIdentityPolicy> inboundIdentities,
+                                   org.springframework.beans.factory.ObjectProvider<PlanMountGate> mountGates) {
         this.scheduleMapper = scheduleMapper;
         this.planTypeMapper = planTypeMapper;
         this.definitionMapper = definitionMapper;
@@ -195,6 +199,7 @@ public class PlanInstanceServiceImpl implements PlanInstanceService {
         this.actionPolicy = actionPolicy;
         this.requestDetailMapper = requestDetailMapper;
         this.inboundIdentities = inboundIdentities;
+        this.mountGates = mountGates;
     }
 
     /**
@@ -208,6 +213,8 @@ public class PlanInstanceServiceImpl implements PlanInstanceService {
         if (schedule == null || !Boolean.TRUE.equals(schedule.getEnabled())) {
             throw new ServiceException("业务调度不存在或已停用");
         }
+        PlanMountGateSupport.requireAllowed(
+            mountGates.orderedStream().toList(), command, schedule);
         BusinessSchedulePlanType type = planTypeMapper.selectOne(Wrappers.<BusinessSchedulePlanType>lambdaQuery()
             .eq(BusinessSchedulePlanType::getScheduleId, command.scheduleId())
             .eq(BusinessSchedulePlanType::getPlanType, command.planType()));

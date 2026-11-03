@@ -16,6 +16,7 @@ import com.aizuda.snailjob.client.job.core.handler.add.ClusterAddBizIdHandler;
 import com.aizuda.snailjob.client.job.core.handler.update.ClusterUpdateBizIdHandler;
 import com.aizuda.snailjob.client.job.core.openapi.SnailJobBizIdOpenApi;
 import com.aizuda.snailjob.common.core.enums.JobArgsTypeEnum;
+import com.aizuda.snailjob.common.core.enums.JobBlockStrategyEnum;
 import com.aizuda.snailjob.common.core.enums.StatusEnum;
 import com.aizuda.snailjob.model.response.JobExistsResponse;
 
@@ -84,11 +85,11 @@ public class SnailJobBizIdOpenApiClient implements SnailJobOpenApiClient {
             .setExecutorInfo(definition.executorName())
             .setTriggerType(definition.triggerType())
             .setTriggerInterval(definition.triggerInterval())
+            .setBlockStrategy(JobBlockStrategyEnum.DISCARD)
             .setExecutorTimeout(definition.executorTimeoutSeconds())
-            .setMaxRetryTimes(definition.maxRetryTimes());
-        if (definition.routeKey() != null) {
-            handler.getReqDTO().setRouteKey(definition.routeKey().getType());
-        }
+            .setMaxRetryTimes(definition.maxRetryTimes())
+            .setRetryInterval(0);
+        handler.getReqDTO().setRouteKey(definition.routeKey().getType());
         handler.getReqDTO().setArgsStr(definition.paramsJson());
         handler.getReqDTO().setArgsType(JobArgsTypeEnum.JSON.getArgsType());
     }
