@@ -22,8 +22,8 @@ logging:
 spring:
   security:
     user:
-      name: iws
-      password: 123456
+      name: innolux
+      password: admin@innolux.com
   boot:
     admin:
       ui:
@@ -56,5 +56,5 @@ spring.boot.admin.client:
     metadata:
       username: ${spring.boot.admin.client.username}
       userpassword: ${spring.boot.admin.client.password}
-  username: iws
-  password: 123456
+  username: innolux
+  password: admin@innolux.com

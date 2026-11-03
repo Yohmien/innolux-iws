@@ -20,8 +20,8 @@ spring.boot.admin.client:
     metadata:
       username: ${spring.boot.admin.client.username}
       userpassword: ${spring.boot.admin.client.password}
-  username: iws
-  password: 123456
+  username: innolux
+  password: admin@innolux.com
 
 --- # snail-job 配置
 snail-job:
@@ -33,6 +33,11 @@ snail-job:
   server:
     host: 127.0.0.1
     port: 18188
+  openapi:
+    host: 127.0.0.1
+    port: 18088
+    https: false
+    prefix: snail-job
   # 命名空间UUID 详见 script/sql/iws_init.sql `sj_namespace`表`unique_id`字段
   namespace: ${spring.profiles.active}
   # 随主应用端口漂移
