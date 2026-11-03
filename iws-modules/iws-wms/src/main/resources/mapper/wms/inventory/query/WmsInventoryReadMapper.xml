@@ -1,0 +1,839 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ - @Date         : 2026-11-01
+ - @Author       : YONGJIE.PENG
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : WMS 在库管理 P7 只读查询
+ - @Version      : V1.0
+ - @Description  : WMS 规则、物料、业务任务和追踪只读 SQL；
+ - @ModifyRecord : V1.0 新建；
+-->
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.innolux.iws.wms.inventory.query.mapper.WmsInventoryReadMapper">
+
+    <sql id="inventoryScopeCtes">
+        <choose>
+            <when test="scope.enforceVisibility">
+                WITH RECURSIVE visibility_chain AS (
+                    SELECT visibility.visibility_key AS origin_key,
+                           visibility.object_type AS origin_object_type,
+                           visibility.object_id AS origin_object_id,
+                           visibility.visibility_key AS current_key,
+                           visibility.parent_visibility_key,
+                           visibility.object_type AS current_object_type,
+                           visibility.object_id AS current_object_id,
+                           visibility.mode,
+                           visibility.revision,
+                           0 AS depth
+                    FROM wms_object_visibility visibility
+                    UNION ALL
+                    SELECT chain.origin_key,
+                           chain.origin_object_type,
+                           chain.origin_object_id,
+                           parent.visibility_key,
+                           parent.parent_visibility_key,
+                           parent.object_type,
+                           parent.object_id,
+                           parent.mode,
+                           parent.revision,
+                           chain.depth + 1
+                    FROM visibility_chain chain
+                    JOIN wms_object_visibility parent
+                      ON parent.visibility_key = chain.parent_visibility_key
+                    WHERE chain.mode = 'INHERIT'
+                      AND chain.depth &lt; 64
+                ),
+                effective_visibility AS (
+                    SELECT origin_key,
+                           origin_object_type,
+                           origin_object_id,
+                           current_key,
+                           current_object_type,
+                           current_object_id,
+                           mode,
+                           revision
+                    FROM visibility_chain
+                    WHERE mode IN ('VALUE', 'CLEAR')
+                ),
+                visible_storage AS (
+                    SELECT storage.storage_id
+                    FROM wms_storage storage
+                    JOIN wms_warehouse warehouse
+                      ON warehouse.warehouse_id = storage.warehouse_id
+                    JOIN wms_object_visibility company_visibility
+                      ON company_visibility.object_type = 'COMPANY'
+                     AND company_visibility.object_id = warehouse.company_id
+                     AND company_visibility.mode = 'VALUE'
+                    JOIN effective_visibility storage_visibility
+                      ON storage_visibility.origin_object_type = 'STORAGE'
+                     AND storage_visibility.origin_object_id = storage.storage_id
+                     AND storage_visibility.mode = 'VALUE'
+                    WHERE storage.del_flag = '0'
+                      AND EXISTS (
+                          SELECT 1
+                          FROM wms_object_visibility_department company_department
+                          WHERE company_department.visibility_key =
+                                company_visibility.visibility_key
+                            AND company_department.dept_id = #{scope.deptId}
+                      )
+                      AND EXISTS (
+                          SELECT 1
+                          FROM wms_object_visibility_department storage_department
+                          WHERE storage_department.visibility_key =
+                                storage_visibility.current_key
+                            AND storage_department.dept_id = #{scope.deptId}
+                      )
+                )
+            </when>
+            <otherwise>
+                WITH visible_storage AS (
+                    SELECT storage_id
+                    FROM wms_storage
+                    WHERE del_flag = '0'
+                )
+            </otherwise>
+        </choose>
+    </sql>
+
+    <sql id="inventoryVisibilityFilter">
+        AND EXISTS (
+            SELECT 1
+            FROM visible_storage inventory_visibility
+            WHERE inventory_visibility.storage_id = i.storage_id
+        )
+    </sql>
+
+    <sql id="materialInventoryFilters">
+        i.del_flag = '0'
+        <include refid="inventoryVisibilityFilter"/>
+        <if test="query.materialCode != null">
+            <choose>
+                <when test="query.materialCode == ''">AND i.material_code = ''</when>
+                <otherwise>AND i.material_code LIKE CONCAT('%', #{query.materialCode}, '%')</otherwise>
+            </choose>
+        </if>
+        <if test="query.stockUnitCode != null">
+            <choose>
+                <when test="query.stockUnitCode == ''">AND i.stock_unit_code = ''</when>
+                <otherwise>AND i.stock_unit_code LIKE CONCAT('%', #{query.stockUnitCode}, '%')</otherwise>
+            </choose>
+        </if>
+        <if test="query.warehouseCode != null">
+            AND i.warehouse_code = #{query.warehouseCode}
+        </if>
+        <if test="query.storageCode != null">
+            AND i.storage_code = #{query.storageCode}
+        </if>
+        <if test="query.status != null">
+            AND i.status = #{query.status}
+        </if>
+        <if test="query.inboundStatus != null">
+            AND i.inbound_status = #{query.inboundStatus}
+        </if>
+        <if test="query.frozenStatus != null">
+            AND i.frozen_status = #{query.frozenStatus}
+        </if>
+    </sql>
+
+    <sql id="materialFactJoins">
+        LEFT JOIN (
+            SELECT inventory_id,
+                   SUM(reserved_qty) AS active_reserved_qty
+            FROM wms_inventory_reservation
+            WHERE status = 'ACTIVE'
+            GROUP BY inventory_id
+        ) active_reservation ON active_reservation.inventory_id = i.inventory_id
+        LEFT JOIN wms_material_logical_assignment assignment
+          ON assignment.inventory_id = i.inventory_id
+        LEFT JOIN wms_logical_scope_version scope_version
+          ON scope_version.scope_version_id = assignment.scope_version_id
+        LEFT JOIN wms_logical_scope logical_scope
+          ON logical_scope.logical_scope_id = scope_version.logical_scope_id
+    </sql>
+
+    <select id="selectMaterialSummaries"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$MaterialSummaryRow">
+        <include refid="inventoryScopeCtes"/>
+        SELECT i.material_code AS material_code,
+               MAX(i.material_name) AS material_name,
+               COALESCE(i.warehouse_code, '') AS warehouse_code,
+               COALESCE(i.storage_code, '') AS storage_code,
+               COALESCE(i.unit, '') AS unit,
+               COUNT(*) AS inventory_count,
+               SUM(i.inventory_qty) AS inventory_qty,
+               SUM(GREATEST(COALESCE(i.reserved_qty, 0),
+                            COALESCE(active_reservation.active_reserved_qty, 0))) AS reserved_qty,
+               SUM(CASE WHEN i.frozen_status = 1 THEN i.inventory_qty ELSE 0 END) AS frozen_qty,
+               SUM(CASE WHEN i.frozen_status = 1 THEN 0
+                        ELSE GREATEST(i.inventory_qty -
+                             GREATEST(COALESCE(i.reserved_qty, 0),
+                                      COALESCE(active_reservation.active_reserved_qty, 0)), 0)
+                   END) AS available_qty,
+               SUM(CASE WHEN i.frozen_status = 1 THEN 1 ELSE 0 END) AS frozen_count,
+               assignment.scope_version_id AS logical_scope_version_id,
+               logical_scope.scope_code AS logical_scope_code,
+               logical_scope.scope_name AS logical_scope_name,
+               scope_version.rule_package_version_id AS rule_package_version_id,
+               MAX(i.update_time) AS last_updated_at
+        FROM wms_inventory i
+        <include refid="materialFactJoins"/>
+        WHERE <include refid="materialInventoryFilters"/>
+        GROUP BY i.material_code,
+                 COALESCE(i.warehouse_code, ''),
+                 COALESCE(i.storage_code, ''),
+                 COALESCE(i.unit, ''),
+                 assignment.scope_version_id,
+                 logical_scope.scope_code,
+                 logical_scope.scope_name,
+                 scope_version.rule_package_version_id
+        ORDER BY i.material_code,
+                 COALESCE(i.warehouse_code, ''),
+                 COALESCE(i.storage_code, ''),
+                 COALESCE(i.unit, ''),
+                 assignment.scope_version_id
+    </select>
+
+    <select id="selectMaterialDetails"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$MaterialDetailRow">
+        <include refid="inventoryScopeCtes"/>
+        SELECT i.inventory_id,
+               i.stock_unit_code,
+               i.material_code,
+               i.material_name,
+               i.material_batch,
+               i.date_code,
+               i.supplier_code,
+               i.supplier_name,
+               i.plant_code,
+               i.warehouse_code,
+               i.zone_id,
+               i.zone_code,
+               i.storage_id,
+               i.storage_code,
+               i.container_id,
+               i.container_code,
+               i.compartment_code,
+               i.inventory_qty,
+               GREATEST(COALESCE(i.reserved_qty, 0),
+                        COALESCE(active_reservation.active_reserved_qty, 0)) AS reserved_qty,
+               CASE WHEN i.frozen_status = 1 THEN i.inventory_qty ELSE 0 END AS frozen_qty,
+               CASE WHEN i.frozen_status = 1 THEN 0
+                    ELSE GREATEST(i.inventory_qty -
+                         GREATEST(COALESCE(i.reserved_qty, 0),
+                                  COALESCE(active_reservation.active_reserved_qty, 0)), 0)
+                END AS available_qty,
+               i.unit,
+               i.status,
+               i.frozen_status,
+               i.inbound_status,
+               i.quality_status,
+               i.production_date,
+               i.receiving_time,
+               i.inbound_time,
+               i.reserved_order_no,
+               i.source_order_no,
+               i.target_place,
+               i.version,
+               assignment.scope_version_id AS logical_scope_version_id,
+               logical_scope.scope_code AS logical_scope_code,
+               logical_scope.scope_name AS logical_scope_name,
+               scope_version.rule_package_version_id AS rule_package_version_id,
+               i.create_time,
+               i.update_time
+        FROM wms_inventory i
+        <include refid="materialFactJoins"/>
+        WHERE <include refid="materialInventoryFilters"/>
+        ORDER BY i.material_code, i.stock_unit_code, i.inventory_id
+    </select>
+
+    <select id="selectMaterialDetail"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$MaterialDetailRow">
+        <include refid="inventoryScopeCtes"/>
+        SELECT i.inventory_id,
+               i.stock_unit_code,
+               i.material_code,
+               i.material_name,
+               i.material_batch,
+               i.date_code,
+               i.supplier_code,
+               i.supplier_name,
+               i.plant_code,
+               i.warehouse_code,
+               i.zone_id,
+               i.zone_code,
+               i.storage_id,
+               i.storage_code,
+               i.container_id,
+               i.container_code,
+               i.compartment_code,
+               i.inventory_qty,
+               GREATEST(COALESCE(i.reserved_qty, 0),
+                        COALESCE(active_reservation.active_reserved_qty, 0)) AS reserved_qty,
+               CASE WHEN i.frozen_status = 1 THEN i.inventory_qty ELSE 0 END AS frozen_qty,
+               CASE WHEN i.frozen_status = 1 THEN 0
+                    ELSE GREATEST(i.inventory_qty -
+                         GREATEST(COALESCE(i.reserved_qty, 0),
+                                  COALESCE(active_reservation.active_reserved_qty, 0)), 0)
+                END AS available_qty,
+               i.unit,
+               i.status,
+               i.frozen_status,
+               i.inbound_status,
+               i.quality_status,
+               i.production_date,
+               i.receiving_time,
+               i.inbound_time,
+               i.reserved_order_no,
+               i.source_order_no,
+               i.target_place,
+               i.version,
+               assignment.scope_version_id AS logical_scope_version_id,
+               logical_scope.scope_code AS logical_scope_code,
+               logical_scope.scope_name AS logical_scope_name,
+               scope_version.rule_package_version_id AS rule_package_version_id,
+               i.create_time,
+               i.update_time
+        FROM wms_inventory i
+        <include refid="materialFactJoins"/>
+        WHERE i.inventory_id = #{inventoryId}
+          AND i.del_flag = '0'
+          <include refid="inventoryVisibilityFilter"/>
+    </select>
+
+    <select id="selectProduction"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$ProductionRow">
+        SELECT production_info_id,
+               material_code,
+               material_type,
+               production_date,
+               material_batch,
+               supplier_code,
+               supplier_name,
+               customer_code,
+               customer_name,
+               length_value,
+               width_value,
+               height_value,
+               dimension_unit,
+               bom_level,
+               bom_qty,
+               bom_version,
+               finished_material_code,
+               finished_material_type,
+               parse_version,
+               revision
+        FROM wms_production_info
+        WHERE inventory_id = #{inventoryId}
+    </select>
+
+    <select id="selectProductionAttributes"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$AttributeRow">
+        SELECT attribute_key,
+               seq_no,
+               value_text,
+               value_number,
+               value_date,
+               value_datetime,
+               unit,
+               source_ref
+        FROM wms_material_attribute_value
+        WHERE production_info_id = #{productionInfoId}
+        ORDER BY attribute_key, seq_no
+    </select>
+
+    <select id="selectLoadAncestry"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$LoadNodeRow">
+        WITH RECURSIVE load_ancestry AS (
+            SELECT n.load_node_id AS current_node_id,
+                   n.node_type,
+                   n.inventory_id,
+                   i.stock_unit_code,
+                   i.material_code,
+                   n.container_id,
+                   c.container_code,
+                   CAST(NULL AS SIGNED) AS parent_node_id,
+                   n.status,
+                   n.revision,
+                   0 AS depth
+            FROM wms_load_node n
+            LEFT JOIN wms_inventory i ON i.inventory_id = n.inventory_id
+            LEFT JOIN wms_container c ON c.container_id = n.container_id
+            WHERE n.inventory_id = #{inventoryId}
+            UNION ALL
+            SELECT p.load_node_id,
+                   p.node_type,
+                   p.inventory_id,
+                   pi.stock_unit_code,
+                   pi.material_code,
+                   p.container_id,
+                   pc.container_code,
+                   a.current_node_id,
+                   p.status,
+                   p.revision,
+                   a.depth + 1
+            FROM load_ancestry a
+            JOIN wms_load_relation r ON r.child_node_id = a.current_node_id
+            JOIN wms_load_node p ON p.load_node_id = r.parent_node_id
+            LEFT JOIN wms_inventory pi ON pi.inventory_id = p.inventory_id
+            LEFT JOIN wms_container pc ON pc.container_id = p.container_id
+            WHERE a.depth &lt; 64
+        )
+        SELECT current_node_id AS load_node_id,
+               node_type,
+               inventory_id,
+               stock_unit_code,
+               material_code,
+               container_id,
+               container_code,
+               parent_node_id,
+               CAST(NULL AS SIGNED) AS root_node_id,
+               depth,
+               status,
+               revision,
+               CAST(NULL AS CHAR(16)) AS location_kind,
+               CAST(NULL AS SIGNED) AS storage_id,
+               CAST(NULL AS CHAR(64)) AS storage_code
+        FROM load_ancestry
+        ORDER BY depth DESC
+    </select>
+
+    <select id="selectLoadSubtree"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$LoadNodeRow">
+        WITH RECURSIVE load_tree AS (
+            SELECT n.load_node_id,
+                   n.node_type,
+                   n.inventory_id,
+                   i.stock_unit_code,
+                   i.material_code,
+                   n.container_id,
+                   c.container_code,
+                   CAST(NULL AS SIGNED) AS parent_node_id,
+                   n.load_node_id AS root_node_id,
+                   n.status,
+                   n.revision,
+                   0 AS depth
+            FROM wms_load_node n
+            LEFT JOIN wms_inventory i ON i.inventory_id = n.inventory_id
+            LEFT JOIN wms_container c ON c.container_id = n.container_id
+            WHERE n.load_node_id = #{rootNodeId}
+            UNION ALL
+            SELECT child.load_node_id,
+                   child.node_type,
+                   child.inventory_id,
+                   child_inventory.stock_unit_code,
+                   child_inventory.material_code,
+                   child.container_id,
+                   child_container.container_code,
+                   rel.parent_node_id,
+                   tree.root_node_id,
+                   child.status,
+                   child.revision,
+                   tree.depth + 1
+            FROM load_tree tree
+            JOIN wms_load_relation rel ON rel.parent_node_id = tree.load_node_id
+            JOIN wms_load_node child ON child.load_node_id = rel.child_node_id
+            LEFT JOIN wms_inventory child_inventory
+              ON child_inventory.inventory_id = child.inventory_id
+            LEFT JOIN wms_container child_container
+              ON child_container.container_id = child.container_id
+            WHERE tree.depth &lt; 64
+        )
+        SELECT tree.load_node_id,
+               tree.node_type,
+               tree.inventory_id,
+               tree.stock_unit_code,
+               tree.material_code,
+               tree.container_id,
+               tree.container_code,
+               tree.parent_node_id,
+               tree.root_node_id,
+               tree.depth,
+               tree.status,
+               tree.revision,
+               info.location_kind,
+               info.storage_id,
+               st.storage_code
+        FROM load_tree tree
+        LEFT JOIN wms_storage_info info
+          ON info.root_node_id = tree.root_node_id
+        LEFT JOIN wms_storage st ON st.storage_id = info.storage_id
+        ORDER BY tree.depth, tree.load_node_id
+    </select>
+
+    <select id="selectVisibleInventoryIds" resultType="java.lang.Long">
+        <include refid="inventoryScopeCtes"/>
+        SELECT i.inventory_id
+        FROM wms_inventory i
+        WHERE i.del_flag = '0'
+          AND i.inventory_id IN
+          <foreach collection="inventoryIds" item="inventoryId" open="(" separator="," close=")">
+              #{inventoryId}
+          </foreach>
+          <include refid="inventoryVisibilityFilter"/>
+    </select>
+
+    <select id="selectStorageLocation"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$StorageLocationRow">
+        SELECT info.root_node_id,
+               info.location_kind,
+               info.storage_id,
+               st.storage_code,
+               wh.warehouse_code,
+               zone.zone_code,
+               info.revision
+        FROM wms_storage_info info
+        LEFT JOIN wms_storage st ON st.storage_id = info.storage_id
+        LEFT JOIN wms_warehouse_zone zone ON zone.zone_id = st.zone_id
+        LEFT JOIN wms_warehouse wh ON wh.warehouse_id = st.warehouse_id
+        WHERE info.root_node_id = #{rootNodeId}
+    </select>
+
+    <sql id="traceFilters">
+        1 = 1
+        <if test="query.inventoryId != null or query.stockUnitCode != null or query.materialCode != null">
+            AND EXISTS (
+                SELECT 1
+                FROM wms_material_trace_item item
+                WHERE item.trace_id = history.trace_id
+                <if test="query.inventoryId != null">
+                    AND item.inventory_id = #{query.inventoryId}
+                </if>
+                <if test="query.stockUnitCode != null">
+                    AND item.stock_unit_code = #{query.stockUnitCode}
+                </if>
+                <if test="query.materialCode != null">
+                    AND item.material_code = #{query.materialCode}
+                </if>
+            )
+        </if>
+        <if test="query.businessType != null">
+            AND history.business_type = #{query.businessType}
+        </if>
+        <if test="query.businessId != null">
+            AND history.business_id = #{query.businessId}
+        </if>
+        <if test="query.taskKey != null">
+            <choose>
+                <when test="query.taskKey == ''">
+                    AND history.task_key = ''
+                </when>
+                <otherwise>
+                    AND history.task_key LIKE CONCAT('%', #{query.taskKey}, '%')
+                </otherwise>
+            </choose>
+        </if>
+        <if test="query.planInstanceId != null">
+            AND history.plan_instance_id = #{query.planInstanceId}
+        </if>
+        <if test="query.traceKind != null">
+            AND history.trace_kind = #{query.traceKind}
+        </if>
+    </sql>
+
+    <sql id="traceVisibilityFilters">
+        AND EXISTS (
+            SELECT 1
+            FROM wms_material_trace_item visible_item
+            WHERE visible_item.trace_id = history.trace_id
+        )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM wms_material_trace_item hidden_item
+            WHERE hidden_item.trace_id = history.trace_id
+              AND (
+                  (
+                      hidden_item.physical_from_storage_id IS NULL
+                      AND hidden_item.physical_to_storage_id IS NULL
+                  )
+                  OR (
+                      hidden_item.physical_from_storage_id IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM visible_storage from_visibility
+                          WHERE from_visibility.storage_id =
+                                hidden_item.physical_from_storage_id
+                      )
+                  )
+                  OR (
+                      hidden_item.physical_to_storage_id IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM visible_storage to_visibility
+                          WHERE to_visibility.storage_id =
+                                hidden_item.physical_to_storage_id
+                      )
+                  )
+              )
+        )
+    </sql>
+
+    <select id="selectTraceSummaries"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$TraceSummaryRow">
+        <include refid="inventoryScopeCtes"/>
+        SELECT <include refid="com.innolux.iws.wms.material.trace.mapper.WmsMaterialTraceMapper.historyColumns"/>
+        FROM wms_material_trace_history history
+        WHERE <include refid="traceFilters"/>
+          <include refid="traceVisibilityFilters"/>
+        ORDER BY history.occurred_at DESC, history.trace_id DESC
+    </select>
+
+    <select id="selectTraceSummaryById"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$TraceSummaryRow">
+        <include refid="inventoryScopeCtes"/>
+        SELECT <include refid="com.innolux.iws.wms.material.trace.mapper.WmsMaterialTraceMapper.historyColumns"/>
+        FROM wms_material_trace_history history
+        WHERE history.trace_id = #{traceId}
+          <include refid="traceVisibilityFilters"/>
+    </select>
+
+    <sql id="businessTaskFilters">
+        1 = 1
+        <if test="query.businessType != null">
+            AND task.business_type = #{query.businessType}
+        </if>
+        <if test="query.businessId != null">
+            AND task.business_id = #{query.businessId}
+        </if>
+        <if test="query.taskKey != null">
+            <choose>
+                <when test="query.taskKey == ''">AND task.task_key = ''</when>
+                <otherwise>AND task.task_key LIKE CONCAT('%', #{query.taskKey}, '%')</otherwise>
+            </choose>
+        </if>
+        <if test="query.planType != null">
+            AND task.plan_type = #{query.planType}
+        </if>
+        <if test="query.status != null">
+            AND task.status = #{query.status}
+        </if>
+        <if test="query.instanceStatus != null">
+            AND COALESCE(instance.plan_status, 'ABSENT') = #{query.instanceStatus}
+        </if>
+        <if test="query.latestEffectResult != null">
+            AND COALESCE(event.effect_result, 'ABSENT') = #{query.latestEffectResult}
+        </if>
+    </sql>
+
+    <select id="selectBusinessTasks"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$BusinessTaskRow">
+        SELECT task.task_id,
+               task.business_type,
+               task.business_id,
+               task.line_id,
+               task.allocation_unit_id,
+               task.round_no,
+               task.phase,
+               task.task_key,
+               task.plan_type,
+               task.plan_instance_id,
+               task.input_hash,
+               task.status,
+               task.revision,
+               COALESCE(instance.plan_status, 'ABSENT') AS instance_status,
+               instance.instance_version,
+               event.event_code AS latest_event_code,
+               event.event_status AS latest_event_status,
+               event.effect_result AS latest_effect_result,
+               instance.started_at,
+               instance.ended_at,
+               task.update_time AS updated_at
+        FROM wms_business_task task
+        LEFT JOIN iws_process_instance instance ON instance.id = task.plan_instance_id
+        LEFT JOIN iws_process_event event ON event.id = (
+            SELECT candidate.id
+            FROM iws_process_event candidate
+            WHERE candidate.instance_id = task.plan_instance_id
+            ORDER BY candidate.update_time DESC, candidate.id DESC
+            LIMIT 1
+        )
+        WHERE <include refid="businessTaskFilters"/>
+        ORDER BY task.update_time DESC, task.task_id DESC
+    </select>
+
+    <sql id="ruleDefinitionFilters">
+        1 = 1
+        <if test="query.ruleKey != null">
+            <choose>
+                <when test="query.ruleKey == ''">AND definition.rule_key = ''</when>
+                <otherwise>AND definition.rule_key LIKE CONCAT('%', #{query.ruleKey}, '%')</otherwise>
+            </choose>
+        </if>
+        <if test="query.purpose != null">
+            AND definition.purpose = #{query.purpose}
+        </if>
+        <if test="query.scopeType != null">
+            AND definition.scope_type = #{query.scopeType}
+        </if>
+        <if test="query.status != null">
+            AND definition.status = #{query.status}
+        </if>
+    </sql>
+
+    <select id="selectRuleDefinitions"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$RuleDefinitionRow">
+        SELECT definition.rule_definition_id,
+               definition.rule_key,
+               definition.purpose,
+               definition.rule_name,
+               definition.scope_type,
+               definition.status,
+               definition.current_version_id,
+               definition.revision,
+               (SELECT COUNT(*) FROM wms_rule_version version
+                 WHERE version.rule_definition_id = definition.rule_definition_id) AS version_count,
+               (SELECT COUNT(*) FROM wms_rule_version version
+                 WHERE version.rule_definition_id = definition.rule_definition_id
+                   AND version.status = 'ACTIVE') AS active_version_count,
+               definition.update_time AS updated_at
+        FROM wms_rule_definition definition
+        WHERE <include refid="ruleDefinitionFilters"/>
+        ORDER BY definition.update_time DESC, definition.rule_definition_id DESC
+    </select>
+
+    <select id="selectRuleDefinition"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$RuleDefinitionRow">
+        SELECT definition.rule_definition_id,
+               definition.rule_key,
+               definition.purpose,
+               definition.rule_name,
+               definition.scope_type,
+               definition.status,
+               definition.current_version_id,
+               definition.revision,
+               (SELECT COUNT(*) FROM wms_rule_version version
+                 WHERE version.rule_definition_id = definition.rule_definition_id) AS version_count,
+               (SELECT COUNT(*) FROM wms_rule_version version
+                 WHERE version.rule_definition_id = definition.rule_definition_id
+                   AND version.status = 'ACTIVE') AS active_version_count,
+               definition.update_time AS updated_at
+        FROM wms_rule_definition definition
+        WHERE definition.rule_definition_id = #{definitionId}
+    </select>
+
+    <select id="selectRuleVersions"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$RuleVersionRow">
+        SELECT rule_version_id,
+               rule_definition_id,
+               version_no,
+               condition_json,
+               result_json,
+               attribute_bindings_json,
+               canonical_digest,
+               status,
+               published_at,
+               published_by
+        FROM wms_rule_version version
+        WHERE version.rule_definition_id = #{definitionId}
+        ORDER BY version.version_no DESC, version.rule_version_id DESC
+    </select>
+
+    <sql id="rulePackageFilters">
+        1 = 1
+        <if test="query.packageCode != null">
+            <choose>
+                <when test="query.packageCode == ''">AND package_version.package_code = ''</when>
+                <otherwise>AND package_version.package_code LIKE CONCAT('%', #{query.packageCode}, '%')</otherwise>
+            </choose>
+        </if>
+        <if test="query.status != null">
+            AND package_version.status = #{query.status}
+        </if>
+    </sql>
+
+    <select id="selectRulePackages"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$RulePackageRow">
+        SELECT package_version.package_version_id,
+               package_version.package_code,
+               package_version.version_no,
+               package_version.canonical_digest,
+               package_version.status,
+               package_version.published_at,
+               package_version.published_by,
+               (SELECT COUNT(*) FROM wms_rule_package_member member
+                 WHERE member.package_version_id = package_version.package_version_id) AS member_count
+        FROM wms_rule_package_version package_version
+        WHERE <include refid="rulePackageFilters"/>
+        ORDER BY package_version.update_time DESC, package_version.package_version_id DESC
+    </select>
+
+    <select id="selectRulePackage"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$RulePackageRow">
+        SELECT package_version.package_version_id,
+               package_version.package_code,
+               package_version.version_no,
+               package_version.canonical_digest,
+               package_version.status,
+               package_version.published_at,
+               package_version.published_by,
+               (SELECT COUNT(*) FROM wms_rule_package_member member
+                 WHERE member.package_version_id = package_version.package_version_id) AS member_count
+        FROM wms_rule_package_version package_version
+        WHERE package_version.package_version_id = #{packageVersionId}
+    </select>
+
+    <select id="selectRulePackageMembers"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$RulePackageMemberRow">
+        SELECT member.purpose,
+               member.rule_version_id,
+               member.revision,
+               definition.rule_key,
+               definition.rule_name,
+               definition.scope_type,
+               version.version_no,
+               version.status
+        FROM wms_rule_package_member member
+        LEFT JOIN wms_rule_version version
+          ON version.rule_version_id = member.rule_version_id
+        LEFT JOIN wms_rule_definition definition
+          ON definition.rule_definition_id = version.rule_definition_id
+        WHERE member.package_version_id = #{packageVersionId}
+        ORDER BY member.purpose, member.rule_version_id
+    </select>
+
+    <select id="locateMaterials"
+            resultType="com.innolux.iws.wms.inventory.query.WmsInventoryReadRows$LocateRow">
+        <include refid="inventoryScopeCtes"/>
+        SELECT i.inventory_id,
+               i.stock_unit_code,
+               i.material_code,
+               i.material_name,
+               i.storage_code,
+               i.container_code,
+               i.inventory_qty,
+               i.unit,
+               i.status,
+               i.frozen_status,
+               i.inbound_status,
+               CASE
+                   WHEN i.stock_unit_code = #{code} THEN 'STOCK_UNIT'
+                   WHEN i.container_code = #{code} THEN 'CONTAINER'
+                   WHEN i.storage_code = #{code} THEN 'STORAGE'
+                   WHEN i.material_code = #{code} THEN 'MATERIAL'
+                   ELSE 'UNKNOWN'
+               END AS match_type
+        FROM wms_inventory i
+        WHERE i.del_flag = '0'
+          AND EXISTS (
+              SELECT 1
+              FROM visible_storage inventory_visibility
+              WHERE inventory_visibility.storage_id = i.storage_id
+          )
+          AND (i.stock_unit_code = #{code}
+               OR i.container_code = #{code}
+               OR i.storage_code = #{code}
+               OR i.material_code = #{code})
+        ORDER BY CASE
+                     WHEN i.stock_unit_code = #{code} THEN 1
+                     WHEN i.container_code = #{code} THEN 2
+                     WHEN i.storage_code = #{code} THEN 3
+                     ELSE 4
+                 END,
+                 i.material_code,
+                 i.stock_unit_code,
+                 i.inventory_id
+        LIMIT #{limit}
+    </select>
+
+</mapper>

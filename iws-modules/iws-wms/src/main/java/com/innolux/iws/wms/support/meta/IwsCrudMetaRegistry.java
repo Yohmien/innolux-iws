@@ -12,10 +12,12 @@
 package com.innolux.iws.wms.support.meta;
 
 import com.innolux.iws.wms.domain.bo.IwsColumnSettingBo;
+import com.innolux.iws.wms.domain.dto.IwsCrudCapabilityDto;
 import com.innolux.iws.wms.domain.dto.IwsCrudColumnMetaDto;
 import com.innolux.iws.wms.domain.dto.IwsCrudOptionDto;
 import com.innolux.iws.wms.domain.dto.IwsCrudPermissionDto;
 import com.innolux.iws.wms.domain.vo.IwsCrudTableMetaVo;
+import com.innolux.iws.wms.support.company.WmsCompanyContract;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ public class IwsCrudMetaRegistry {
 
     public IwsCrudMetaRegistry() {
         register(buildSupplierMeta());
+        register(buildCompanyMeta());
     }
 
     /**
@@ -183,6 +186,126 @@ public class IwsCrudMetaRegistry {
         columns.add(column("wms_supplier", "updateTime", "update_time", "更新时间", "datetime", 180, true, true, false, false, false, true, 10));
         meta.setColumns(columns);
         return meta;
+    }
+
+    private IwsCrudTableMetaVo buildCompanyMeta() {
+        IwsCrudTableMetaVo meta = new IwsCrudTableMetaVo();
+        meta.setTableCode(WmsCompanyContract.TABLE_CODE);
+        meta.setTableName(WmsCompanyContract.TABLE_CODE);
+        meta.setModuleCode("wms");
+        meta.setBusinessGroup("inventory");
+        meta.setPageTitle("公司");
+        meta.setPrimaryKey("companyId");
+        meta.setDefaultSort("update_time desc, company_id desc");
+        meta.setPageSize(50);
+        meta.setMaxPageSize(1000);
+
+        IwsCrudPermissionDto permissions = new IwsCrudPermissionDto();
+        permissions.setList(WmsCompanyContract.PERMISSION_QUERY);
+        permissions.setQuery(WmsCompanyContract.PERMISSION_QUERY);
+        permissions.setAdd(WmsCompanyContract.PERMISSION_CREATE);
+        permissions.setEdit(WmsCompanyContract.PERMISSION_UPDATE);
+        meta.setPermissions(permissions);
+
+        IwsCrudCapabilityDto capabilities = new IwsCrudCapabilityDto();
+        capabilities.setQuery(Boolean.TRUE);
+        capabilities.setAdd(Boolean.TRUE);
+        capabilities.setEdit(Boolean.TRUE);
+        capabilities.setRemove(Boolean.FALSE);
+        capabilities.setBatchRemove(Boolean.FALSE);
+        capabilities.setImportData(Boolean.FALSE);
+        capabilities.setExport(Boolean.FALSE);
+        capabilities.setTemplate(Boolean.FALSE);
+        capabilities.setColumn(Boolean.FALSE);
+        capabilities.setBulkQuery(Boolean.TRUE);
+        meta.setCapabilities(capabilities);
+
+        List<IwsCrudColumnMetaDto> columns = new ArrayList<>();
+        IwsCrudColumnMetaDto companyId = companyColumn(
+            "companyId", "company_id", "公司ID", "number", 140, false, false, false, false, false, false, 1
+        );
+        IwsCrudColumnMetaDto companyCode = companyColumn(
+            "companyCode", "company_code", "公司编码", "string", 180, true, true, true, true, true, false, 2
+        );
+        companyCode.setAddable(Boolean.TRUE);
+        companyCode.setEditable(Boolean.FALSE);
+        IwsCrudColumnMetaDto companyName = companyColumn(
+            "companyName", "company_name", "公司名称", "string", 240, true, true, true, true, true, false, 3
+        );
+        companyName.setAddable(Boolean.TRUE);
+        companyName.setEditable(Boolean.TRUE);
+        IwsCrudColumnMetaDto remark = companyColumn(
+            "remark", "remark", "备注", "string", 240, true, false, false, false, true, false, 4
+        );
+        remark.setAddable(Boolean.TRUE);
+        remark.setEditable(Boolean.TRUE);
+        IwsCrudColumnMetaDto enabled = companyColumn(
+            "enabled", "enabled", "启用状态", "boolean", 120, true, true, true, false, false, false, 5
+        );
+        enabled.setSearchType("select");
+        enabled.setOptions(List.of(
+            IwsCrudOptionDto.of("已启用", true),
+            IwsCrudOptionDto.of("已停用", false)
+        ));
+        IwsCrudColumnMetaDto lifecycleStatus = companyColumn(
+            "lifecycleStatus", "lifecycle_status", "生命周期", "string", 130, true, true, true, false, false, false, 6
+        );
+        lifecycleStatus.setSearchType("select");
+        lifecycleStatus.setOptions(List.of(
+            IwsCrudOptionDto.of("ACTIVE", WmsCompanyContract.LIFECYCLE_ACTIVE)
+        ));
+        IwsCrudColumnMetaDto revision = companyColumn(
+            "revision", "revision", "修订", "number", 100, true, true, true, false, false, false, 7
+        );
+        IwsCrudColumnMetaDto updateTime = companyColumn(
+            "updateTime", "update_time", "更新时间", "datetime", 180, true, true, true, false, false, false, 8
+        );
+        columns.add(companyId);
+        columns.add(companyCode);
+        columns.add(companyName);
+        columns.add(remark);
+        columns.add(enabled);
+        columns.add(lifecycleStatus);
+        columns.add(revision);
+        columns.add(updateTime);
+        meta.setColumns(columns);
+        return meta;
+    }
+
+    private IwsCrudColumnMetaDto companyColumn(
+        String field,
+        String dbColumn,
+        String label,
+        String dataType,
+        Integer width,
+        boolean visible,
+        boolean searchable,
+        boolean sortable,
+        boolean bulkSearch,
+        boolean importable,
+        boolean exportable,
+        int sortOrder
+    ) {
+        IwsCrudColumnMetaDto column = column(
+            WmsCompanyContract.TABLE_CODE,
+            field,
+            dbColumn,
+            label,
+            dataType,
+            width,
+            visible,
+            searchable,
+            sortable,
+            bulkSearch,
+            importable,
+            exportable,
+            sortOrder
+        );
+        column.setAddable(Boolean.FALSE);
+        column.setEditable(Boolean.FALSE);
+        column.setImportable(Boolean.FALSE);
+        column.setExportable(Boolean.FALSE);
+        return column;
     }
 
     private IwsCrudColumnMetaDto column(

@@ -12,6 +12,7 @@
 package com.innolux.iws.wms.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.http.HttpStatus;
 import com.innolux.iws.common.core.domain.PageResult;
 import com.innolux.iws.common.core.domain.R;
 import com.innolux.iws.common.core.exception.ServiceException;
@@ -21,9 +22,18 @@ import com.innolux.iws.wms.domain.bo.IwsColumnSettingBo;
 import com.innolux.iws.wms.domain.bo.IwsExportRequestBo;
 import com.innolux.iws.wms.domain.bo.IwsTableQueryBo;
 import com.innolux.iws.wms.domain.dto.IwsCrudColumnMetaDto;
+import com.innolux.iws.wms.domain.dto.WmsCompanyCreateDTO;
+import com.innolux.iws.wms.domain.dto.WmsCompanyEnableCommand;
+import com.innolux.iws.wms.domain.dto.WmsCompanyManagementScopeReplaceCommand;
+import com.innolux.iws.wms.domain.dto.WmsCompanyUpdateDTO;
 import com.innolux.iws.wms.domain.vo.WmsSupplierImportVo;
 import com.innolux.iws.wms.domain.vo.IwsCrudTableMetaVo;
+import com.innolux.iws.wms.domain.vo.WmsCompanyManagementScopeVo;
+import com.innolux.iws.wms.service.IWmsCompanyService;
 import com.innolux.iws.wms.service.IWmsSupplierService;
+import com.innolux.iws.wms.support.company.WmsCompanyAuditService;
+import com.innolux.iws.wms.support.company.WmsCompanyContract;
+import com.innolux.iws.wms.support.company.WmsCompanyInputBinder;
 import com.innolux.iws.wms.support.excel.IwsCrudExcelWriteHandler;
 import com.innolux.iws.wms.support.meta.IwsCrudMetaRegistry;
 import com.innolux.iws.wms.support.query.IwsCrudQueryValidator;
@@ -41,12 +51,14 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * 标准 CRUD 页面入口。
@@ -68,6 +80,12 @@ public class IwsCrudController {
 
     private final IWmsSupplierService supplierService;
 
+    private final IWmsCompanyService companyService;
+
+    private final WmsCompanyInputBinder companyInputBinder;
+
+    private final WmsCompanyAuditService companyAuditService;
+
     /**
      * 获取标准表页面元数据。
      *
@@ -77,8 +95,11 @@ public class IwsCrudController {
     @GetMapping("/{tableCode}/meta")
     public R<IwsCrudTableMetaVo> meta(@NotBlank @PathVariable String tableCode) {
         IwsCrudTableMetaVo meta = requireMeta(tableCode);
-        checkPermission(meta.getPermissions().getList());
-        return R.ok(meta);
+        if (!WmsCompanyContract.TABLE_CODE.equals(tableCode)) {
+            checkPermission(meta.getPermissions().getList());
+        }
+        return R.ok(WmsCompanyContract.TABLE_CODE.equals(tableCode)
+            ? companyService.decorateMeta(meta) : meta);
     }
 
     /**
@@ -92,10 +113,15 @@ public class IwsCrudController {
     public R<PageResult<Map<String, Object>>> list(@NotBlank @PathVariable String tableCode,
                                                    @RequestBody IwsTableQueryBo queryBo) {
         IwsCrudTableMetaVo meta = requireMeta(tableCode);
-        checkPermission(meta.getPermissions().getList());
+        if (!WmsCompanyContract.TABLE_CODE.equals(tableCode)) {
+            checkPermission(meta.getPermissions().getList());
+        }
         queryValidator.validateQuery(meta, queryBo);
         if ("wms_supplier".equals(tableCode)) {
             return R.ok(supplierService.selectPage(queryBo));
+        }
+        if (WmsCompanyContract.TABLE_CODE.equals(tableCode)) {
+            return R.ok(companyService.selectPage(queryBo));
         }
         return R.ok(PageResult.build(Collections.emptyList(), 0));
     }
@@ -111,6 +137,16 @@ public class IwsCrudController {
     public R<Void> add(@NotBlank @PathVariable String tableCode,
                        @RequestBody Map<String, Object> data) {
         IwsCrudTableMetaVo meta = requireMeta(tableCode);
+        if (WmsCompanyContract.TABLE_CODE.equals(tableCode)) {
+            WmsCompanyCreateDTO dto = bindCompanyCommand(
+                WmsCompanyContract.ACTION_CREATE,
+                null,
+                data,
+                () -> companyInputBinder.bindCreate(data)
+            );
+            companyService.create(dto);
+            return R.ok("公司已创建");
+        }
         checkPermission(meta.getPermissions().getAdd());
         if ("wms_supplier".equals(tableCode)) {
             return supplierService.insert(data) ? R.ok() : R.fail();
@@ -129,6 +165,16 @@ public class IwsCrudController {
     public R<Void> edit(@NotBlank @PathVariable String tableCode,
                         @RequestBody Map<String, Object> data) {
         IwsCrudTableMetaVo meta = requireMeta(tableCode);
+        if (WmsCompanyContract.TABLE_CODE.equals(tableCode)) {
+            WmsCompanyUpdateDTO dto = bindCompanyCommand(
+                WmsCompanyContract.ACTION_UPDATE,
+                parseLong(data.get("companyId")),
+                data,
+                () -> companyInputBinder.bindUpdate(data)
+            );
+            companyService.update(dto);
+            return R.ok("公司名称/备注已保存");
+        }
         checkPermission(meta.getPermissions().getEdit());
         if ("wms_supplier".equals(tableCode)) {
             return supplierService.update(data) ? R.ok() : R.fail();
@@ -147,6 +193,7 @@ public class IwsCrudController {
     public R<Void> remove(@NotBlank @PathVariable String tableCode,
                           @PathVariable List<Long> ids) {
         IwsCrudTableMetaVo meta = requireMeta(tableCode);
+        rejectCompanyFeature(tableCode, "公司退役/删除");
         checkAnyPermission(meta.getPermissions().getBatchRemove(), meta.getPermissions().getRemove());
         if ("wms_supplier".equals(tableCode)) {
             return supplierService.deleteByIds(ids) ? R.ok() : R.fail();
@@ -165,6 +212,7 @@ public class IwsCrudController {
     public R<Void> saveColumns(@NotBlank @PathVariable String tableCode,
                                @RequestBody IwsColumnSettingBo settingBo) {
         IwsCrudTableMetaVo meta = requireMeta(tableCode);
+        rejectCompanyFeature(tableCode, "公司列设置持久化");
         checkPermission(meta.getPermissions().getColumn());
         settingBo.setTableCode(tableCode);
         metaRegistry.applyColumnSettings(settingBo);
@@ -182,6 +230,7 @@ public class IwsCrudController {
                        @RequestBody IwsExportRequestBo exportBo,
                        HttpServletResponse response) {
         IwsCrudTableMetaVo meta = requireMeta(tableCode);
+        rejectCompanyFeature(tableCode, "公司导出");
         checkPermission(meta.getPermissions().getExport());
         queryValidator.validateExport(meta, exportBo);
         List<IwsCrudColumnMetaDto> columns = resolveExportColumns(meta, exportBo.getExportFields());
@@ -211,6 +260,7 @@ public class IwsCrudController {
                                 @RequestPart("file") MultipartFile file,
                                 @RequestParam(defaultValue = "false") boolean updateSupport) throws IOException {
         IwsCrudTableMetaVo meta = requireMeta(tableCode);
+        rejectCompanyFeature(tableCode, "公司批量导入");
         checkPermission(meta.getPermissions().getImportData());
         if (file == null || file.isEmpty()) {
             throw new ServiceException("请选择需要导入的 Excel 文件");
@@ -234,12 +284,83 @@ public class IwsCrudController {
     public void template(@NotBlank @PathVariable String tableCode,
                          HttpServletResponse response) {
         IwsCrudTableMetaVo meta = requireMeta(tableCode);
+        rejectCompanyFeature(tableCode, "公司导入模板");
         checkAnyPermission(meta.getPermissions().getTemplate(), meta.getPermissions().getImportData());
         List<IwsCrudColumnMetaDto> columns = meta.getColumns().stream()
             .filter(column -> Boolean.TRUE.equals(column.getImportable()))
             .sorted((left, right) -> Integer.compare(safeSortOrder(left), safeSortOrder(right)))
             .toList();
         writeExcel(response, meta.getPageTitle() + "导入模板", columns, Collections.emptyList());
+    }
+
+    /**
+     * 受控启用公司。
+     *
+     * @param id      公司ID
+     * @param command 启停命令
+     * @return 操作结果
+     */
+    @PostMapping("/wms_company/{id}/enable")
+    public R<Void> enableCompany(@PathVariable Long id, @RequestBody Map<String, Object> command) {
+        WmsCompanyEnableCommand dto = bindCompanyCommand(
+            WmsCompanyContract.ACTION_ENABLE,
+            id,
+            command,
+            () -> companyInputBinder.bindEnable(command)
+        );
+        companyService.setEnabled(id, dto, true);
+        return R.ok("公司已启用");
+    }
+
+    /**
+     * 受控停用公司。
+     *
+     * @param id      公司ID
+     * @param command 启停命令
+     * @return 操作结果
+     */
+    @PostMapping("/wms_company/{id}/disable")
+    public R<Void> disableCompany(@PathVariable Long id, @RequestBody Map<String, Object> command) {
+        WmsCompanyEnableCommand dto = bindCompanyCommand(
+            WmsCompanyContract.ACTION_DISABLE,
+            id,
+            command,
+            () -> companyInputBinder.bindEnable(command)
+        );
+        companyService.setEnabled(id, dto, false);
+        return R.ok("公司已停用");
+    }
+
+    /**
+     * 全量替换公司管理角色范围。
+     *
+     * @param id      公司ID
+     * @param command 全量替换命令
+     * @return 操作结果
+     */
+    @PutMapping("/wms_company/{id}/management-grants")
+    public R<WmsCompanyManagementScopeVo> replaceCompanyManagementScope(
+        @PathVariable Long id,
+        @RequestBody Map<String, Object> command
+    ) {
+        WmsCompanyManagementScopeReplaceCommand dto = bindCompanyCommand(
+            WmsCompanyContract.ACTION_REPLACE_MANAGEMENT_SCOPE,
+            id,
+            command,
+            () -> companyInputBinder.bindScopeReplace(command)
+        );
+        return R.ok("公司管理范围已替换", companyService.replaceManagementScope(id, dto));
+    }
+
+    /**
+     * 查询公司管理角色范围和独立修订。
+     *
+     * @param id 公司ID
+     * @return 管理角色范围和 scopeRevision
+     */
+    @GetMapping("/wms_company/{id}/management-grants")
+    public R<WmsCompanyManagementScopeVo> queryCompanyManagementScope(@PathVariable Long id) {
+        return R.ok(companyService.queryManagementScope(id));
     }
 
     private IwsCrudTableMetaVo requireMeta(String tableCode) {
@@ -267,6 +388,49 @@ public class IwsCrudController {
             }
         }
         checkPermission(firstPermission);
+    }
+
+    private void rejectCompanyFeature(String tableCode, String featureName) {
+        if (WmsCompanyContract.TABLE_CODE.equals(tableCode)) {
+            throw new ServiceException(
+                "FEATURE_NOT_OPEN: " + featureName + "不在公司最小闭环开放范围内",
+                HttpStatus.HTTP_FORBIDDEN
+            );
+        }
+    }
+
+    private <T> T bindCompanyCommand(String action, Long objectId, Map<String, Object> input,
+                                     Supplier<T> binder) {
+        try {
+            return binder.get();
+        } catch (RuntimeException error) {
+            Object key = input == null ? null : input.get("commandKey");
+            Object auditInput = objectId == null || input == null
+                ? input : Map.of("companyId", objectId, "command", input);
+            companyAuditService.recordFailure(
+                action,
+                objectId,
+                key == null ? null : String.valueOf(key),
+                auditInput,
+                error,
+                LocalDateTime.now()
+            );
+            throw error;
+        }
+    }
+
+    private Long parseLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private List<IwsCrudColumnMetaDto> resolveExportColumns(IwsCrudTableMetaVo meta, List<String> exportFields) {
