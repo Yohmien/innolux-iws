@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ - @Date         : 2026-11-01
+ - @Author       : YONGJIE.PENG
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : WMS 在库管理 P7 UNKNOWN 查证
+ - @Version      : V1.0
+ - @Description  : 按库存 visibility 与逐行数据权限读取待查证分配效果；
+ - @ModifyRecord : V1.0 新建；
+-->
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.innolux.iws.wms.allocation.effect.investigation.mapper.WmsAllocationEffectUnknownMapper">
+
+    <select id="selectUnknown"
+            resultType="com.innolux.iws.wms.allocation.effect.investigation.mapper.WmsAllocationEffectUnknownRow">
+        <include refid="com.innolux.iws.wms.inventory.query.mapper.WmsInventoryReadMapper.inventoryScopeCtes"/>
+        SELECT lock_row.allocation_lock_id,
+               lock_row.channel_lock_id,
+               channel.channel_id,
+               lock_row.storage_id,
+               lock_row.business_type,
+               lock_row.business_name,
+               lock_row.business_id,
+               lock_row.business_no,
+               lock_row.business_line_id,
+               lock_row.allocation_unit_id,
+               lock_row.round_no,
+               lock_row.task_key,
+               lock_row.plan_instance_id,
+               channel.status AS channel_status,
+               channel.effect_result AS channel_effect_result,
+               audit.audit_id AS latest_unknown_audit_id,
+               audit.evidence_json AS latest_unknown_evidence_json,
+               audit.occurred_at AS unknown_occurred_at,
+               lock_row.update_time AS lock_updated_at
+        FROM wms_allocation_lock lock_row
+        LEFT JOIN wms_access_channel_lock channel
+          ON channel.channel_lock_id = lock_row.channel_lock_id
+        LEFT JOIN wms_object_audit audit
+          ON audit.audit_id = (
+              SELECT candidate.audit_id
+              FROM wms_object_audit candidate
+              WHERE candidate.object_type = 'WMS_ALLOCATION_LOCK'
+                AND candidate.object_id = lock_row.allocation_lock_id
+                AND candidate.action = 'ALLOCATION_EFFECT_UNKNOWN'
+              ORDER BY candidate.recorded_at DESC, candidate.audit_id DESC
+              LIMIT 1
+          )
+        WHERE lock_row.status = 'LOCKED'
+          AND lock_row.effect_result = 'UNKNOWN'
+          AND EXISTS (
+              SELECT 1
+              FROM visible_storage lock_visibility
+              WHERE lock_visibility.storage_id = lock_row.storage_id
+          )
+          <if test="businessType != null">
+              AND lock_row.business_type = #{businessType}
+          </if>
+          <if test="businessId != null">
+              AND lock_row.business_id = #{businessId}
+          </if>
+          <if test="taskKey != null">
+              AND lock_row.task_key = #{taskKey}
+          </if>
+        ORDER BY lock_row.business_type,
+                 lock_row.business_id,
+                 lock_row.allocation_unit_id,
+                 lock_row.round_no,
+                 lock_row.allocation_lock_id
+        LIMIT #{limit}
+    </select>
+
+</mapper>
