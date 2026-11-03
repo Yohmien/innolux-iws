@@ -1,0 +1,28 @@
+{
+  "initializedAt": "2026-11-03T16:38:23.1006159+08:00",
+  "containerSpecs": [
+    {
+      "name": "iws-inv-acceptance-20261103-mysql",
+      "image": "mysql:8.0.45",
+      "port": 3430
+    },
+    {
+      "name": "iws-inv-acceptance-20261103-redis",
+      "image": "redis:7-alpine",
+      "port": 6381
+    }
+  ],
+  "databaseName": "iws_inv_acceptance_20261103",
+  "tableCount": 181,
+  "wmsTableCount": 77,
+  "menuCount": 256,
+  "ruleBindingColumn": 1,
+  "allocationReservationTables": 6,
+  "businessTaskBarrierTable": 1,
+  "storageAttributeCatalog": 6,
+  "planSeed": "3/5",
+  "loginHash": [
+    "innolux:60:BCRYPT",
+    "wms-acceptance:60:BCRYPT"
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "date": "2026-11-03T13:23:04.3788644+08:00",
+  "scope": "本轮复评主要依据源码；当前工作树散列",
+  "postRemediationManifest": "post-remediation-source-manifest.json",
+  "files": [
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-wms\\src\\main\\java\\com\\innolux\\iws\\wms\\space\\change\\service\\impl\\WmsSpaceChangeServiceImpl.java",
+      "sha256": "62480D8DD624C33642A14650D6CB36BC5A33E1AB9500324ECD9F6C45D2A27E41",
+      "bytes": 60229
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-wms\\src\\main\\java\\com\\innolux\\iws\\wms\\space\\change\\process\\WmsSpaceChangeStateValidator.java",
+      "sha256": "0AA7A2C40BA9F318472205B0CF48FD045EC03F5E80F145D7FE0A124233CDC408",
+      "bytes": 5671
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-wms\\src\\main\\java\\com\\innolux\\iws\\wms\\space\\change\\process\\WmsSpaceChangePlanDefinitionFactory.java",
+      "sha256": "607FCD5F9D9E49DF488742B41B51F957900701C9875FE2502F98B73CA1DA2E20",
+      "bytes": 10619
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-wms\\src\\main\\java\\com\\innolux\\iws\\wms\\rule\\binding\\WmsRuleBindingConfiguration.java",
+      "sha256": "6F2A1CDF83D583BC691A68A09AA0A5ECF7EB18FD12626DC214263EA4B4C351B3",
+      "bytes": 1639
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-wms\\src\\main\\java\\com\\innolux\\iws\\wms\\rule\\binding\\RuleAttributeSourceRegistry.java",
+      "sha256": "ABE91895F5D5F9BF10F56A694E452F11088D39F04B4301F708D8C9FD2FEA03C9",
+      "bytes": 3756
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-wms\\src\\main\\java\\com\\innolux\\iws\\wms\\rule\\binding\\WmsRuleBindingService.java",
+      "sha256": "9DFAA88F092483F1827FD9BC2D768F3EC694906FF7665388E0359A54D325B5EF",
+      "bytes": 17003
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-wms\\src\\main\\java\\com\\innolux\\iws\\wms\\support\\company\\WmsCompanyAccessPolicy.java",
+      "sha256": "1EB97843A925B0178DA799D9159283DA60BCD36195EF04516D525C5B33537952",
+      "bytes": 12167
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-wms\\src\\test\\java\\com\\innolux\\iws\\wms\\rule\\WmsSpaceChangeIntegrationTest.java",
+      "sha256": "0866089733069FF53818F616BD56D3D9E10488943F3DA5BB4B38A214EEA33845",
+      "bytes": 10365
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-wms\\src\\test\\java\\com\\innolux\\iws\\wms\\rule\\WmsRuleTestContext.java",
+      "sha256": "A68FA292A63FD8F5287C74D0B6D43E48C1AF97D4CD8F96FF3EE1EFC4530183F7",
+      "bytes": 7963
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-process\\src\\main\\java\\com\\innolux\\iws\\process\\runtime\\ProcessObjectAuthorizer.java",
+      "sha256": "A836CA521DBC111F0CE908E742A3CE07769D17690A1875C6A8237E487982759D",
+      "bytes": 6519
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\iws-modules\\iws-process\\src\\main\\java\\com\\innolux\\iws\\process\\runtime\\PlanEventWorkerServiceImpl.java",
+      "sha256": "A58CD7D6BD078056FA8E12758C0B7DFBA7812378602A39017A8CA882C1CB4F4C",
+      "bytes": 6394
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\script\\sql\\iws_init_from_empty.sql",
+      "sha256": "A4B5A00F852F4D3B47591982C4D6D26C64A2EE7CE8A16E17FCF2C6F866AAB22F",
+      "bytes": 715058
+    },
+    {
+      "path": "C:\\code\\company\\innolux-iws\\script\\sql\\iws_wms_smt_core.sql",
+      "sha256": "03880E454705C4C90EFB93F48CEF62B193ECCEF704E8F8AA898356B7AAE88BF3",
+      "bytes": 222066
+    }
+  ]
+}

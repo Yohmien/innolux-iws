@@ -1,0 +1,174 @@
+{
+  "checkedAt": "2026-11-03T10:10:18.502Z",
+  "baseUrl": "http://127.0.0.1:18000",
+  "account": "wmsacceptance",
+  "pageErrors": [],
+  "consoleErrors": [],
+  "failedRequests": [],
+  "apiResponses": [
+    {
+      "method": "GET",
+      "path": "/dev-api/auth/code",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "POST",
+      "path": "/dev-api/auth/login",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/system/user/getInfo",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/system/config/configKey/sys.ui.menuPrefixEnabled",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/system/menu/getRouters",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/system/user/getInfo",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/system/config/configKey/sys.ui.menuPrefixEnabled",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/system/menu/getRouters",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "POST",
+      "path": "/dev-api/wms/inventory/warehouses/page",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "POST",
+      "path": "/dev-api/wms/inventory/warehouses/page",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "POST",
+      "path": "/dev-api/wms/inventory/zones/page",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "POST",
+      "path": "/dev-api/wms/inventory/storages/page",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/system/user/getInfo",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/system/config/configKey/sys.ui.menuPrefixEnabled",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/system/menu/getRouters",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/wms/inventory/read/capabilities",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "POST",
+      "path": "/dev-api/wms/inventory/read/rules/definitions/page",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/wms/inventory/read/rules/definitions/3",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "POST",
+      "path": "/dev-api/wms/inventory/read/rules/packages/page",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    },
+    {
+      "method": "GET",
+      "path": "/dev-api/wms/inventory/read/rules/packages/2",
+      "status": 200,
+      "code": 200,
+      "msg": "操作成功"
+    }
+  ],
+  "checks": [
+    "普通公司角色通过真实登录页进入系统",
+    "空间页显示仓库、库区、储位三个正式页签",
+    "空间页仓库表格显示正式验收仓库",
+    "空间页库区表格显示 MATERIAL 与 DEVICE 两层正式库区",
+    "空间页储位表格显示正式 API 创建的 ACTIVE 储位",
+    "规则页显示生产来源编译并激活的 STORAGE 规则",
+    "规则版本抽屉显示 ACTIVE 且执行就绪",
+    "规则包抽屉显示生效包及成员用途",
+    "本轮页面操作未出现业务错误提示",
+    "本轮页面操作未出现未捕获脚本异常",
+    "本轮页面操作未出现浏览器控制台错误",
+    "本轮页面操作未出现失败网络请求",
+    "本轮页面 API 调用未返回 HTTP 或业务错误"
+  ],
+  "spaceWarehouseScreenshot": "C:\\code\\company\\innolux-iws\\work\\verification-current-20261103\\browser-current-20261103\\space-warehouse.png",
+  "spaceZoneScreenshot": "C:\\code\\company\\innolux-iws\\work\\verification-current-20261103\\browser-current-20261103\\space-zones.png",
+  "spaceStorageScreenshot": "C:\\code\\company\\innolux-iws\\work\\verification-current-20261103\\browser-current-20261103\\space-storages.png",
+  "rulesScreenshot": "C:\\code\\company\\innolux-iws\\work\\verification-current-20261103\\browser-current-20261103\\rules-list.png",
+  "ruleVersionScreenshot": "C:\\code\\company\\innolux-iws\\work\\verification-current-20261103\\browser-current-20261103\\rules-versions.png",
+  "rulePackageScreenshot": "C:\\code\\company\\innolux-iws\\work\\verification-current-20261103\\browser-current-20261103\\rules-package.png",
+  "result": "PASS",
+  "finalJarSha256": "4C2515415A427CF1AC1A516DA05A408F7491B8E227CBEB9DCC6D5552BD95EBC3",
+  "runtimeStateFile": "C:\\code\\company\\innolux-iws\\work\\verification-current-20261103\\runtime-recovery5-final.json"
+}

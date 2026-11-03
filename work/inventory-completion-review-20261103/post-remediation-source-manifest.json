@@ -1,0 +1,116 @@
+{
+  "date": "2026-11-03T18:08:50.4811645+08:00",
+  "scope": "2026-11-03 复评整改后的当前源码、正式空库 SQL 与回归测试快照",
+  "sourceTree": "C:\\code\\company\\innolux-iws",
+  "reviewManifest": "work/inventory-completion-review-20261103/source-manifest.json",
+  "files": [
+    {
+      "path": "iws-admin/src/main/resources/application-dev.yml",
+      "sha256": "2D815835BA6CC2DB9F156857BE33252F3735DAE6D63F99A54B9D6E1F87D03395",
+      "bytes": 13102,
+      "lastWriteTime": "2026-11-03T17:07:15.8793798+08:00"
+    },
+    {
+      "path": "iws-admin/src/main/resources/application-prod.yml",
+      "sha256": "627087748CAD57A3C7BDC4191442A5C6ACFF60BD6288AA8EB5E2AE5F78A41336",
+      "bytes": 13554,
+      "lastWriteTime": "2026-11-03T17:07:15.8809842+08:00"
+    },
+    {
+      "path": "iws-modules/iws-process/src/main/java/com/innolux/iws/process/runtime/ProcessObjectAuthorizer.java",
+      "sha256": "A836CA521DBC111F0CE908E742A3CE07769D17690A1875C6A8237E487982759D",
+      "bytes": 6519,
+      "lastWriteTime": "2026-10-28T15:21:03.3014808+08:00"
+    },
+    {
+      "path": "iws-modules/iws-process/src/main/java/com/innolux/iws/process/runtime/SupervisorJobSpecFactory.java",
+      "sha256": "EE93327E8999C8DE21512C9478C6CBF4474E32DEB6078AB49693634A9BF270DE",
+      "bytes": 4639,
+      "lastWriteTime": "2026-11-03T17:10:57.7822137+08:00"
+    },
+    {
+      "path": "iws-modules/iws-process/src/main/java/com/innolux/iws/process/service/impl/PlanInstanceServiceImpl.java",
+      "sha256": "C51879CEA67C53555D26262AB05AEE36E75C6966D83297C0901F09D96C4230F1",
+      "bytes": 42924,
+      "lastWriteTime": "2026-10-30T15:07:34.4732618+08:00"
+    },
+    {
+      "path": "iws-modules/iws-job/src/main/java/com/innolux/iws/job/process/platform/SnailJobJobDefinition.java",
+      "sha256": "D50CF0650F946A9C50220B567077A92C06642725DCC1D8B094557B5615DA7AFD",
+      "bytes": 6492,
+      "lastWriteTime": "2026-11-03T17:10:57.7827522+08:00"
+    },
+    {
+      "path": "iws-modules/iws-job/src/main/java/com/innolux/iws/job/process/platform/SnailJobBizIdOpenApiClient.java",
+      "sha256": "1A2E30CBAD3C9C020A903E5F659845F396DADE0F83A0A6DC8C6389E88C2A3F5C",
+      "bytes": 3578,
+      "lastWriteTime": "2026-11-03T17:10:57.7838247+08:00"
+    },
+    {
+      "path": "iws-modules/iws-wms/src/main/java/com/innolux/iws/wms/space/change/service/impl/WmsSpaceChangeServiceImpl.java",
+      "sha256": "3CFCC569A23F5FB6412C7159C8DEC0CFAAC747A33430D46F0CCE96248F1000AF",
+      "bytes": 79808,
+      "lastWriteTime": "2026-11-03T14:58:09.3765889+08:00"
+    },
+    {
+      "path": "iws-modules/iws-wms/src/main/java/com/innolux/iws/wms/space/change/process/WmsSpaceChangeStateValidator.java",
+      "sha256": "B98E89A331E04C8C4C290F69C3B64CFE3C2CFF7E721C5BD08252FDCA8CB572A1",
+      "bytes": 6352,
+      "lastWriteTime": "2026-11-03T15:06:04.5812260+08:00"
+    },
+    {
+      "path": "iws-modules/iws-wms/src/main/java/com/innolux/iws/wms/space/change/process/WmsSpaceChangePlanDefinitionFactory.java",
+      "sha256": "607FCD5F9D9E49DF488742B41B51F957900701C9875FE2502F98B73CA1DA2E20",
+      "bytes": 10619,
+      "lastWriteTime": "2026-11-02T22:20:26.9525272+08:00"
+    },
+    {
+      "path": "iws-modules/iws-wms/src/main/java/com/innolux/iws/wms/rule/binding/WmsRuleBindingConfiguration.java",
+      "sha256": "6F2A1CDF83D583BC691A68A09AA0A5ECF7EB18FD12626DC214263EA4B4C351B3",
+      "bytes": 1639,
+      "lastWriteTime": "2026-11-02T13:35:02.4019690+08:00"
+    },
+    {
+      "path": "iws-modules/iws-wms/src/main/java/com/innolux/iws/wms/rule/binding/StorageRuleAttributeSourceProvider.java",
+      "sha256": "38D15A06CDCF4B30DC660DC2EA26E45FC6D51E0EBE00E14F61F4D8EB2418B117",
+      "bytes": 5283,
+      "lastWriteTime": "2026-11-03T13:40:56.0921702+08:00"
+    },
+    {
+      "path": "iws-modules/iws-wms/src/main/resources/mapper/wms/inventory/query/WmsInventoryReadMapper.xml",
+      "sha256": "8681CCB1F7774ACEC53327585123A4DDE2B87A4A0802C4482CD114E4176B21C2",
+      "bytes": 35295,
+      "lastWriteTime": "2026-11-03T17:42:57.2018695+08:00"
+    },
+    {
+      "path": "iws-modules/iws-wms/src/test/java/com/innolux/iws/wms/inventory/query/WmsInventoryReadIntegrationTest.java",
+      "sha256": "A4E252606F26CAA87C2260AAEEBDBDE4BDE1019D813A07CD2AC8EE3D4600CFBE",
+      "bytes": 49754,
+      "lastWriteTime": "2026-11-03T17:42:57.2040125+08:00"
+    },
+    {
+      "path": "iws-modules/iws-wms/src/test/java/com/innolux/iws/wms/rule/WmsSpaceBackgroundAuthorizationIntegrationTest.java",
+      "sha256": "5F1D73AF26C26C20C2D12E7C7099074A3EDE231B562587717E84D737CB6D29A3",
+      "bytes": 13343,
+      "lastWriteTime": "2026-11-03T17:30:52.1289261+08:00"
+    },
+    {
+      "path": "iws-modules/iws-wms/src/test/java/com/innolux/iws/wms/rule/WmsSpaceChangeIntegrationTest.java",
+      "sha256": "E083FC7EA6D5356CAE555D6DBFABA8AF337043A2D11EFEE3A371B59B5D49B919",
+      "bytes": 25543,
+      "lastWriteTime": "2026-11-03T16:01:31.4425065+08:00"
+    },
+    {
+      "path": "script/sql/iws_init_from_empty.sql",
+      "sha256": "29499013A96CC52CA6253506343619E0D7FA8AAAB11984424EF2814A55392701",
+      "bytes": 716557,
+      "lastWriteTime": "2026-11-03T13:55:01.0654046+08:00"
+    },
+    {
+      "path": "script/sql/iws_wms_smt_core.sql",
+      "sha256": "21B137BD45F2D442CCC8F578DCF4E64711692AD8D31CC1DE1D101FABDC8DDFBE",
+      "bytes": 223564,
+      "lastWriteTime": "2026-11-03T13:40:19.0766438+08:00"
+    }
+  ]
+}
