@@ -44,9 +44,10 @@ public class SseController implements DisposableBean {
      */
     @GetMapping(value = "${message.path:/resource/message}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter connect(HttpServletResponse response) {
-        prepareSseResponse(response);
+        StpUtil.checkLogin();
         String tokenValue = StpUtil.getTokenValue();
         Long userId = LoginHelper.getUserId();
+        prepareSseResponse(response);
         return sessionManager.connect(userId, tokenValue);
     }
 

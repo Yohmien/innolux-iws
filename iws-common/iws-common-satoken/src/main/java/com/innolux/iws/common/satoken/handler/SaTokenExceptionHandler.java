@@ -16,10 +16,17 @@ import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
 import cn.hutool.http.HttpStatus;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import com.innolux.iws.common.core.domain.R;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.nio.charset.StandardCharsets;
 
 /**
  * SaToken异常处理器
@@ -50,10 +57,12 @@ public class SaTokenExceptionHandler {
      *
      * @param e       异常信息
      * @param request 当前请求
+     * @param response 当前响应，SSE 流建立前使用 JSON 认证错误
      * @return 统一失败响应
      */
     @ExceptionHandler(NotLoginException.class)
-    public R<Void> handleNotLoginException(NotLoginException e, HttpServletRequest request) {
+    public R<Void> handleNotLoginException(NotLoginException e, HttpServletRequest request,
+                                          HttpServletResponse response) {
         String requestURI = request.getRequestURI();
         log.error("请求地址'{}',认证失败'{}',无法访问系统资源", requestURI, e.getMessage());
         String msg = switch (e.getType()) {
@@ -63,6 +72,14 @@ public class SaTokenExceptionHandler {
             case NotLoginException.KICK_OUT -> "账号已被管理员强制下线";
             default -> "登录状态异常，请重新登录";
         };
+        // 异常分发会清除 produces 属性；按已匹配的方法识别 SSE，避免 Accept 导致认证错误无法转换。
+        Object handler = request.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE);
+        if (!response.isCommitted() && handler instanceof HandlerMethod method
+            && SseEmitter.class.isAssignableFrom(method.getMethod().getReturnType())) {
+            response.setStatus(HttpStatus.HTTP_UNAUTHORIZED);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        }
         return R.fail(HttpStatus.HTTP_UNAUTHORIZED, msg);
     }
 
