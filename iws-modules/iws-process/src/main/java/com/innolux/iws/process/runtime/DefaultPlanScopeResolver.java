@@ -11,14 +11,12 @@
 
 package com.innolux.iws.process.runtime;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /**
  * 无业务 scope 规则时使用受控 DEFAULT。
  */
 @Component
-@Primary
 @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = "iws.process", name = "enabled", havingValue = "true")
 public class DefaultPlanScopeResolver implements PlanScopeResolver {
 

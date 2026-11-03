@@ -149,7 +149,10 @@ public class PlanMaterializer {
             event.setEventStatus(status);
             event.setWaitReason(reason);
             event.setSent(Boolean.FALSE);
-            event.setPayloadReady(Boolean.FALSE);
+            boolean internal = definition.getEventDirection() == EventDirection.INTERNAL;
+            event.setPayloadReady(internal);
+            // 计划事件先继承挂载时冻结的实例输入，外部入站摘要仍由回执覆盖。
+            event.setInputHash(instance.getInputHash());
             event.setRetryCount(0);
             event.setRecoveryRequested(Boolean.FALSE);
             event.setRecoveryForEventCode(definition.getRecoveryForEventCode());

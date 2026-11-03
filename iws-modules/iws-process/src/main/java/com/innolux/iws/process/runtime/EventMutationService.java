@@ -553,7 +553,7 @@ public class EventMutationService {
     @Transactional(rollbackFor = Exception.class)
     public ProcessAttempt executeLocalAndFinish(ClaimContext claim, LocalAction action, ActionContext context) {
         requireOwned(claim);
-        ActionResult result = action.execute(context);
+        ActionResult result = action.execute(resolveLocalActionInput(action, context));
         ProcessAttempt attempt = recordResult(claim, result);
         if (result.effectResult() == EffectResult.SUCCEEDED) {
             finishSuccess(claim, EffectResult.SUCCEEDED);
@@ -563,6 +563,17 @@ public class EventMutationService {
             fail(claim, EffectResult.FAILED, "LOCAL_ACTION_FAILED", result.message());
         }
         return attempt;
+    }
+
+    private ActionContext resolveLocalActionInput(LocalAction action, ActionContext context) {
+        if (!(action instanceof LocalActionInputProvider provider)) {
+            return context;
+        }
+        LocalActionInput input = provider.provide(context);
+        if (input == null || input.payloadJson() == null || input.payloadJson().isBlank()) {
+            throw new ServiceException("本地动作冻结输入提供器返回空输入");
+        }
+        return context.withFrozenInput(input);
     }
 
     /**

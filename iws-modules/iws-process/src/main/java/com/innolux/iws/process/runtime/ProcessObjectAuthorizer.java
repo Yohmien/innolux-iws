@@ -15,18 +15,25 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.process.domain.ProcessEvent;
 import com.innolux.iws.process.domain.ProcessInstance;
+import com.innolux.iws.process.enums.PlanRole;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
  * 复用 Sa-Token 功能权限之上的对象范围门禁。
  *
- * <p>已登录用户必须具有 {@code process:object:all}，或由已注册 ProcessAccessPolicy 放行；
- * 未注册业务范围时默认拒绝。系统调度/无安全会话路径不伪造登录身份。</p>
+ * <p>已登录用户必须具有 {@code process:object:all}，或由任一已注册 ProcessAccessPolicy 明确放行；
+ * 未注册业务范围时默认拒绝，策略异常按拒绝处理。系统调度/无安全会话路径不伪造登录身份。</p>
  */
 @Component
 @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = "iws.process", name = "enabled", havingValue = "true")
 public class ProcessObjectAuthorizer {
+
+    private static final String OBJECT_ALL_PERMISSION = "process:object:all";
+
+    private static final Logger log = LoggerFactory.getLogger(ProcessObjectAuthorizer.class);
 
     private final RuntimeDao runtimeDao;
 
@@ -52,8 +59,7 @@ public class ProcessObjectAuthorizer {
     public void authorizeUserInstance(long instanceId, String action) {
         requireLogin();
         ProcessInstance instance = runtimeDao.instance(instanceId);
-        authorize(new ProcessAccessTarget(instanceId, null, instance.getScheduleId(), instance.getBusinessType(),
-            instance.getBusinessId(), instance.getTaskKey(), instance.getScheduleScope(), action));
+        authorize(accessTarget(instance, null, action));
     }
 
     /**
@@ -66,9 +72,26 @@ public class ProcessObjectAuthorizer {
         requireLogin();
         ProcessEvent event = runtimeDao.event(eventId);
         ProcessInstance instance = runtimeDao.instance(event.getInstanceId());
-        authorize(new ProcessAccessTarget(instance.getId(), eventId, instance.getScheduleId(),
-            instance.getBusinessType(), instance.getBusinessId(), instance.getTaskKey(),
-            instance.getScheduleScope(), action));
+        authorize(accessTarget(instance, eventId, action));
+    }
+
+    /**
+     * 按实例角色解析统一的业务授权目标。
+     *
+     * <p>监督实例创建时仅写入计划类型和监督唯一键，因此其业务范围使用这两个字段；
+     * 普通业务实例继续使用自身业务类型和业务标识。</p>
+     *
+     * @param instance 计划实例
+     * @param eventId 事件 ID，无事件时为 null
+     * @param action 动作
+     * @return 对象授权目标
+     */
+    public ProcessAccessTarget accessTarget(ProcessInstance instance, Long eventId, String action) {
+        boolean supervisor = instance.getPlanRole() == PlanRole.SUPERVISOR;
+        return new ProcessAccessTarget(instance.getId(), eventId, instance.getScheduleId(),
+            supervisor ? instance.getPlanType() : instance.getBusinessType(),
+            supervisor ? instance.getSupervisorKey() : instance.getBusinessId(),
+            instance.getTaskKey(), instance.getScheduleScope(), action);
     }
 
     /**
@@ -126,18 +149,26 @@ public class ProcessObjectAuthorizer {
     }
 
     /**
-     * 判定对象范围是否可见；未登录、无超级对象权限且无策略放行时返回 false。
+     * 判定对象范围是否可见；多个策略中任一明确允许即可见，未登录或全部拒绝时返回 false。
      *
      * @param target 对象授权目标
      * @return true 表示允许访问
      */
     public boolean canAccess(ProcessAccessTarget target) {
         requireLogin();
-        if (StpUtil.hasPermission("process:object:all")) {
+        if (StpUtil.hasPermission(OBJECT_ALL_PERMISSION)) {
             return true;
         }
-        ProcessAccessPolicy policy = policyProvider.getIfAvailable();
-        return policy != null && policy.canAccess(target);
+        return policyProvider.orderedStream().anyMatch(policy -> policyAllows(policy, target));
+    }
+
+    private static boolean policyAllows(ProcessAccessPolicy policy, ProcessAccessTarget target) {
+        try {
+            return policy.canAccess(target);
+        } catch (RuntimeException ex) {
+            log.warn("计划对象授权策略执行异常，按拒绝处理: {}", policy.getClass().getName(), ex);
+            return false;
+        }
     }
 
     private void authorize(ProcessAccessTarget target) {
