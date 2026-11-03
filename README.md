@@ -37,6 +37,23 @@ INNOLUX IWS 是面向智能仓储场景的前后端一体化系统，当前系�
 | MySQL | 外部服务 | `3307` | `localhost:3307/innolux_iws` | dev 数据库 |
 | Redis | 外部服务 | `6379` | `localhost:6379` | 缓存与分布式锁 |
 
+## 统一管理员账号
+
+admin 监控中心、SnailJob 控制台、SnailAI 控制台与主服务登录统一使用 `innolux` 管理员账号：
+
+| 系统 | 登录入口 | 账号 | 密码 | 账号来源 |
+| --- | --- | --- | --- | --- |
+| 主服务（IWS+） | 前端登录页 | `innolux` | `admin@innolux.com` | 初始化脚本 `sys_user` |
+| admin 监控中心 | `http://localhost:18090/admin` | `innolux` | `admin@innolux.com` | `iws-extend/iws-monitor-admin` 的 `application.yml` |
+| SnailJob 控制台 | `http://localhost:18088/snail-job` | `innolux` | `admin@innolux.com` | 初始化脚本 `sj_system_user` |
+| SnailAI 控制台 | `http://localhost:18089/snail-ai` | `innolux` | `admin@innolux.com` | 初始化脚本 `sai_user` |
+
+补充说明：
+
+1. 主服务、SnailJob 服务端、SnailAI 服务端接入监控中心的客户端账号（`spring.boot.admin.client`）已同步为 `innolux` / `admin@innolux.com`，见各服务 `application-dev.yml`、`application-prod.yml` 与监控中心 `application.yml`。
+2. 初始化脚本按组件认证模型保存 BCrypt、SHA-256 或 PBKDF2 哈希，不把密码明文写入密码字段；本地凭据由受控配置或占位路由注入。
+3. 正式部署后应通过各系统自身功能更换默认密码，避免使用初始密码上线。
+
 日常开发只启动 `IWS+ Main Service` 和前端即可。需要监控、任务调度或 AI 能力时，再分别启动 `IWS Monitor Admin`、`IWS SnailJob Server`、`IWS SnailAI Server`。
 
 ## 后端结构
