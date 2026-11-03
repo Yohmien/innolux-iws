@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.innolux.iws.wms.material.change.mapper.WmsMaterialChangeMapper">
+
+    <select id="selectInventoryForUpdate"
+            resultType="com.innolux.iws.wms.material.change.mapper.WmsMaterialInventoryRow">
+        select inventory_id,
+               stock_unit_code,
+               material_code,
+               storage_id,
+               storage_code,
+               zone_id,
+               zone_code,
+               inventory_qty,
+               reserved_qty,
+               reserved_order_no,
+               unit,
+               version,
+               del_flag
+        from wms_inventory
+        where inventory_id = #{inventoryId}
+          and del_flag = '0'
+        for update
+    </select>
+
+    <select id="selectStorage"
+            resultType="com.innolux.iws.wms.material.change.mapper.WmsMaterialStorageRow">
+        select s.storage_id,
+               s.storage_code,
+               s.zone_id,
+               z.zone_code,
+               s.status,
+               s.lock_status,
+               s.disable_status,
+               s.del_flag
+        from wms_storage s
+        left join wms_warehouse_zone z on z.zone_id = s.zone_id
+        where s.storage_id = #{storageId}
+          and s.del_flag = '0'
+    </select>
+
+    <select id="selectFlowByIdempotencyKeyForUpdate"
+            resultType="com.innolux.iws.wms.material.change.mapper.WmsMaterialFlowRow">
+        select flow_id,
+               idempotency_key,
+               inventory_id,
+               from_storage_code,
+               to_storage_code,
+               occurred_at
+        from wms_inventory_flow
+        where idempotency_key = #{idempotencyKey}
+        for update
+    </select>
+
+    <update id="updateInventoryLocation">
+        update wms_inventory
+        set storage_id = #{storageId},
+            storage_code = #{storageCode},
+            zone_id = #{zoneId},
+            zone_code = #{zoneCode},
+            version = version + 1,
+            update_by = #{actorId,jdbcType=BIGINT},
+            update_time = #{occurredAt}
+        where inventory_id = #{inventoryId}
+          and version = #{expectedVersion}
+          and del_flag = '0'
+    </update>
+
+    <insert id="insertFlow">
+        insert into wms_inventory_flow (
+            flow_id,
+            flow_no,
+            flow_type,
+            inventory_id,
+            stock_unit_code,
+            material_code,
+            material_batch,
+            from_storage_code,
+            to_storage_code,
+            before_qty,
+            change_qty,
+            after_qty,
+            source_order_type,
+            source_order_no,
+            source_order_line_id,
+            idempotency_key,
+            operator_id,
+            occurred_at,
+            create_time,
+            remark
+        ) values (
+            #{flowId},
+            #{flowNo},
+            #{flowType},
+            #{inventoryId},
+            #{stockUnitCode},
+            #{materialCode},
+            #{materialBatch,jdbcType=VARCHAR},
+            #{fromStorageCode,jdbcType=VARCHAR},
+            #{toStorageCode,jdbcType=VARCHAR},
+            #{beforeQty},
+            #{changeQty},
+            #{afterQty},
+            #{sourceOrderType,jdbcType=VARCHAR},
+            #{sourceOrderNo,jdbcType=VARCHAR},
+            #{sourceOrderLineId,jdbcType=BIGINT},
+            #{idempotencyKey},
+            #{operatorId,jdbcType=BIGINT},
+            #{occurredAt},
+            #{createTime},
+            #{remark,jdbcType=VARCHAR}
+        )
+    </insert>
+
+    <select id="selectLoadNodeIdByInventory" resultType="java.lang.Long">
+        select load_node_id
+        from wms_load_node
+        where inventory_id = #{inventoryId}
+    </select>
+
+    <select id="selectAllocationLockStorageIds" resultType="java.lang.Long">
+        select storage_id
+        from wms_allocation_lock
+        where allocation_lock_id in
+        <foreach collection="lockIds" item="lockId" open="(" separator="," close=")">
+            #{lockId}
+        </foreach>
+        order by allocation_lock_id
+    </select>
+</mapper>

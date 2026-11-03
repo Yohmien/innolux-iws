@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ - @Date         : 2026-10-29
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : WMS 在库管理 P4 物料 trace 持久化
+ - @Version      : V1.0
+ - @Description  : 物料 trace 三表只插入与只读快照查询；
+ - @ModifyRecord : V1.0 新建；
+-->
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.innolux.iws.wms.material.trace.mapper.WmsMaterialTraceMapper">
+
+    <sql id="historyColumns">
+        trace_id,
+        effect_key,
+        business_type,
+        business_name,
+        business_id,
+        business_no,
+        business_line_id,
+        root_business_type,
+        root_business_id,
+        task_key,
+        plan_instance_id,
+        plan_code,
+        plan_type,
+        definition_version,
+        event_id,
+        attempt_id,
+        input_hash,
+        reverse_trace_id,
+        trace_kind,
+        effect_result,
+        reason,
+        evidence_ref,
+        actor_id,
+        actor_name,
+        initiator_id,
+        initiator_name,
+        department_id,
+        department_name,
+        execution_subject,
+        execution_account,
+        on_behalf_of,
+        source_system,
+        terminal_id,
+        request_id,
+        source_trace_id,
+        occurred_at,
+        recorded_at,
+        create_dept,
+        create_by,
+        create_time,
+        update_by,
+        update_time
+    </sql>
+
+    <sql id="itemColumns">
+        item_id,
+        trace_id,
+        inventory_id,
+        stock_unit_code,
+        material_code,
+        production_info_id,
+        production_revision,
+        production_snapshot AS production_snapshot_json,
+        quantity,
+        unit,
+        before_qty,
+        delta_qty,
+        after_qty,
+        physical_from_storage_id,
+        physical_from_storage_code,
+        physical_to_storage_id,
+        physical_to_storage_code,
+        logical_from_scope_version_id,
+        logical_to_scope_version_id,
+        load_parent_before_id,
+        load_parent_after_id,
+        load_root_before_id,
+        load_root_after_id,
+        lifecycle_before,
+        lifecycle_after,
+        rule_package_version_id,
+        recorded_at,
+        create_dept,
+        create_by,
+        create_time,
+        update_by,
+        update_time
+    </sql>
+
+    <sql id="edgeColumns">
+        trace_edge_id,
+        trace_id,
+        source_item_id,
+        target_item_id,
+        quantity,
+        unit,
+        group_no,
+        recorded_at,
+        create_dept,
+        create_by,
+        create_time,
+        update_by,
+        update_time
+    </sql>
+
+    <insert id="insertHistory">
+        INSERT INTO wms_material_trace_history (
+            trace_id,
+            effect_key,
+            business_type,
+            business_name,
+            business_id,
+            business_no,
+            business_line_id,
+            root_business_type,
+            root_business_id,
+            task_key,
+            plan_instance_id,
+            plan_code,
+            plan_type,
+            definition_version,
+            event_id,
+            attempt_id,
+            input_hash,
+            reverse_trace_id,
+            trace_kind,
+            effect_result,
+            reason,
+            evidence_ref,
+            actor_id,
+            actor_name,
+            initiator_id,
+            initiator_name,
+            department_id,
+            department_name,
+            execution_subject,
+            execution_account,
+            on_behalf_of,
+            source_system,
+            terminal_id,
+            request_id,
+            source_trace_id,
+            occurred_at,
+            recorded_at,
+            create_dept,
+            create_by,
+            create_time
+        ) VALUES (
+            #{traceId},
+            #{effectKey},
+            #{businessType},
+            #{businessName},
+            #{businessId},
+            #{businessNo},
+            #{businessLineId},
+            #{rootBusinessType},
+            #{rootBusinessId},
+            #{taskKey},
+            #{planInstanceId},
+            #{planCode},
+            #{planType},
+            #{definitionVersion},
+            #{eventId},
+            #{attemptId},
+            #{inputHash},
+            #{reverseTraceId},
+            #{traceKind},
+            #{effectResult},
+            #{reason},
+            #{evidenceRef},
+            #{actorId},
+            #{actorName},
+            #{initiatorId},
+            #{initiatorName},
+            #{departmentId},
+            #{departmentName},
+            #{executionSubject},
+            #{executionAccount},
+            #{onBehalfOf},
+            #{sourceSystem},
+            #{terminalId},
+            #{requestId},
+            #{sourceTraceId},
+            #{occurredAt},
+            #{recordedAt},
+            #{createDept},
+            #{createBy},
+            #{createTime}
+        )
+    </insert>
+
+    <insert id="insertItem">
+        INSERT INTO wms_material_trace_item (
+            item_id,
+            trace_id,
+            inventory_id,
+            stock_unit_code,
+            material_code,
+            production_info_id,
+            production_revision,
+            production_snapshot,
+            quantity,
+            unit,
+            before_qty,
+            delta_qty,
+            after_qty,
+            physical_from_storage_id,
+            physical_from_storage_code,
+            physical_to_storage_id,
+            physical_to_storage_code,
+            logical_from_scope_version_id,
+            logical_to_scope_version_id,
+            load_parent_before_id,
+            load_parent_after_id,
+            load_root_before_id,
+            load_root_after_id,
+            lifecycle_before,
+            lifecycle_after,
+            rule_package_version_id,
+            recorded_at,
+            create_dept,
+            create_by,
+            create_time
+        ) VALUES (
+            #{itemId},
+            #{traceId},
+            #{inventoryId},
+            #{stockUnitCode},
+            #{materialCode},
+            #{productionInfoId},
+            #{productionRevision},
+            #{productionSnapshotJson},
+            #{quantity},
+            #{unit},
+            #{beforeQty},
+            #{deltaQty},
+            #{afterQty},
+            #{physicalFromStorageId},
+            #{physicalFromStorageCode},
+            #{physicalToStorageId},
+            #{physicalToStorageCode},
+            #{logicalFromScopeVersionId},
+            #{logicalToScopeVersionId},
+            #{loadParentBeforeId},
+            #{loadParentAfterId},
+            #{loadRootBeforeId},
+            #{loadRootAfterId},
+            #{lifecycleBefore},
+            #{lifecycleAfter},
+            #{rulePackageVersionId},
+            #{recordedAt},
+            #{createDept},
+            #{createBy},
+            #{createTime}
+        )
+    </insert>
+
+    <insert id="insertEdge">
+        INSERT INTO wms_material_trace_edge (
+            trace_edge_id,
+            trace_id,
+            source_item_id,
+            target_item_id,
+            quantity,
+            unit,
+            group_no,
+            recorded_at,
+            create_dept,
+            create_by,
+            create_time
+        ) VALUES (
+            #{traceEdgeId},
+            #{traceId},
+            #{sourceItemId},
+            #{targetItemId},
+            #{quantity},
+            #{unit},
+            #{groupNo},
+            #{recordedAt},
+            #{createDept},
+            #{createBy},
+            #{createTime}
+        )
+    </insert>
+
+    <select id="selectHistoryByEffectKey"
+            resultType="com.innolux.iws.wms.material.trace.mapper.WmsMaterialTraceHistoryRow">
+        SELECT <include refid="historyColumns"/>
+        FROM wms_material_trace_history
+        WHERE effect_key = #{effectKey}
+    </select>
+
+    <select id="selectHistoryByEffectKeyForUpdate"
+            resultType="com.innolux.iws.wms.material.trace.mapper.WmsMaterialTraceHistoryRow">
+        SELECT <include refid="historyColumns"/>
+        FROM wms_material_trace_history
+        WHERE effect_key = #{effectKey}
+        FOR UPDATE
+    </select>
+
+    <select id="selectHistoryByTraceId"
+            resultType="com.innolux.iws.wms.material.trace.mapper.WmsMaterialTraceHistoryRow">
+        SELECT <include refid="historyColumns"/>
+        FROM wms_material_trace_history
+        WHERE trace_id = #{traceId}
+    </select>
+
+    <select id="selectHistoryByTraceIdForShare"
+            resultType="com.innolux.iws.wms.material.trace.mapper.WmsMaterialTraceHistoryRow">
+        SELECT <include refid="historyColumns"/>
+        FROM wms_material_trace_history
+        WHERE trace_id = #{traceId}
+        FOR SHARE
+    </select>
+
+    <select id="selectItemsByTraceId"
+            resultType="com.innolux.iws.wms.material.trace.mapper.WmsMaterialTraceItemRow">
+        SELECT <include refid="itemColumns"/>
+        FROM wms_material_trace_item
+        WHERE trace_id = #{traceId}
+        ORDER BY item_id
+        FOR SHARE
+    </select>
+
+    <select id="selectEdgesByTraceId"
+            resultType="com.innolux.iws.wms.material.trace.mapper.WmsMaterialTraceEdgeRow">
+        SELECT <include refid="edgeColumns"/>
+        FROM wms_material_trace_edge
+        WHERE trace_id = #{traceId}
+        ORDER BY trace_edge_id
+        FOR SHARE
+    </select>
+
+</mapper>
