@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ - @Date         : 2026-10-29
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : WMS 在库管理 P3 规则服务
+ - @Version      : V1.0
+ - @Description  : 规则发布目标范围结构与固定顺序共享锁查询；
+ - @ModifyRecord : V1.0 新建；
+-->
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.innolux.iws.wms.rule.mapper.WmsRuleScopeMapper">
+
+    <select id="selectRequiredColumns" resultType="java.lang.String">
+        SELECT CONCAT(table_name, '.', column_name)
+        FROM information_schema.columns
+        WHERE table_schema = database()
+          AND (
+              (table_name = 'wms_company'
+               AND column_name IN ('company_id', 'enabled', 'lifecycle_status'))
+              OR (table_name = 'wms_warehouse'
+                  AND column_name IN ('warehouse_id', 'company_id', 'lifecycle_status'))
+              OR (table_name = 'wms_warehouse_zone'
+                  AND column_name IN (
+                      'zone_id', 'warehouse_id', 'parent_zone_id', 'zone_kind', 'lifecycle_status', 'del_flag'
+                  ))
+              OR (table_name = 'wms_storage'
+                  AND column_name IN (
+                      'storage_id', 'warehouse_id', 'zone_id', 'lifecycle_status', 'del_flag'
+                  ))
+          )
+        ORDER BY table_name, column_name
+    </select>
+
+    <sql id="storageColumns">
+        c.company_id,
+        c.lifecycle_status AS company_lifecycle_status,
+        w.warehouse_id,
+        w.company_id AS warehouse_company_id,
+        w.lifecycle_status AS warehouse_lifecycle_status,
+        s.storage_id AS space_id,
+        s.warehouse_id AS space_warehouse_id,
+        s.zone_id AS zone_id,
+        s.lifecycle_status AS space_lifecycle_status,
+        s.del_flag AS space_del_flag,
+        dz.parent_zone_id AS device_zone_parent_zone_id
+    </sql>
+
+    <select id="selectTargetCandidate" resultType="com.innolux.iws.wms.rule.domain.WmsRuleScopeTargetRow">
+        <choose>
+            <when test="'COMPANY'.equals(scopeType)">
+                SELECT c.company_id AS scope_id, c.company_id
+                FROM wms_company c
+                WHERE c.company_id = #{scopeId}
+            </when>
+            <when test="'WAREHOUSE'.equals(scopeType)">
+                SELECT w.warehouse_id AS scope_id, w.company_id, w.warehouse_id
+                FROM wms_warehouse w
+                WHERE w.warehouse_id = #{scopeId}
+            </when>
+            <when test="'MATERIAL_ZONE'.equals(scopeType) or 'DEVICE_ZONE'.equals(scopeType)">
+                SELECT z.zone_id AS scope_id, w.company_id,
+                       z.warehouse_id, z.parent_zone_id, z.zone_kind, z.del_flag
+                FROM wms_warehouse_zone z
+                JOIN wms_warehouse w ON w.warehouse_id = z.warehouse_id
+                WHERE z.zone_id = #{scopeId}
+            </when>
+            <when test="'STORAGE'.equals(scopeType)">
+                SELECT s.storage_id AS scope_id, w.company_id,
+                       s.warehouse_id, s.del_flag
+                FROM wms_storage s
+                JOIN wms_warehouse w ON w.warehouse_id = s.warehouse_id
+                WHERE s.storage_id = #{scopeId}
+            </when>
+            <otherwise>
+                SELECT 1 WHERE 1 = 0
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectStorageParents" resultType="com.innolux.iws.wms.rule.domain.WmsRuleScopeRow">
+        SELECT <include refid="storageColumns"/>
+        FROM wms_storage s
+        JOIN wms_warehouse w ON w.warehouse_id = s.warehouse_id
+        JOIN wms_company c ON c.company_id = w.company_id
+        JOIN wms_warehouse_zone dz ON dz.zone_id = s.zone_id
+        WHERE s.storage_id IN
+        <foreach collection="storageIds" item="storageId" open="(" separator="," close=")">
+            #{storageId}
+        </foreach>
+        ORDER BY s.storage_id
+    </select>
+
+    <select id="lockCompaniesForShare" resultType="com.innolux.iws.wms.rule.domain.WmsRuleScopeRow">
+        SELECT c.company_id, c.lifecycle_status AS company_lifecycle_status
+        FROM wms_company c
+        WHERE c.company_id IN
+        <foreach collection="companyIds" item="companyId" open="(" separator="," close=")">
+            #{companyId}
+        </foreach>
+        ORDER BY c.company_id
+        FOR SHARE
+    </select>
+
+    <select id="lockWarehousesForShare" resultType="com.innolux.iws.wms.rule.domain.WmsRuleScopeRow">
+        SELECT w.warehouse_id, w.company_id AS warehouse_company_id,
+               w.lifecycle_status AS warehouse_lifecycle_status
+        FROM wms_warehouse w
+        WHERE w.warehouse_id IN
+        <foreach collection="warehouseIds" item="warehouseId" open="(" separator="," close=")">
+            #{warehouseId}
+        </foreach>
+        ORDER BY w.warehouse_id
+        FOR SHARE
+    </select>
+
+    <select id="lockZonesForShare" resultType="com.innolux.iws.wms.rule.domain.WmsRuleScopeZoneRow">
+        SELECT z.zone_id, z.warehouse_id, z.parent_zone_id, z.zone_kind, z.lifecycle_status, z.del_flag
+        FROM wms_warehouse_zone z
+        WHERE z.zone_id IN
+        <foreach collection="zoneIds" item="zoneId" open="(" separator="," close=")">
+            #{zoneId}
+        </foreach>
+        ORDER BY z.zone_id
+        FOR SHARE
+    </select>
+
+    <select id="lockStoragesForShare" resultType="com.innolux.iws.wms.rule.domain.WmsRuleScopeRow">
+        SELECT s.storage_id AS space_id,
+               s.warehouse_id AS space_warehouse_id,
+               s.zone_id AS zone_id, s.lifecycle_status AS space_lifecycle_status,
+               s.del_flag AS space_del_flag
+        FROM wms_storage s
+        WHERE s.storage_id IN
+        <foreach collection="storageIds" item="storageId" open="(" separator="," close=")">
+            #{storageId}
+        </foreach>
+        ORDER BY s.storage_id
+        FOR SHARE
+    </select>
+
+</mapper>
