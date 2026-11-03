@@ -61,6 +61,13 @@
             <groupId>com.innolux.iws</groupId>
             <artifactId>iws-common-web</artifactId>
         </dependency>
+
+        <!-- WMS publishes INTERNAL LocalAction capabilities to the process platform. -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-process</artifactId>
+            <version>${revision}</version>
+        </dependency>
     </dependencies>
 
 </project>
