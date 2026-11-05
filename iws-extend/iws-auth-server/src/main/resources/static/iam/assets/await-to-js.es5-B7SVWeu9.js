@@ -1,0 +1,1 @@
+function e(e,t){return e.then(function(e){return[null,e]}).catch(function(e){return t&&Object.assign(e,t),[e,void 0]})}export{e as t};

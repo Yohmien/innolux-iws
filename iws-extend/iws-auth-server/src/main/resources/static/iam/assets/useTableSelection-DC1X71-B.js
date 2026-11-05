@@ -1,1 +1,0 @@
-import{gi as e}from"./request-DG81-z0O.js";var t=e=>typeof e==`string`||typeof e==`number`;function n(n){let r=e([]),i=e([]),a=e(!0),o=e(!0);return{ids:r,selectedRows:i,single:a,multiple:o,handleSelectionChange:e=>{i.value=e,r.value=e.map(n).filter(t),a.value=e.length!==1,o.value=e.length===0},clearSelection:()=>{i.value=[],r.value=[],a.value=!0,o.value=!0}}}export{n as t};
