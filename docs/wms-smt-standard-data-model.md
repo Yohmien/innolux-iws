@@ -1,200 +1,102 @@
 # IWS+ SMT 电子仓标准数据模型
 
-## 目标边界
+## 当前基线与边界
 
-本文只设计标准产品的基础数据模型，不把参考项目里的历史补丁、页面实现和异常处理入口直接搬进 IWS+。
+本文按 2026-10-19 仓库中的 `script/sql/iws_wms_smt_core.sql` 校正，描述当前第一阶段模型。SQL 文件说明仓库设计，不证明目标数据库已执行；真实环境需另行只读核对结构和数据。
 
-本次参考内容包括：
+当前目标是复用库区、储位、容器、格口、库存单元与物料主链，承载基础资料、当前库存、库存流水、入出库单据、归档和上层推送记录。Return PO、虚拟仓、MSD/ESD、复杂冻结扣留和独立容器位置轨迹不属于当前核心表。
 
-| 来源 | 用途 |
+## 脚本职责
+
+| 脚本 | 职责 |
 | --- | --- |
-| 用户提供的两张关系图 | 确认库区、储位、容器、容器类型、库存、物料之间的主链路 |
-| `E:\Liteon` 后端代码与 Mapper | 确认实际查询场景、状态字段和高频索引方向 |
-| 参考库 `liteon` 表结构 | 校验老表字段、外键和索引 |
-| `E:\vnm-liteon-web` 前端页面与 API | 确认业务入口：基础资料、储位、库存、合箱、盘点、异常处理 |
+| `script/sql/iws_init.sql` | 创建数据库并准备框架、系统基础表及平台初始化数据 |
+| `script/sql/iws_wms_smt_core.sql` | 创建 WMS 核心业务表，需明确目标数据库上下文 |
+| `script/sql/iws_wms_smt_demo_data.sql` | 演示数据，依赖核心表，仅供明确允许的演示环境 |
 
-参考库当前核心表量级约为：`t_inventory` 40万、`t_compartment` 66万、`t_storage_allocate_log` 40万、`t_material` 1.6万、`t_container` 1.5万。标准模型按千万级库存行设计。
+初始化准备顺序为框架 → WMS 核心表 → 可选演示数据。现有环境升级需要对照实际结构设计迁移，不以重跑整套初始化替代升级。
 
-## 设计结论
+## 命名与核心关系
 
-标准产品不继续沿用老项目 `t_` 前缀和字符串主键做内部主键，统一使用：
+当前表名使用 `wms_` 前缀和小写下划线，内部主键为 `bigint *_id`，业务编码使用 `*_code` 或单据的 `*_no`。状态、审计、逻辑删除和版本字段按具体表定义使用，不把字段列表机械套到所有表。
 
-| 类型 | 标准 |
+容器当前位置以 `wms_container.storage_id` 为权威字段，关联 `wms_storage.storage_id`。容器的 `zone_id` 是库区快照；库存中的容器、格口和储位信息服务于在库查询。业务移动时需同步相关快照，不能另建一套互相竞争的位置事实。
+
+| 当前表 | 职责 |
 | --- | --- |
-| 表名 | `wms_` 前缀，小写下划线 |
-| 内部主键 | `bigint *_id` |
-| 业务编码 | `*_code`，如 `material_code`、`container_code`、`storage_code` |
-| 状态字段 | 高频表用 `tinyint`，通过字典解释 |
-| 审计字段 | `create_dept/create_by/create_time/update_by/update_time/remark/del_flag` |
-
-最关键的一点：老项目同时在 `t_container.storage_id` 和 `t_storage_position.container_id` 维护位置，容易双写不一致。标准模型新增 `wms_container_location` 作为“容器当前所在位置”的权威表，储位表只描述储位，容器表只描述容器。
-
-## 核心表
-
-| 标准表 | 对应老表 | 职责 |
-| --- | --- | --- |
-| `wms_warehouse_zone` | `t_warehouse_zones` | 库区、厂别、仓别、混料区、品质区、退料区、亮灯货架区等 |
-| `wms_storage_position` | `t_storage_position` | 物理储位、货架点位、播种墙、端口位 |
-| `wms_container_type` | `t_container_type` | 料箱、货架、托盘等容器规格 |
-| `wms_container` | `t_container` | 容器主档、箱码、A/B面码、空满箱、锁定状态 |
-| `wms_container_compartment` | `t_compartment` | 容器格口/储格 |
-| `wms_container_location` | 老表双写字段拆分 | 容器当前库内、库外、在途位置 |
-| `wms_container_location_log` | `t_storage_allocate_log` 等 | 容器位置变化审计流水 |
-| `wms_supplier` | `t_supplier` | 供应商主数据 |
-| `wms_material_grade` | `t_material_grade` | MSL、贵重料、是否允许大厅入库等等级规则 |
-| `wms_material` | `t_material` | 物料主数据 |
-| `wms_material_lot` | `t_inventory` 批次字段拆出 | 批次、Date Code、供应商、品质状态、有效期 |
-| `wms_material_container_rule` | `t_material_container_type` | 物料可使用哪些容器类型 |
-| `wms_inventory` | `t_inventory` | 当前库存事实表，千万级热表 |
-| `wms_inventory_transaction` | 多处库存变化逻辑 | 库存事务流水，入库、出库、移库、盘盈亏、截料 |
-| `wms_inventory_reservation` | `used_by_code/lock_num` 标准化 | 出库、调拨、Return PO 等预留 |
-| `wms_inventory_hold_order` | 盘点锁、冻结、品质扣留 | 冻结/扣留单头 |
-| `wms_inventory_hold_detail` | 盘点锁、冻结明细 | 冻结/扣留明细 |
-
-## 主关系
+| `wms_warehouse_zone` | 库区、厂别、仓库及区域类型 |
+| `wms_storage` | 物理储位、亮灯货架位、播种墙位、端口位 |
+| `wms_container_type` | 容器规格、分格方式与容量 |
+| `wms_container` | 容器主档、当前位置、A/B 面码、锁定状态 |
+| `wms_compartment` | 容器格口 |
+| `wms_supplier` | 供应商主数据 |
+| `wms_material` | 物料主档 |
+| `wms_inventory` | 当前库存、批次和位置快照、预留与冻结字段 |
+| `wms_inventory_flow` | 库存数量及位置变化流水 |
+| `wms_inbound_order`、`wms_inbound_order_line` | 入库计划与执行信息 |
+| `wms_outbound_order`、`wms_outbound_order_line` | 出库计划与执行信息 |
+| `wms_inventory_history` | 已归档库存 |
+| `wms_inbound_order_history`、`wms_inbound_order_line_history` | 已归档入库单据 |
+| `wms_outbound_order_history`、`wms_outbound_order_line_history` | 已归档出库单据 |
+| `wms_inbound_order_push_log`、`wms_outbound_order_push_log` | 上层系统推送请求、响应、接收结果与失败明细 |
 
 ```text
-wms_warehouse_zone 1 -- N wms_storage_position
-wms_warehouse_zone 1 -- N wms_container.current_zone_id
+wms_warehouse_zone 1 -- N wms_storage
+wms_storage 1 -- 0/1 wms_container.storage_id
 wms_container_type 1 -- N wms_container
-wms_container_type 1 -- N wms_container_compartment
-wms_container 1 -- N wms_container_compartment
-wms_container 1 -- 1 wms_container_location
-wms_storage_position 1 -- 0/1 wms_container_location
-wms_material_grade 1 -- N wms_material
-wms_supplier 1 -- N wms_material
-wms_material 1 -- N wms_material_lot
-wms_material 1 -- N wms_material_container_rule
-wms_container_type 1 -- N wms_material_container_rule
-wms_material 1 -- N wms_inventory
-wms_material_lot 1 -- N wms_inventory
-wms_container 1 -- N wms_inventory
-wms_container_compartment 1 -- N wms_inventory
-wms_storage_position 1 -- N wms_inventory
-wms_inventory 1 -- N wms_inventory_transaction
-wms_inventory 1 -- N wms_inventory_reservation
-wms_inventory_hold_order 1 -- N wms_inventory_hold_detail
-wms_inventory 1 -- N wms_inventory_hold_detail
+wms_container 1 -- N wms_compartment
+wms_supplier.supplier_code -> wms_material / wms_inventory 的供应商编码
+wms_material.material_code -> wms_inventory.material_code
+wms_inventory -> container_id / compartment_id / storage_id
+入出库单头 1 -- N 入出库单明细
+库存、单据 -> 对应 history 归档表
+wms_inventory_flow -> 库存单元与来源单据快照
 ```
 
-## 字段拆分原则
+这些关系采用逻辑关联与明确索引，核心脚本没有默认建立物理外键。历史表保留追溯信息，不参与当前可用库存计算。
 
-`wms_material` 存“不会随单个 REEL 变化的物料主档”，如名称、尺寸、重量、等级、包规、有效期规则。
+## 库存字段职责
 
-`wms_material_lot` 存“同一物料批次共有属性”，如批次号、供应商、Date Code、生产日期、收料日期、模穴、版本、品质状态。
+`stock_unit_code` 是库存单元编码，SMT 场景通常对应 REEL ID、盘号或唯一标签。物料主档保存在 `wms_material`，批次、Date Code、供应商、品质、生产日期等当前库存属性保存在 `wms_inventory`，当前没有独立批次主表。
 
-`wms_inventory` 存“当前库存事实”，每条库存单元通常对应一个 REEL。为了千万级查询性能，库存表保留 `material_code/material_batch/container_code/storage_code/plant_code/warehouse_type/production_date` 等快照字段，不要求每次列表、出库候选、看板都 join 主数据。
+`inventory_qty`、`reserved_qty` 使用 `decimal(20,6)`。当前预留通过 `reserved_qty/reserved_order_no/reserved_order_line_id` 表达；冻结通过 `frozen_status` 表达，没有独立预留表或扣留单头、明细表。
 
-`wms_container_location` 是容器位置权威表。`wms_container.current_zone_id` 只是展示和过滤快照，业务写入时必须与当前位置事务一起维护。
+库存中的物料名称、供应商、厂别、仓库、容器和储位等快照用于高频查询，不意味着每次查询都必须联表。入出库单据表达计划与执行状态，库存流水表达事实变化，两者不能互相替代。
 
-## 关键索引
+## 当前关键索引
 
-### 出库候选
-
-`wms_inventory`：
-
-```sql
-idx_wms_inventory_outbound_pick
-(material_code, plant_code, warehouse_type, inventory_status, frozen_state,
- inbound_completed, return_po_prelock, production_date, container_id)
-```
-
-用途：支撑老项目 `queryReelIdsByParam`、`queryMixZoneReelIdsByParam` 一类按物料、厂别、仓别、状态、冻结、入库完成、D/C 先进先出的查询。
-
-### 批次/Return PO
-
-`wms_inventory`：
-
-```sql
-idx_wms_inventory_outbound_lot
-(material_code, material_batch, plant_code, warehouse_type,
- inventory_status, inbound_completed, return_po_prelock)
-```
-
-用途：按 Lot、厂别、仓别做 Return PO 预锁或指定批次发料。
-
-### 容器详情和合箱
-
-`wms_inventory`：
-
-```sql
-idx_wms_inventory_container_status
-(container_id, inventory_status, inbound_completed, compartment_code)
-```
-
-`wms_container`：
-
-```sql
-idx_wms_container_type_location
-(container_type_id, location_status, lock_status, container_id)
-```
-
-用途：支撑容器详情、格口占用、合箱候选、空箱异常、按容器找库存。
-
-### 储位分配
-
-`wms_storage_position`：
-
-```sql
-idx_wms_storage_position_zone_status
-(zone_id, position_type, box_height_type, position_status, lock_status, disable_status)
-```
-
-用途：按库区、储位类型、箱高、空闲/占用/锁定/禁用状态快速找可用储位。
-
-`wms_container_location`：
-
-```sql
-uk_wms_container_location_container(container_id)
-uk_wms_container_location_storage(storage_id)
-```
-
-用途：保证“一箱一个当前位置”和“一储位最多一个容器”。
-
-### 库存审计
-
-`wms_inventory_transaction`：
-
-```sql
-uk_wms_inventory_transaction_idempotency(idempotency_key)
-idx_wms_inventory_transaction_source(source_order_type, source_order_code)
-idx_wms_inventory_transaction_stock_unit(stock_unit_code)
-```
-
-用途：保证接口重试不重复记账，并按来源单据或 REEL 追踪库存变化。
-
-## 外键策略
-
-当前初始化脚本已建立物理外键，便于标准产品早期保证数据一致性。
-
-实际到千万级写入或大批量迁移时建议压测两种模式：
-
-| 模式 | 做法 | 适用场景 |
+| 表 | 索引 | 用途 |
 | --- | --- | --- |
-| 强一致模式 | 保留物理外键 | 标准产品初期、主数据量较小、并发压力可控 |
-| 高吞吐模式 | 保留同名索引，去掉物理外键，由应用校验 | 大批量导入、频繁库存移动、现场性能优先 |
+| `wms_storage` | `idx_wms_storage_zone_status` | 按库区、储位类型、状态、锁定及禁用筛选 |
+| `wms_container` | `uk_wms_container_storage` | 一个非空储位最多关联一个容器；NULL 位置允许多个容器 |
+| `wms_container` | `idx_wms_container_type_status` | 按类型与容器状态筛选 |
+| `wms_inventory` | `uk_wms_inventory_stock_unit` | 库存单元唯一 |
+| `wms_inventory` | `idx_wms_inventory_pick_condition` | 物料、厂别、仓库、状态、冻结、入库完成、生产日期及容器候选 |
+| `wms_inventory` | `idx_wms_inventory_container_comp` | 按容器、状态、入库完成和格口查询 |
+| `wms_inventory` | `idx_wms_inventory_reserved` | 按预留单号、明细和状态追踪 |
+| `wms_inventory` | `idx_wms_inventory_batch` | 物料、批次与 Date Code 查询 |
+| `wms_inventory_flow` | `uk_wms_inventory_flow_idem` | 库存流水幂等键唯一 |
+| `wms_inventory_flow` | `idx_wms_inventory_flow_source` | 按来源类型、单号与明细追踪 |
+| `wms_inventory_flow` | `idx_wms_inventory_flow_stock_time` | 库存单元与业务时间追踪 |
 
-即使去掉物理外键，也不能去掉关联字段索引。
+完整列顺序以核心 SQL 为准。唯一索引提供结构约束，但不单独证明服务已实现完整幂等、事务或并发控制；高数据量性能需按真实查询和数据量验证。
 
-## 状态建议
+## 当前状态含义
 
-| 字段 | 建议值 |
+| 表与字段 | 当前 SQL 注释定义 |
 | --- | --- |
-| `container_status` | `0空箱`、`1非空`、`2报废` |
-| `location_status` | `0库外`、`1库内`、`2在途` |
-| `position_status` | `0空闲`、`1占用`、`2预占`、`3维护` |
-| `inventory_status` | `0待入库`、`1可用`、`2预留`、`3出库中`、`4已出库`、`5虚拟仓`、`6异常`、`7报废` |
-| `quality_status` | `0未检`、`1OK`、`2NG`、`3待检` |
-| `frozen_state` | `0未冻结`、`1冻结` |
-| `lock_status` | `0未锁`、`1已锁` |
+| `wms_container.container_status` | 0 空容器、1 有库存、2 报废 |
+| `wms_container.location_status` | 0 库外、1 库内、2 在途 |
+| `wms_storage.status` | 0 空闲、1 占用、2 预占、3 维护 |
+| `wms_inventory.status` | 0 待入库、1 可用、2 已预留、3 出库中、4 已出库、5 异常、6 报废 |
+| `wms_inventory.frozen_status` | 0 未冻结、1 冻结 |
+| `wms_inventory.inbound_status` | 0 未完成、1 已完成 |
+| `wms_inventory.quality_status` | 0 未检、1 合格、2 不合格、3 让步 |
 
-这些值后续应补到 `sys_dict_type/sys_dict_data`，前后端都使用字典展示，不在代码里散落硬编码。
+字典和 UI 必须与目标字段的真实值一致，不用旧版枚举替换，不把这些定义当作状态转换规则。业务状态机仍需由对应服务需求和实现确认。
 
-## 后续建议
+## 与旧设计的差异
 
-下一步不建议马上铺满所有业务表，而是按顺序推进：
+原文的独立位置表、批次表、物料等级表、物料容器规则表、预留表、扣留表和物理外键描述未落在当前核心脚本，本次以当前 SQL 修正。储位、格口、库存流水分别统一为 `wms_storage`、`wms_compartment`、`wms_inventory_flow`。
 
-1. 先生成 `wms` 后端模块骨架，落库区、储位、容器类型、容器、物料、库存 6 条主链路。
-2. 再补标准枚举、字典、状态流转校验和幂等库存事务服务。
-3. 前端先做基础资料和库存查询，不急着复制老系统的所有异常处理入口。
-4. 等核心链路跑通后，再扩展 ESD、MSD、亮灯货架点位、虚拟仓、合箱、盘点、Return PO 等专项表。
+后续需要更复杂模型时，先明确当前需求与迁移影响，再补方案、代码与脚本；不能把旧设计中的设想视为已经存在的业务能力。
