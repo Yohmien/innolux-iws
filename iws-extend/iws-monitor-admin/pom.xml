@@ -23,6 +23,12 @@
     <artifactId>iws-monitor-admin</artifactId>
 
     <dependencies>
+        <!-- 运行 JAR 外部配置启动适配 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-launch</artifactId>
+        </dependency>
+
         <!-- SpringBoot Web容器 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -58,10 +64,27 @@
             <artifactId>spring-boot-admin-starter-client</artifactId>
         </dependency>
 
+        <!-- 统一身份中心服务端协议 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-auth</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-json</artifactId>
+        </dependency>
+
         <!-- lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>

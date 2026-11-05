@@ -11,6 +11,7 @@
 
 package com.innolux.iws.monitor.admin;
 
+import com.innolux.iws.common.launch.IwsConfigLocationSupport;
 import de.codecentric.boot.admin.server.config.EnableAdminServer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -34,7 +35,9 @@ public class MonitorAdminApplication {
      * @param args 启动参数
      */
     public static void main(String[] args) {
-        SpringApplication.run(MonitorAdminApplication.class, args);
+        SpringApplication application = new SpringApplication(MonitorAdminApplication.class);
+        IwsConfigLocationSupport.configure(application, MonitorAdminApplication.class, args, "monitor");
+        application.run(args);
         LOG.info("Admin 监控启动成功");
     }
 

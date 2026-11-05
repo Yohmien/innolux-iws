@@ -28,21 +28,34 @@ spring:
     resources:
       static-locations: classpath:admin/
 
+iam:
+  client:
+    public-base-url: ${IAM_CENTER_PUBLIC_BASE_URL:http://127.0.0.1:18081/iam}
+    center-base-url: ${IAM_CENTER_BASE_URL:http://127.0.0.1:18081}
+    application-id: ${IAM_SNAILAI_APPLICATION_ID:snail-ai}
+    application-type: SNAIL_AI
+    frontend-id: ${IAM_SNAILAI_FRONTEND_ID:ai-main}
+    instance-id: ${IAM_SNAILAI_INSTANCE_ID:snail-ai-1}
+    client-secret: ${IAM_SNAILAI_CLIENT_SECRET:}
+    connect-timeout-ms: ${IAM_CONNECT_TIMEOUT_MS:2000}
+    response-timeout-ms: ${IAM_RESPONSE_TIMEOUT_MS:5000}
+    accounts: {}
+
 snail-ai:
   server:
     grpc-port: 18189
   skill:
     upload-dir: ./upload/skills
   crypto:
-    secret-key: ${SNAIL_AI_CRYPTO_KEY:0123456789abcdef0123456789abcdef}
+    secret-key: ${SNAIL_AI_CRYPTO_KEY:}
     iv: ${SNAIL_AI_CRYPTO_IV:fedcba9876543210fedcba9876543210}
   resource:
     storage-type: LOCAL
     upload-dir: ./upload/resource
     minio:
       endpoint: http://localhost:9000
-      access-key: minioadmin
-      secret-key: minioadmin
+      access-key: ${SNAIL_AI_MINIO_ACCESS_KEY:}
+      secret-key: ${SNAIL_AI_MINIO_SECRET_KEY:}
       bucket: snail-ai
   # RAG 文档解析与图片 OCR 配置
   rag:

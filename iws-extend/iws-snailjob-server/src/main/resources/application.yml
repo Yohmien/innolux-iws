@@ -21,6 +21,19 @@ spring:
     resources:
       static-locations: classpath:admin/
 
+iam:
+  client:
+    public-base-url: ${IAM_CENTER_PUBLIC_BASE_URL:http://127.0.0.1:18081/iam}
+    center-base-url: ${IAM_CENTER_BASE_URL:http://127.0.0.1:18081}
+    application-id: ${IAM_SNAILJOB_APPLICATION_ID:snail-job}
+    application-type: SNAIL_JOB
+    frontend-id: ${IAM_SNAILJOB_FRONTEND_ID:job-main}
+    instance-id: ${IAM_SNAILJOB_INSTANCE_ID:snail-job-1}
+    client-secret: ${IAM_SNAILJOB_CLIENT_SECRET:}
+    connect-timeout-ms: ${IAM_CONNECT_TIMEOUT_MS:2000}
+    response-timeout-ms: ${IAM_RESPONSE_TIMEOUT_MS:5000}
+    accounts: {}
+
 mybatis-plus:
   typeAliasesPackage: com.aizuda.snailjob.template.datasource.persistence.po
   global-config:

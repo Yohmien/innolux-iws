@@ -11,8 +11,12 @@
 
 package com.innolux.iws.snailjob;
 
+import com.innolux.iws.common.launch.IwsConfigLocationSupport;
+import com.innolux.iws.snailjob.iam.IamJobConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import java.util.List;
 
 /**
  * SnailJob Server 启动程序
@@ -29,7 +33,12 @@ public class SnailJobServerApplication {
      * @param args 启动参数
      */
     public static void main(String[] args) {
-        SpringApplication.run(com.aizuda.snailjob.server.SnailJobServerApplication.class, args);
+        SpringApplication application = new SpringApplication(
+            com.aizuda.snailjob.server.SnailJobServerApplication.class
+        );
+        application.addPrimarySources(List.of(IamJobConfiguration.class));
+        IwsConfigLocationSupport.configure(application, SnailJobServerApplication.class, args, "job");
+        application.run(args);
     }
 
 }

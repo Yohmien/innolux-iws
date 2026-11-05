@@ -23,6 +23,24 @@
     <artifactId>iws-snailjob-server</artifactId>
 
     <dependencies>
+        <!-- 运行 JAR 外部配置启动适配 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-launch</artifactId>
+        </dependency>
+
+        <!-- 统一身份中心服务端协议 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-auth</artifactId>
+        </dependency>
+
+        <!-- 原生人员控制器方法级授权切面 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
+        </dependency>
+
         <!-- SnailJob 服务端 -->
         <dependency>
             <groupId>com.aizuda</groupId>
@@ -48,6 +66,17 @@
             <groupId>de.codecentric</groupId>
             <artifactId>spring-boot-admin-starter-client</artifactId>
             <version>${spring-boot-admin.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

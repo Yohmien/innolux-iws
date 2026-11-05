@@ -18,16 +18,32 @@ spring:
 logging:
   config: classpath:logback-plus.xml
 
+iam:
+  client:
+    public-base-url: ${IAM_PUBLIC_BASE_URL:http://127.0.0.1:18081/iam}
+    center-base-url: ${IAM_CENTER_BASE_URL:http://127.0.0.1:18081}
+    application-id: ${IAM_APPLICATION_ID:admin-monitor}
+    application-type: ${IAM_APPLICATION_TYPE:ADMIN_MONITOR}
+    frontend-id: ${IAM_FRONTEND_ID:monitor-main}
+    instance-id: ${IAM_INSTANCE_ID:admin-monitor-1}
+    client-secret: ${IAM_APPLICATION_SECRET:}
+    connect-timeout-ms: ${IAM_CONNECT_TIMEOUT_MS:2000}
+    response-timeout-ms: ${IAM_RESPONSE_TIMEOUT_MS:5000}
+    validation-interval-seconds: ${IAM_VALIDATION_INTERVAL_SECONDS:15}
+    validation-lease-seconds: ${IAM_VALIDATION_LEASE_SECONDS:30}
+
 --- # 监控中心服务端配置
 spring:
   security:
     user:
-      name: innolux
-      password: admin@innolux.com
+      name: ${SPRING_SECURITY_USER_NAME:}
+      password: ${SPRING_SECURITY_USER_PASSWORD:}
   boot:
     admin:
       ui:
         title: IWS+服务监控中心
+        favicon: assets/img/iws-auth-icon-transparent-20261104.png
+        favicon-danger: assets/img/iws-auth-icon-transparent-20261104.png
       context-path: /admin
   # 忽略无用警告
   thymeleaf:
@@ -56,5 +72,5 @@ spring.boot.admin.client:
     metadata:
       username: ${spring.boot.admin.client.username}
       userpassword: ${spring.boot.admin.client.password}
-  username: innolux
-  password: admin@innolux.com
+  username: ${SPRING_BOOT_ADMIN_CLIENT_USERNAME:}
+  password: ${SPRING_BOOT_ADMIN_CLIENT_PASSWORD:}
