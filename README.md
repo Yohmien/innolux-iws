@@ -82,11 +82,13 @@ admin 监控中心、SnailJob 控制台、SnailAI 控制台与主服务登录统
 | Web | 将 `VITE_BACKEND_HOST` 改为后端机器 IP | [Web `.env.development`](../ui/innolux-iws-web/.env.development)：34 行（`VITE_BACKEND_HOST`） |
 | PDA | 将 `VITE_BACKEND_HOST` 改为后端机器 IP | [PDA `.env.development`](../ui/innolux-iws-pda-plus/.env.development)：3 行（`VITE_BACKEND_HOST`） |
 | 认证中心 Web | 将公开基址、启动、回调、退出地址改为真实前端地址 | [application.yml](iws-extend/iws-auth-server/src/main/resources/application.yml)：127 行（`public-base-url` / `IAM_WEB_MAIN_PUBLIC_BASE_URL`）、128 行（`launch-uri` / `IAM_WEB_MAIN_LAUNCH_URI`）、129 行（`redirect-uri` / `IAM_WEB_MAIN_REDIRECT_URI`）、130 行（`logout-uri` / `IAM_WEB_MAIN_LOGOUT_URI`） |
-| 认证中心 PDA | 前后端分机时改为 PDA 前端统一访问地址，不是每台设备 IP | [application.yml](iws-extend/iws-auth-server/src/main/resources/application.yml)：131 行（`iam.frontends.pda-main`）、134 行（`public-base-url` / `IAM_PDA_PUBLIC_BASE_URL`）、135 行（`launch-uri` / `IAM_PDA_LAUNCH_URI`）、136 行（`redirect-uri` / `IAM_PDA_REDIRECT_URI`）、137 行（`logout-uri` / `IAM_PDA_LOGOUT_URI`） |
+| 认证中心 PDA | H5 使用共享前端地址；纯 APK 使用 `iws-pda://` 回调；都不是每台设备 IP | [application.yml](iws-extend/iws-auth-server/src/main/resources/application.yml)：131 行（`iam.frontends.pda-main`）、134 行（`public-base-url` / `IAM_PDA_PUBLIC_BASE_URL`）、135 行（`launch-uri` / `IAM_PDA_LAUNCH_URI`）、136 行（`redirect-uri` / `IAM_PDA_REDIRECT_URI`）、137 行（`logout-uri` / `IAM_PDA_LOGOUT_URI`） |
 | MySQL | 按实际部署覆盖环境变量 | [主服务 application-dev.yml](iws-admin/src/main/resources/application-dev.yml)：121 行（`spring.datasource.dynamic.datasource.master.url` / `IWS_DB_URL`）；[认证中心 application-dev.yml](iws-extend/iws-auth-server/src/main/resources/application-dev.yml)：20 行（同字段）；[SnailJob application-dev.yml](iws-extend/iws-snailjob-server/src/main/resources/application-dev.yml)：14 行（`spring.datasource.url` / `IWS_DB_URL`）；[SnailAI application-dev.yml](iws-extend/iws-snailai-server/src/main/resources/application-dev.yml)：14 行（同字段） |
 | Redis | 按实际部署覆盖环境变量 | [主服务 application-dev.yml](iws-admin/src/main/resources/application-dev.yml)：177 行（`spring.data.redis.host`）；[认证中心 application-dev.yml](iws-extend/iws-auth-server/src/main/resources/application-dev.yml)：40 行（`spring.data.redis.host` / `IWS_REDIS_HOST`） |
 | MinIO | 按实际部署覆盖环境变量 | [SnailAI application.yml](iws-extend/iws-snailai-server/src/main/resources/application.yml)：55 行（`snail-ai.resource.minio.endpoint` / `MINIO_ENDPOINT`） |
 | 启动项 | 依次启动认证中心、主服务和前端 | `.run/IWS_Auth_Server.run.xml`：13 行（`configuration.name=IWS Auth Server`）；`.run/IWS_Main_Service.run.xml`：2 行（`configuration.name=IWS+ Main Service`） |
+
+纯 APK 没有独立 H5 入口时，外部浏览器登录后的回调不能使用 `http://127.0.0.1:9022/...`。APK 已注册 `iws-pda` scheme，`IAM_PDA_REDIRECT_URI` 应使用 `iws-pda://` 深链返回应用；当前认证中心仍要求 `public-base-url` 为 HTTP(S)，若现场没有可访问的 PDA Web 地址，需要调整该配置模型，不能只修改回调地址解决。
 
 ## 本机开发账号与数据源
 
