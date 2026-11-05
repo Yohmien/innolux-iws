@@ -53,6 +53,7 @@ import java.util.Set;
 @EnableTransactionManagement(proxyTargetClass = true)
 @MapperScan("com.innolux.iws.wms.mapper")
 @Import({
+    com.innolux.iws.wms.support.WmsTestIdentityFactsConfiguration.class,
     SpringUtils.class,
     WmsCompanyServiceImpl.class,
     WmsSupplierServiceImpl.class,

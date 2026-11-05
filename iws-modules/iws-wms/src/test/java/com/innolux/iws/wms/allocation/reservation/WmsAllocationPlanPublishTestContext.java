@@ -66,6 +66,7 @@ import com.innolux.iws.wms.logical.merge.process.WmsLogicalMergeBatchStateValida
 import com.innolux.iws.wms.logical.merge.process.WmsLogicalMergeCloseStateValidator;
 import com.innolux.iws.wms.logical.merge.process.WmsLogicalMergePlanContract;
 import com.innolux.iws.wms.process.WmsFrozenActionInputReader;
+import com.innolux.iws.common.auth.identity.IamIdentityFacts;
 import com.innolux.iws.wms.rule.process.WmsRuleActivateAction;
 import com.innolux.iws.wms.rule.process.WmsRulePublishStateValidator;
 import com.innolux.iws.wms.rule.process.WmsRuleValidateAction;
@@ -101,6 +102,7 @@ import static org.mockito.Mockito.when;
     "com.innolux.iws.wms.catalog.mapper"
 })
 @Import({
+    com.innolux.iws.wms.support.WmsTestIdentityFactsConfiguration.class,
     PlanDefinitionServiceImpl.class,
     PlanInstanceServiceImpl.class,
     SupervisorRuntimeService.class,
@@ -271,7 +273,7 @@ class WmsAllocationPlanPublishTestContext {
             true
         ));
         WmsFrozenActionInputReader inputReader =
-            new WmsFrozenActionInputReader(jdbcTemplate);
+            new WmsFrozenActionInputReader(jdbcTemplate, mock(IamIdentityFacts.class));
         return new CapabilityRegistry(
             List.of(eventTypeProvider),
             List.of(),

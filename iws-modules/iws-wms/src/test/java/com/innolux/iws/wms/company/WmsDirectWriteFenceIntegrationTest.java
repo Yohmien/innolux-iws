@@ -113,6 +113,7 @@ class WmsDirectWriteFenceIntegrationTest {
         jdbcTemplate.update(
             "insert into sys_role (role_id, role_name, status, del_flag) values (100, 'role-100', '0', '0')"
         );
+        com.innolux.iws.wms.support.WmsIdentityTestFixture.restoreSuperAdmin(jdbcTemplate);
         reRegisterDirectWrite();
         WmsCompanyTestAuth.loginAsAdmin();
     }

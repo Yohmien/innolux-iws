@@ -61,6 +61,7 @@ import com.innolux.iws.wms.allocation.process.WmsInventoryProcessConfiguration;
 import com.innolux.iws.wms.catalog.WmsInventoryPlanMountGate;
 import com.innolux.iws.wms.catalog.service.WmsInventoryCatalogServiceImpl;
 import com.innolux.iws.wms.process.WmsFrozenActionInputReader;
+import com.innolux.iws.common.auth.identity.IamIdentityFacts;
 import com.innolux.iws.wms.process.WmsProcessAccessPolicy;
 import com.innolux.iws.wms.process.WmsProcessMountGate;
 import com.innolux.iws.wms.rule.binding.StorageRuleAttributeSourceProvider;
@@ -121,6 +122,7 @@ import static org.mockito.Mockito.when;
     "com.innolux.iws.wms.rule.mapper"
 })
 @Import({
+    com.innolux.iws.wms.support.WmsTestIdentityFactsConfiguration.class,
     SpringUtils.class,
     PlanDefinitionServiceImpl.class,
     PlanInstanceServiceImpl.class,
@@ -341,7 +343,7 @@ class WmsSpacePlanTestContext {
         JsonMapper jsonMapper
     ) {
         WmsFrozenActionInputReader inputReader =
-            new WmsFrozenActionInputReader(jdbcTemplate);
+            new WmsFrozenActionInputReader(jdbcTemplate, mock(IamIdentityFacts.class));
         SupervisorCandidateSelector selector = new SupervisorCandidateSelector(
             instanceMapper, controlMapper, definitionMapper, scheduleMapper);
         return new CapabilityRegistry(

@@ -14,11 +14,14 @@ package com.innolux.iws.wms.rule;
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
+import com.baomidou.dynamic.datasource.DynamicRoutingDataSource;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.spring.MybatisSqlSessionFactoryBean;
+import com.innolux.iws.common.auth.identity.IamIdentityFacts;
 import com.innolux.iws.common.core.utils.SpringUtils;
 import com.innolux.iws.common.mybatis.handler.InjectionMetaObjectHandler;
+import com.innolux.iws.system.service.JdbcIamIdentityFactReader;
 import com.innolux.iws.wms.rule.binding.RuleAttributeSourceProvider;
 import com.innolux.iws.wms.rule.binding.RuleAttributeSourceRegistry;
 import com.innolux.iws.wms.rule.binding.RulePurposeSelection;
@@ -39,6 +42,7 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -73,14 +77,31 @@ import java.util.Set;
 })
 class WmsRuleTestContext {
 
-    @Bean
-    DataSource dataSource() {
+    @Bean("testPhysicalDataSource")
+    DataSource testPhysicalDataSource() {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
         dataSource.setUrl(WmsRuleTestDatabase.jdbcUrl());
         dataSource.setUsername(WmsRuleTestDatabase.username());
         dataSource.setPassword(WmsRuleTestDatabase.password());
         return dataSource;
+    }
+
+    @Bean
+    @Primary
+    DynamicRoutingDataSource dataSource(DataSource testPhysicalDataSource) {
+        DynamicRoutingDataSource routing = new DynamicRoutingDataSource(List.of());
+        routing.addDataSource("master", testPhysicalDataSource);
+        routing.addDataSource("identity", testPhysicalDataSource);
+        routing.setPrimary("master");
+        routing.setStrict(true);
+        routing.afterPropertiesSet();
+        return routing;
+    }
+
+    @Bean
+    IamIdentityFacts iamIdentityFacts(DynamicRoutingDataSource dataSource) {
+        return new JdbcIamIdentityFactReader(dataSource);
     }
 
     @Bean

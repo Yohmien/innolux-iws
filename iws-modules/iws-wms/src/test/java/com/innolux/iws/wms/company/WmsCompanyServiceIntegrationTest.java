@@ -115,6 +115,7 @@ class WmsCompanyServiceIntegrationTest {
                 "role-" + roleId
             );
         }
+        com.innolux.iws.wms.support.WmsIdentityTestFixture.restoreSuperAdmin(jdbcTemplate);
         WmsCompanyTestAuth.loginAsAdmin();
     }
 

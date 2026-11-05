@@ -12,8 +12,11 @@
 package com.innolux.iws.wms.company;
 
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.core.Ordered;
 import org.springframework.transaction.TransactionSystemException;
 import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.sql.DataSource;
 import java.io.PrintWriter;
@@ -69,9 +72,12 @@ final class WmsCompanyTestInfrastructure {
         }
 
         /**
-         * 在“提交成功但响应丢失”故障抛出前执行一次动作，用于制造提交后的并发撤权。
+         * 在“提交成功但响应丢失”异常传播前、事务完成钩子中执行一次动作。
          *
-         * @param action 提交后动作
+         * <p>权威身份锁在完成阶段先释放，动作随后执行；这样恢复读取看到的是
+         * 已提交数据与已生效撤权，同时保留原始 COMMIT_THEN_THROW 语义。</p>
+         *
+         * @param action 提交完成后动作
          */
         void runAfterNextCommitThenThrow(Runnable action) {
             afterCommitThenThrow.set(action);
@@ -98,9 +104,21 @@ final class WmsCompanyTestInfrastructure {
             if (mode == CommitFault.COMMIT_THEN_THROW) {
                 super.doCommit(status);
                 Runnable action = afterCommitThenThrow.getAndSet(null);
-                if (action != null) {
-                    action.run();
-                }
+                TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public int getOrder() {
+                            return Ordered.LOWEST_PRECEDENCE;
+                        }
+
+                        @Override
+                        public void afterCompletion(int transactionStatus) {
+                            if (action != null) {
+                                action.run();
+                            }
+                        }
+                    }
+                );
                 throw new TransactionSystemException("模拟提交成功但响应丢失");
             }
             if (mode == CommitFault.ROLLBACK_THEN_THROW) {

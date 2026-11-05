@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS wms_command_attempt (
 CREATE TABLE IF NOT EXISTS sys_role (
     role_id   bigint      NOT NULL COMMENT '角色主键',
     role_name varchar(64) NOT NULL COMMENT '角色名称',
+    role_key  varchar(64) DEFAULT NULL COMMENT '角色权限字符串',
     status    char(1)     NOT NULL DEFAULT '0' COMMENT '状态：0正常',
     del_flag  char(1)     NOT NULL DEFAULT '0' COMMENT '删除标记：0存在',
     PRIMARY KEY (role_id)

@@ -1,13 +1,14 @@
 package com.innolux.iws.wms.support.company;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.innolux.iws.common.auth.identity.IamIdentityFacts;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.wms.domain.WmsCompanyManagementGrant;
 import com.innolux.iws.wms.domain.WmsCompanyManagementScope;
 import com.innolux.iws.wms.mapper.WmsCompanyManagementGrantMapper;
 import com.innolux.iws.wms.mapper.WmsCompanyManagementScopeMapper;
 import com.innolux.iws.wms.mapper.WmsCompanyMapper;
-import com.innolux.iws.wms.mapper.WmsCompanyRoleMapper;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -18,6 +19,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@Tag("local")
 class WmsCompanyAccessPolicyTest {
 
     private static final long USER_ID = 42L;
@@ -46,22 +48,22 @@ class WmsCompanyAccessPolicyTest {
     private static Fixture fixture(boolean activeGrant) {
         WmsCompanyManagementScopeMapper scopes = mock(WmsCompanyManagementScopeMapper.class);
         WmsCompanyManagementGrantMapper grants = mock(WmsCompanyManagementGrantMapper.class);
-        WmsCompanyRoleMapper roles = mock(WmsCompanyRoleMapper.class);
+        IamIdentityFacts identityFacts = mock(IamIdentityFacts.class);
         WmsCompanyMapper companies = mock(WmsCompanyMapper.class);
 
         WmsCompanyManagementScope scope = new WmsCompanyManagementScope();
         scope.setCompanyId(COMPANY_ID);
         when(scopes.selectByIdForShare(COMPANY_ID)).thenReturn(scope);
-        when(roles.selectSuperAdminForShare(USER_ID)).thenReturn(null);
-        when(roles.selectCurrentUserPermissionForShare(
-            any(), any())).thenReturn(null);
-        when(roles.selectCurrentRoleIdsForShare(USER_ID)).thenReturn(List.of(11L));
+        when(identityFacts.superAdminForShare(USER_ID)).thenReturn(false);
+        when(identityFacts.currentPermissionForShare(
+            any(), any())).thenReturn(false);
+        when(identityFacts.currentRoleIdsForShare(USER_ID)).thenReturn(List.of(11L));
         when(grants.selectList(any(Wrapper.class))).thenReturn(
             activeGrant
                 ? List.of(new WmsCompanyManagementGrant())
                 : List.of()
         );
-        return new Fixture(new WmsCompanyAccessPolicy(scopes, grants, roles, companies));
+        return new Fixture(new WmsCompanyAccessPolicy(scopes, grants, identityFacts, companies));
     }
 
     private record Fixture(WmsCompanyAccessPolicy policy) {

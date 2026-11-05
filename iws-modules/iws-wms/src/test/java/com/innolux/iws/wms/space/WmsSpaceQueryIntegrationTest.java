@@ -99,6 +99,7 @@ class WmsSpaceQueryIntegrationTest {
         jdbcTemplate.update("delete from wms_company");
         insertRole(ROLE_VIEWER);
         insertRole(ROLE_SECOND);
+        com.innolux.iws.wms.support.WmsIdentityTestFixture.restoreSuperAdmin(jdbcTemplate);
     }
 
     @AfterEach

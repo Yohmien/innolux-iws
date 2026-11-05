@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS wms_storage (
 CREATE TABLE IF NOT EXISTS sys_role (
     role_id   bigint      NOT NULL,
     role_name varchar(64) NOT NULL,
+    role_key  varchar(64) DEFAULT NULL,
     status    char(1)     NOT NULL DEFAULT '0',
     del_flag  char(1)     NOT NULL DEFAULT '0',
     PRIMARY KEY (role_id)

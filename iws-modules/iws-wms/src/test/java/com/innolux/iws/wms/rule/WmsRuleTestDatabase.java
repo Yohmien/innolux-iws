@@ -48,6 +48,7 @@ final class WmsRuleTestDatabase {
         CREATE TABLE IF NOT EXISTS sys_role (
             role_id bigint NOT NULL,
             role_name varchar(64) NOT NULL,
+            role_key varchar(64) NULL,
             status char(1) NOT NULL DEFAULT '0',
             del_flag char(1) NOT NULL DEFAULT '0',
             PRIMARY KEY (role_id)
@@ -71,6 +72,12 @@ final class WmsRuleTestDatabase {
             role_id bigint NOT NULL,
             menu_id bigint NOT NULL,
             PRIMARY KEY (role_id, menu_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+        CREATE TABLE IF NOT EXISTS sys_role_dept (
+            role_id bigint NOT NULL,
+            dept_id bigint NOT NULL,
+            PRIMARY KEY (role_id, dept_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
         """;
 

@@ -11,6 +11,7 @@
 
 package com.innolux.iws.wms.rule;
 
+import com.innolux.iws.common.core.constant.SystemConstants;
 import com.innolux.iws.common.json.utils.JsonUtils;
 import com.innolux.iws.wms.rule.domain.command.WmsRuleDefinitionCreateCommand;
 import com.innolux.iws.wms.rule.domain.command.WmsRuleDraftEditCommand;
@@ -277,6 +278,16 @@ abstract class WmsRuleTestSupport {
     }
 
     private void seedScopeFixture() {
+        jdbcTemplate.update(
+            "insert into sys_role (role_id, role_name, role_key, status, del_flag) "
+                + "values (?, 'superadmin', 'superadmin', '0', '0')",
+            SystemConstants.SUPER_ADMIN_USER_ID
+        );
+        jdbcTemplate.update(
+            "insert into sys_user_role (user_id, role_id) values (?, ?)",
+            SystemConstants.SUPER_ADMIN_USER_ID,
+            SystemConstants.SUPER_ADMIN_USER_ID
+        );
         jdbcTemplate.update(
             "insert into wms_company "
                 + "(company_id, company_code, company_name, enabled, lifecycle_status, revision) "

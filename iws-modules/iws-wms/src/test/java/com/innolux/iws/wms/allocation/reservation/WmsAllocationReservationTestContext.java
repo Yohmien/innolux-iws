@@ -77,6 +77,7 @@ import static org.mockito.Mockito.mock;
     "com.innolux.iws.wms.material.trace.mapper"
 })
 @Import({
+    com.innolux.iws.wms.support.WmsTestIdentityFactsConfiguration.class,
     WmsAllocationReservationServiceImpl.class,
     WmsAllocationReleaseServiceImpl.class,
     WmsAllocationEffectServiceImpl.class,

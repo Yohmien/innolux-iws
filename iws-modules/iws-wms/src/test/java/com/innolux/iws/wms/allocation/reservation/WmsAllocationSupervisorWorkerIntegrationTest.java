@@ -10,6 +10,7 @@
  */
 package com.innolux.iws.wms.allocation.reservation;
 
+import com.innolux.iws.common.auth.identity.IamIdentityFacts;
 import com.innolux.iws.process.api.AttachResult;
 import com.innolux.iws.process.api.AttachTaskCommand;
 import com.innolux.iws.process.api.EventBatchResult;
@@ -1072,7 +1073,8 @@ class WmsAllocationSupervisorWorkerIntegrationTest {
     private CapabilityRegistry registry() {
         WmsAllocationReservationService reservationService = reservationService();
         WmsLoadChangeService loadChangeService = loadChangeService();
-        WmsFrozenActionInputReader inputReader = new WmsFrozenActionInputReader(jdbcTemplate);
+        WmsFrozenActionInputReader inputReader =
+            new WmsFrozenActionInputReader(jdbcTemplate, mock(IamIdentityFacts.class));
         SupervisorCandidateSelector selector = new SupervisorCandidateSelector(
             instanceMapper, controlMapper, definitionMapper, scheduleMapper);
         return new CapabilityRegistry(

@@ -43,6 +43,7 @@ import javax.sql.DataSource;
 @EnableTransactionManagement(proxyTargetClass = true)
 @MapperScan("com.innolux.iws.wms.mapper")
 @Import({
+    com.innolux.iws.wms.support.WmsTestIdentityFactsConfiguration.class,
     WmsSpaceQueryServiceImpl.class,
     WmsSpaceReadinessGuard.class,
     WmsCompanyAccessPolicy.class,
