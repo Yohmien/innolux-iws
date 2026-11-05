@@ -1,0 +1,20 @@
+# @Date         : 2026-11-05
+# @Author       : YONGJIE.PENG
+# @Job          : INNOLUX IWS 标准化重构
+# @Module       : IWS 服务监控
+# @Version      : V1.0
+# @Description  : 本机 IDEA 启动默认值，可通过环境变量覆盖；
+# @ModifyRecord : V1.0 新建；
+iam:
+  client:
+    client-secret: ${IAM_APPLICATION_SECRET:iws-local-dev-client-monitor}
+
+spring:
+  security:
+    user:
+      name: ${SPRING_SECURITY_USER_NAME:iws-monitor}
+      password: ${SPRING_SECURITY_USER_PASSWORD:iws-monitor-local-dev}
+
+spring.boot.admin.client:
+  username: ${SPRING_BOOT_ADMIN_CLIENT_USERNAME:${spring.security.user.name}}
+  password: ${SPRING_BOOT_ADMIN_CLIENT_PASSWORD:${spring.security.user.password}}

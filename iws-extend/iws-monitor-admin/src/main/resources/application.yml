@@ -66,7 +66,7 @@ spring.boot.admin.client:
   # 增加客户端开关
   enabled: true
   # 设置 Spring Boot Admin Server 地址
-  url: http://localhost:18090/admin
+  url: ${MONITOR_URL:http://127.0.0.1:18090/admin}
   instance:
     service-host-type: IP
     metadata:

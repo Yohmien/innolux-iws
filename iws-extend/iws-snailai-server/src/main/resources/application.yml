@@ -39,7 +39,6 @@ iam:
     client-secret: ${IAM_SNAILAI_CLIENT_SECRET:}
     connect-timeout-ms: ${IAM_CONNECT_TIMEOUT_MS:2000}
     response-timeout-ms: ${IAM_RESPONSE_TIMEOUT_MS:5000}
-    accounts: {}
 
 snail-ai:
   server:
@@ -53,10 +52,10 @@ snail-ai:
     storage-type: LOCAL
     upload-dir: ./upload/resource
     minio:
-      endpoint: http://localhost:9000
-      access-key: ${SNAIL_AI_MINIO_ACCESS_KEY:}
-      secret-key: ${SNAIL_AI_MINIO_SECRET_KEY:}
-      bucket: snail-ai
+      endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+      access-key: ${MINIO_ACCESS_KEY:}
+      secret-key: ${MINIO_SECRET_KEY:}
+      bucket: ${SNAIL_AI_MINIO_BUCKET:snail-ai}
   # RAG 文档解析与图片 OCR 配置
   rag:
     docling:
