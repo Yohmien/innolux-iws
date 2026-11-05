@@ -73,7 +73,7 @@ admin 监控中心、SnailJob 控制台、SnailAI 控制台与主服务登录统
 | MySQL | 保持默认值，或按实际服务覆盖 | [主服务 application-dev.yml](iws-admin/src/main/resources/application-dev.yml)：121 行；[认证中心 application-dev.yml](iws-extend/iws-auth-server/src/main/resources/application-dev.yml)：20 行；[SnailJob application-dev.yml](iws-extend/iws-snailjob-server/src/main/resources/application-dev.yml)：14 行；[SnailAI application-dev.yml](iws-extend/iws-snailai-server/src/main/resources/application-dev.yml)：14 行 |
 | Redis | 保持默认值，或按实际服务覆盖 | [主服务 application-dev.yml](iws-admin/src/main/resources/application-dev.yml)：177 行；[认证中心 application-dev.yml](iws-extend/iws-auth-server/src/main/resources/application-dev.yml)：40 行 |
 | MinIO | 按需启动；默认本地地址为 `127.0.0.1:9000` | [SnailAI application.yml](iws-extend/iws-snailai-server/src/main/resources/application.yml)：55 行；[MinIO 操作说明](#minio-对象存储按需) |
-| 启动项 | 依次启动认证中心、主服务和前端 | [IWS Auth Server](.run/IWS_Auth_Server.run.xml)：13 行；[IWS+ Main Service](.run/IWS_Main_Service.run.xml)：2 行 |
+| 启动项 | 依次启动认证中心、主服务和前端 | `.run/IWS_Auth_Server.run.xml`：13 行；`.run/IWS_Main_Service.run.xml`：2 行 |
 
 **前后端分机开发**
 
@@ -86,7 +86,7 @@ admin 监控中心、SnailJob 控制台、SnailAI 控制台与主服务登录统
 | MySQL | 按实际部署覆盖环境变量 | [主服务 application-dev.yml](iws-admin/src/main/resources/application-dev.yml)：121 行；[认证中心 application-dev.yml](iws-extend/iws-auth-server/src/main/resources/application-dev.yml)：20 行；[SnailJob application-dev.yml](iws-extend/iws-snailjob-server/src/main/resources/application-dev.yml)：14 行；[SnailAI application-dev.yml](iws-extend/iws-snailai-server/src/main/resources/application-dev.yml)：14 行 |
 | Redis | 按实际部署覆盖环境变量 | [主服务 application-dev.yml](iws-admin/src/main/resources/application-dev.yml)：177 行；[认证中心 application-dev.yml](iws-extend/iws-auth-server/src/main/resources/application-dev.yml)：40 行 |
 | MinIO | 按实际部署覆盖环境变量 | [SnailAI application.yml](iws-extend/iws-snailai-server/src/main/resources/application.yml)：55 行 |
-| 启动项 | 依次启动认证中心、主服务和前端 | [IWS Auth Server](.run/IWS_Auth_Server.run.xml)：13 行；[IWS+ Main Service](.run/IWS_Main_Service.run.xml)：2 行 |
+| 启动项 | 依次启动认证中心、主服务和前端 | `.run/IWS_Auth_Server.run.xml`：13 行；`.run/IWS_Main_Service.run.xml`：2 行 |
 
 ## 本机开发账号与数据源
 
@@ -249,7 +249,7 @@ JSON、lockfile、二进制资源等不支持注释或不适合写头的文件�
 
 IWS-B 复用同一个 `iws-admin` 制品，不新增或复制 Maven 模块。按以下步骤增加实例：
 
-1. 将 [IWS-B 外部配置模板](script/config/iam/iws-b/application.yml) 复制到运行目录的 `config/iws-b/application.yml`，填写主业务库、身份库、Redis、JWT 密钥、认证中心地址和 `IAM_APPLICATION_SECRET`。模板默认端口为 `18084`，Redis 前缀为 `innolux-iws-b`。
+1. 将 `script/config/iam/iws-b/application.yml` 复制到运行目录的 `config/iws-b/application.yml`，填写主业务库、身份库、Redis、JWT 密钥、认证中心地址和 `IAM_APPLICATION_SECRET`。模板默认端口为 `18084`，Redis 前缀为 `innolux-iws-b`。
 2. 在认证中心打开 [application.yml](iws-extend/iws-auth-server/src/main/resources/application.yml)：173-185 行，将 `IAM_IWS_B_ENABLED` 设为 `true`，并确保 `IAM_IWS_B_CLIENT_SECRET`、会话命名空间和实例 ID 与 IWS-B 配置一致。
 3. 使用现有构建命令生成同一个 JAR：`.\mvnw.cmd -pl iws-admin -am package -DskipTests`。
 4. 在可执行 JAR 所在目录准备好 `config/iws-b/application.yml` 后启动：
@@ -264,7 +264,7 @@ java -jar C:\release\iws-admin.jar --iws.config.key=iws-b --server.port=18084 --
 --spring.config.additional-location=file:C:/release/config/iws-b/ --spring.profiles.active=dev --server.port=18084
 ```
 
-Web 与 PDA 已分别配置 `/iws-b-api` 代理，不需要为 IWS-B 复制或重新编译前端；认证中心启用 IWS-B 后，同一 Web/PDA 构建可在登录时选择 `IWS+ B`。完整的外部配置装配规则见 [分服务配置说明](script/config/iam/README.md)。
+Web 与 PDA 已分别配置 `/iws-b-api` 代理，不需要为 IWS-B 复制或重新编译前端；认证中心启用 IWS-B 后，同一 Web/PDA 构建可在登录时选择 `IWS+ B`。完整的外部配置装配规则见 `script/config/iam/README.md`。
 
 ## MinIO 对象存储（按需）
 
