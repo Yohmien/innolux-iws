@@ -41,7 +41,18 @@ public class IamConfigurationValidator implements InitializingBean {
             throw new IllegalStateException("认证中心 sa-token.jwt-secret-key 未配置");
         }
         properties.getFrontends().forEach((frontendId, frontend) -> {
-            if (frontend.isEnabled() && !isPublicApiBaseUrl(frontend.getPublicBaseUrl())) {
+            if (!frontend.isEnabled()) {
+                return;
+            }
+            if ("APP".equals(frontend.getClientMode())) {
+                if (frontend.getPublicBaseUrl() != null && !frontend.getPublicBaseUrl().isBlank()) {
+                    throw new IllegalStateException(
+                        "认证中心 APP 前端不需要公开基址: frontendId=" + frontendId
+                    );
+                }
+                return;
+            }
+            if (!isPublicApiBaseUrl(frontend.getPublicBaseUrl())) {
                 throw new IllegalStateException(
                     "认证中心前端公开基址无效: frontendId=" + frontendId
                 );

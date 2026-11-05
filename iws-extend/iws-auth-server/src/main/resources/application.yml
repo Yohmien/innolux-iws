@@ -131,10 +131,11 @@ iam:
     pda-main:
       enabled: true
       terminal: PDA
-      public-base-url: ${IAM_PDA_PUBLIC_BASE_URL:http://127.0.0.1:9022}
-      launch-uri: ${IAM_PDA_LAUNCH_URI:http://127.0.0.1:9022/#/pages/work/index}
-      redirect-uri: ${IAM_PDA_REDIRECT_URI:http://127.0.0.1:9022/#/pages/sso/callback}
-      logout-uri: ${IAM_PDA_LOGOUT_URI:http://127.0.0.1:9022/#/pages/login}
+      client-mode: ${IAM_PDA_CLIENT_MODE:APP}
+      public-base-url: ${IAM_PDA_PUBLIC_BASE_URL:}
+      launch-uri: ${IAM_PDA_LAUNCH_URI:iws-pda://pages/work/index}
+      redirect-uri: ${IAM_PDA_REDIRECT_URI:iws-pda://sso/callback}
+      logout-uri: ${IAM_PDA_LOGOUT_URI:iws-pda://pages/login}
     job-main:
       enabled: true
       terminal: WEB
