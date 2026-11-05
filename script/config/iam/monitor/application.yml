@@ -1,0 +1,26 @@
+server:
+  port: ${SERVER_PORT:18090}
+
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+  security:
+    user:
+      name: ${SPRING_SECURITY_USER_NAME:}
+      password: ${SPRING_SECURITY_USER_PASSWORD:}
+  boot:
+    admin:
+      client:
+        enabled: ${SPRING_BOOT_ADMIN_CLIENT_ENABLED:false}
+
+iam:
+  client:
+    public-base-url: ${IAM_PUBLIC_BASE_URL:http://127.0.0.1:18081/iam}
+    center-base-url: ${IAM_CENTER_BASE_URL:http://127.0.0.1:18081}
+    application-id: ${IAM_APPLICATION_ID:admin-monitor}
+    application-type: ${IAM_APPLICATION_TYPE:ADMIN_MONITOR}
+    frontend-id: ${IAM_FRONTEND_ID:monitor-main}
+    instance-id: ${IAM_INSTANCE_ID:admin-monitor-1}
+    client-secret: ${IAM_APPLICATION_SECRET:}
+    connect-timeout-ms: ${IAM_CONNECT_TIMEOUT_MS:2000}
+    response-timeout-ms: ${IAM_RESPONSE_TIMEOUT_MS:5000}

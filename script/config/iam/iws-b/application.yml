@@ -1,0 +1,49 @@
+server:
+  port: ${SERVER_PORT:18084}
+
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+  datasource:
+    dynamic:
+      datasource:
+        master:
+          url: ${SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_URL:}
+          username: ${SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_USERNAME:}
+          password: ${SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_PASSWORD:}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:127.0.0.1}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      database: ${SPRING_DATA_REDIS_DATABASE:0}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+
+redisson:
+  keyPrefix: ${IWS_REDIS_KEY_PREFIX:innolux-iws-b}
+
+sa-token:
+  jwt-secret-key: ${SA_TOKEN_JWT_SECRET_KEY:}
+
+iam:
+  client:
+    public-base-url: ${IAM_PUBLIC_BASE_URL:http://127.0.0.1:18081/iam}
+    center-base-url: ${IAM_CENTER_BASE_URL:http://127.0.0.1:18081}
+    application-id: ${IAM_APPLICATION_ID:iws-b}
+    application-type: IWS
+    instance-id: ${IAM_INSTANCE_ID:iws-b-1}
+    client-secret: ${IAM_APPLICATION_SECRET:}
+    access-permission: ${IAM_APPLICATION_ACCESS_PERMISSION:iam:app:iws:b}
+    session-namespace: ${IAM_SESSION_NAMESPACE:innolux-iws-b}
+    allowed-login-client-ids:
+      - ${IWS_LOGIN_CLIENT_ID:}
+    connect-timeout-ms: ${IAM_CONNECT_TIMEOUT_MS:2000}
+    response-timeout-ms: ${IAM_RESPONSE_TIMEOUT_MS:5000}
+
+snail-job:
+  enabled: ${SNAIL_JOB_ENABLED:false}
+
+snail-ai:
+  enabled: ${SNAIL_AI_ENABLED:false}
+
+spring.boot.admin.client:
+  enabled: ${SPRING_BOOT_ADMIN_CLIENT_ENABLED:false}

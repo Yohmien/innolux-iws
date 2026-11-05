@@ -1,0 +1,30 @@
+server:
+  port: ${SERVER_PORT:18089}
+
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+  boot:
+    admin:
+      client:
+        enabled: ${SPRING_BOOT_ADMIN_CLIENT_ENABLED:false}
+        url: ${SPRING_BOOT_ADMIN_CLIENT_URL:http://127.0.0.1:18090/admin}
+        username: ${SPRING_BOOT_ADMIN_CLIENT_USERNAME:}
+        password: ${SPRING_BOOT_ADMIN_CLIENT_PASSWORD:}
+
+snail-ai:
+  crypto:
+    secret-key: ${SNAIL_AI_CRYPTO_KEY:}
+  server:
+    grpc-port: ${SNAIL_AI_GRPC_PORT:18189}
+  resource:
+    storage-type: ${SNAIL_AI_STORAGE_TYPE:LOCAL}
+    minio:
+      endpoint: ${SNAIL_AI_MINIO_ENDPOINT:http://127.0.0.1:9000}
+      access-key: ${SNAIL_AI_MINIO_ACCESS_KEY:}
+      secret-key: ${SNAIL_AI_MINIO_SECRET_KEY:}
+      bucket: ${SNAIL_AI_MINIO_BUCKET:snail-ai}
