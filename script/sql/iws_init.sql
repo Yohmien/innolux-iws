@@ -261,6 +261,9 @@ insert into sys_menu values(1761400000000000118, '文件管理', 176140000000000
 insert into sys_menu values(1761400000000000120, '任务调度中心', 1761400000000000002, 6, 'snailjob', 'monitor/snailjob/index', '', 'N', 'Y', 'C', '0', '0', 'monitor:snailjob:list', 'job', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'SnailJob控制台菜单');
 -- snail-ai server控制台
 insert into sys_menu values(1761400000000000121, 'AI控制台', 1761400000000000002, 7, 'snailai', 'monitor/snailai/index', '', 'N', 'Y', 'C', '0', '0', 'monitor:snailai:list', 'checkbox', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'AI控制台菜单');
+insert into sys_menu values(1761400000000190001, 'IWS A 接入', 1761400000000000001, 90, '', '', '', 'N', 'Y', 'F', '1', '0', 'iam:app:iws:a', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '统一身份多 IWS 接入权限');
+insert into sys_menu values(1761400000000190002, 'IWS B 接入', 1761400000000000001, 91, '', '', '', 'N', 'Y', 'F', '1', '0', 'iam:app:iws:b', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '统一身份多 IWS 接入权限');
+insert into sys_menu values(1761400000000190003, 'PDA 接入', 1761400000000000001, 92, '', '', '', 'N', 'Y', 'F', '1', '0', 'iam:app:pda', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '统一身份 PDA 接入权限');
 
 -- IWS+标准业务菜单
 insert into sys_menu values(1761400000000020001, '基础数据', 0, 10, 'iws-base', null, '', 'N', 'Y', 'M', '0', '0', '', 'table', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'IWS+基础数据目录');

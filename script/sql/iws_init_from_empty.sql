@@ -31,7 +31,7 @@
 --   6. APK 发布记录表（1 张表）与系统管理菜单（5 行）
 --   7. 在库管理公司最小闭环菜单（7 行）、空间页面菜单（6 行）与业务目录页面（1 行，复用既有根）
 -- 共 181 张表，其中 WMS 77 张。
--- 菜单种子共 256 行。
+-- 菜单种子共 259 行。
 --
 -- 种子只保留系统运行所需的默认模板配置：部门/岗位/角色/菜单/字典/参数、
 -- 默认管理员、SnailJob 初始管理员与默认组、默认客户端、OSS 模板、流程分类和流程表达式、
@@ -4291,6 +4291,9 @@ INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000118,'文件管理',1761400000000000001,10,'oss','system/oss/index','','N','Y','C','0','0','system:oss:list','upload','','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'文件管理菜单');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000120,'任务调度中心',1761400000000000002,6,'snailjob','monitor/snailjob/index','','N','Y','C','0','0','monitor:snailjob:list','job','','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'SnailJob控制台菜单');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000121,'AI控制台',1761400000000000002,7,'snailai','monitor/snailai/index','','N','Y','C','0','0','monitor:snailai:list','checkbox','','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'AI控制台菜单');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000190001,'IWS A 接入',1761400000000000001,90,'','','','N','Y','F','1','0','iam:app:iws:a','#','','',1761000000000000103,1761100000000000001,'2026-11-03 00:00:00',NULL,NULL,'统一身份多 IWS 接入权限');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000190002,'IWS B 接入',1761400000000000001,91,'','','','N','Y','F','1','0','iam:app:iws:b','#','','',1761000000000000103,1761100000000000001,'2026-11-03 00:00:00',NULL,NULL,'统一身份多 IWS 接入权限');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000190003,'PDA 接入',1761400000000000001,92,'','','','N','Y','F','1','0','iam:app:pda','#','','',1761000000000000103,1761100000000000001,'2026-11-03 00:00:00',NULL,NULL,'统一身份 PDA 接入权限');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000123,'客户端管理',1761400000000000001,11,'client','system/client/index','','N','Y','C','0','0','system:client:list','international','','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'客户端管理菜单');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000130,'分配用户',1761400000000000001,2,'role-auth/user/:roleId','system/role/authUser','','N','N','C','1','0','system:role:edit','#','/system/role','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000131,'分配角色',1761400000000000001,1,'user-auth/role/:userId','system/user/authRole','','N','N','C','1','0','system:user:edit','#','/system/user','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'');
@@ -8020,7 +8023,7 @@ SET @init_final_ok = (
     @init_preflight_ok = 1
     AND @init_final_table_count = 181
     AND @init_final_wms_table_count = 77
-    AND @init_final_menu_count = 256
+    AND @init_final_menu_count = 259
     AND @init_final_event_menu_count = 53
     AND @init_final_role_menu_count = 133
     AND @init_final_space_root_ok = 1
