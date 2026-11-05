@@ -1,1 +1,0 @@
-import{t as e}from"./useDialogState-DEeCheuD.js";function t(t){let{form:n,formRef:r,initialFormData:i,initialTitle:a}=t,{dialog:o,openDialog:s,closeDialog:c,setTitle:l}=e(a),u=()=>{n.value={...i},r?.value?.resetFields(),r?.value?.clearValidate?.()};return{dialog:o,resetForm:u,openDialog:e=>{u(),s(e)},showDialog:e=>{s(e)},closeDialog:()=>{c()},setTitle:l}}export{t};

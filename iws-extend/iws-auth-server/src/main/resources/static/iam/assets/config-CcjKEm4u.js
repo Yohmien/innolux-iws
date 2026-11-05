@@ -1,0 +1,1 @@
+import{Hi as e,a as t}from"./request-DG81-z0O.js";var n=e({getConfigKey:()=>r});function r(e){return t({url:`/system/config/configKey/`+e,method:`get`})}export{r as n,n as t};

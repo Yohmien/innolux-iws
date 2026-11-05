@@ -5,16 +5,19 @@
  * @Job          : INNOLUX IWS 标准化重构
  * @Module       : APK 应用版本管理
  * @Version      : V1.0
- * @Description  : APK 发布记录表及系统管理菜单升级；目标 MySQL 8.0，可重复执行并核验既有定义；
+ * @Description  : 认证中心 APK 发布记录表及管理菜单初始化/升级；目标 MySQL 8.0，可重复执行并核验既有定义；
  * @ModifyRecord : V1.0 新建；
+ *                 V1.1 2026-11-05 明确仅由统一身份认证中心执行，并支持执行器覆盖目标库；
  */
 
--- 目标：MySQL 8.0；单一目标库参数见下一行。
+-- 目标：MySQL 8.0；该脚本只属于统一身份认证中心，不得在 IWS-A/IWS-B 业务库执行。
 -- 执行：mysql --database=innolux-iws --default-character-set=utf8mb4 --batch --raw < iws_apk_management.sql
+-- 目标库由 --database 选择；需要显式传入非默认库时，可增加
+-- --init-command="SET @apk_schema_input='目标库'"。
 -- 同一连接顺序执行，不添加 --force。预检或验收失败会触发 SQL 错误，后续写入同时受门控。
--- 本脚本只创建 sys_apk_release 和独立菜单，不写业务、endpoint/environment 或角色授权。
+-- 本脚本只创建 sys_apk_release 和中心管理菜单，不写业务、endpoint/environment 或角色授权。
 
-SET @apk_schema = 'innolux-iws';
+SET @apk_schema = COALESCE(NULLIF(@apk_schema_input, ''), 'innolux-iws');
 SET @apk_schema_q = CONCAT('`', REPLACE(@apk_schema, '`', '``'), '`');
 
 SET @apk_target_ok = (

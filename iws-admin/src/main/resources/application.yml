@@ -130,10 +130,6 @@ security:
     - /warm-flow-ui/config
     - /snail-chat/**
     - /api/snail/chat/**
-    # PDA 在登录前查询已发布版本和下载安装包。
-    - /app/apk/latest
-    - /app/apk/history
-    - /app/apk/download
     # WebSocket 握手在专用拦截器内消费一次性票据并校验绑定 clientid。
     - /resource/message
 
