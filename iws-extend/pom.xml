@@ -26,6 +26,7 @@
         <module>iws-monitor-admin</module>
         <module>iws-snailai-server</module>
         <module>iws-snailjob-server</module>
+        <module>iws-auth-server</module>
     </modules>
 
 </project>

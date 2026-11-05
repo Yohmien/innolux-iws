@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ - @Date         : 2026-11-03
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : IWS 统一身份认证
+ - @Version      : V1.0
+ - @Description  : 复用原系统账号、角色、部门、岗位、菜单与登录上下文服务；
+ - @ModifyRecord : V1.0 从 iws-system 提取可复用账号能力；
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.innolux.iws</groupId>
+        <artifactId>iws-modules</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>iws-auth</artifactId>
+
+    <description>
+        统一身份与账号服务
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-auth</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-doc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-translation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-oss</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-log</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-excel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-sms</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-sensitive</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-encrypt</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-push</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-social</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

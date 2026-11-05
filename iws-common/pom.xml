@@ -30,6 +30,7 @@
         <module>iws-common-bom</module>
         <module>iws-common-social</module>
         <module>iws-common-core</module>
+        <module>iws-common-launch</module>
         <module>iws-common-doc</module>
         <module>iws-common-excel</module>
         <module>iws-common-job</module>
@@ -52,6 +53,7 @@
         <module>iws-common-mqtt</module>
         <module>iws-common-ai</module>
         <module>iws-common-mcp</module>
+        <module>iws-common-auth</module>
     </modules>
 
 </project>

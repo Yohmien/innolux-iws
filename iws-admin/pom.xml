@@ -85,6 +85,12 @@
             <artifactId>iws-api</artifactId>
         </dependency>
 
+        <!-- 运行 JAR 外部配置启动适配 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-launch</artifactId>
+        </dependency>
+
         <!-- 系统模块 -->
         <dependency>
             <groupId>com.innolux.iws</groupId>

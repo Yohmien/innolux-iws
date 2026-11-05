@@ -11,6 +11,7 @@
 
 package com.innolux.iws;
 
+import com.innolux.iws.common.launch.IwsConfigLocationSupport;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.metrics.buffering.BufferingApplicationStartup;
@@ -35,6 +36,7 @@ public class IwsApplication {
      */
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(IwsApplication.class);
+        IwsConfigLocationSupport.configure(application, IwsApplication.class, args, "iws");
         application.setApplicationStartup(new BufferingApplicationStartup(2048));
         application.run(args);
         LOG.info("IWS+ 启动成功");

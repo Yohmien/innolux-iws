@@ -36,6 +36,7 @@
         <module>iws-wms</module>
         <module>iws-endpoint</module>
         <module>iws-process</module>
+        <module>iws-auth</module>
     </modules>
 
 </project>
