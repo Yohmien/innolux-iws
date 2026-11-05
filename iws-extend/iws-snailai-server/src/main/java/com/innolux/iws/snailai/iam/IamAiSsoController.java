@@ -11,6 +11,8 @@
 
 package com.innolux.iws.snailai.iam;
 
+import com.innolux.iws.common.auth.utils.IamSsoPages;
+
 import com.aizuda.snail.ai.admin.interceptor.AuthenticationInterceptor;
 import com.innolux.iws.common.auth.constant.IamProtocolConstants;
 import com.innolux.iws.common.auth.domain.IamTicketExchangeResponse;
@@ -195,7 +197,7 @@ public class IamAiSsoController {
             </script>
             </html>
             """.formatted(contextPath, contextPath, contextPath, contextPath, contextPath);
-        return noStore(html);
+        return noStore(IamSsoPages.decorate(html));
     }
 
     /**
@@ -439,7 +441,7 @@ public class IamAiSsoController {
         response.setContentType(MediaType.TEXT_HTML_VALUE);
         response.setCharacterEncoding("UTF-8");
         String contextPath = request.getContextPath();
-        response.getWriter().write("""
+        response.getWriter().write(IamSsoPages.decorate("""
             <!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
             <meta name="viewport" content="width=device-width,initial-scale=1">
             <link rel="icon" type="image/png" sizes="1254x1254" href="%s/iws-auth-icon-transparent-20261104.png?v=20261104-1">
@@ -454,7 +456,7 @@ public class IamAiSsoController {
             contextPath,
             escape(message),
             contextPath + "/iam/sso/start"
-        ));
+        )));
     }
 
     private ResponseEntity<String> noStore(String html) {

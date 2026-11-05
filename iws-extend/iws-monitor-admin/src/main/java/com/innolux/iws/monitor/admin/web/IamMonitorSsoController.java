@@ -11,6 +11,8 @@
 
 package com.innolux.iws.monitor.admin.web;
 
+import com.innolux.iws.common.auth.utils.IamSsoPages;
+
 import com.innolux.iws.common.auth.domain.IamTicketExchangeResponse;
 import com.innolux.iws.monitor.admin.config.IamMonitorProperties;
 import com.innolux.iws.monitor.admin.security.MonitorPrincipal;
@@ -175,13 +177,14 @@ public class IamMonitorSsoController {
     private ResponseEntity<String> error(String message) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .contentType(MediaType.TEXT_HTML)
-            .body("<!doctype html><meta charset=\"utf-8\">"
+            .body(IamSsoPages.decorate("<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\">"
+                + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
                 + "<link rel=\"icon\" type=\"image/x-icon\" "
                 + "href=\"/admin/assets/img/iws-auth-icon-transparent-20261104.ico\">"
-                + "<title>统一身份回调失败</title>"
+                + "<title>统一身份回调失败</title></head>"
                 + "<main style=\"font:16px sans-serif;padding:40px\"><h1>统一身份回调失败</h1><p>"
                 + escape(message)
-                + "</p><p><a href=\"/admin/sso/start\">重新进入统一认证</a></p></main>");
+                + "</p><p><a href=\"/admin/sso/start\">重新进入统一认证</a></p></main></html>"));
     }
 
     private String normalizeMonitorPath(String value) {
