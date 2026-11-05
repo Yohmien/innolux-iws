@@ -1,0 +1,77 @@
+server:
+  port: ${SERVER_PORT:18080}
+
+spring:
+  datasource:
+    dynamic:
+      datasource:
+        master:
+          url: ${SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_URL:}
+          username: ${SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_USERNAME:}
+          password: ${SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_PASSWORD:}
+        identity:
+          url: ${IAM_IDENTITY_DB_URL:}
+          username: ${IAM_IDENTITY_DB_USERNAME:}
+          password: ${IAM_IDENTITY_DB_PASSWORD:}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:127.0.0.1}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      database: ${SPRING_DATA_REDIS_DATABASE:0}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+
+redisson:
+  keyPrefix: ${IWS_REDIS_KEY_PREFIX:innolux-iws-a}
+
+sa-token:
+  jwt-secret-key: ${SA_TOKEN_JWT_SECRET_KEY:}
+
+iam:
+  client:
+    public-base-url: ${IAM_PUBLIC_BASE_URL:}
+    center-base-url: ${IAM_CENTER_BASE_URL:}
+    application-id: ${IAM_APPLICATION_ID:iws-a}
+    instance-id: ${IAM_INSTANCE_ID:iws-a-1}
+    client-secret: ${IAM_IWS_A_CLIENT_SECRET:}
+    access-permission: ${IAM_APPLICATION_ACCESS_PERMISSION:iam:app:iws:a}
+    session-namespace: ${IAM_SESSION_NAMESPACE:innolux-iws-a}
+
+# 仅在 IWS_API_DECRYPT_ENABLED=true 时填写
+api-decrypt:
+  enabled: ${IWS_API_DECRYPT_ENABLED:false}
+  publicKey: ${IWS_API_DECRYPT_PUBLIC_KEY:}
+  privateKey: ${IWS_API_DECRYPT_PRIVATE_KEY:}
+
+# 启用系统接入目录或计划事件时，必须选择已登记并启用的环境码
+iws:
+  endpoint:
+    current-environment: ${IWS_ENDPOINT_CURRENT_ENVIRONMENT:}
+
+# 按需启用
+snail-job:
+  enabled: ${SNAIL_JOB_ENABLED:false}
+  token: ${SNAIL_JOB_TOKEN:}
+  server:
+    host: ${SNAIL_JOB_SERVER_HOST:127.0.0.1}
+    port: ${SNAIL_JOB_SERVER_PORT:18188}
+  openapi:
+    host: ${SNAIL_JOB_OPENAPI_HOST:127.0.0.1}
+    port: ${SNAIL_JOB_OPENAPI_PORT:18088}
+
+snail-ai:
+  enabled: ${SNAIL_AI_ENABLED:false}
+  app-id: ${SNAIL_AI_APP_ID:1}
+  token: ${SNAIL_AI_TOKEN:}
+  server:
+    host: ${SNAIL_AI_SERVER_HOST:127.0.0.1}
+    port: ${SNAIL_AI_SERVER_GRPC_PORT:18189}
+
+spring.boot.admin.client:
+  enabled: ${SPRING_BOOT_ADMIN_CLIENT_ENABLED:false}
+  url: ${SPRING_BOOT_ADMIN_CLIENT_URL:http://127.0.0.1:18090/admin}
+  username: ${SPRING_BOOT_ADMIN_CLIENT_USERNAME:}
+  password: ${SPRING_BOOT_ADMIN_CLIENT_PASSWORD:}
+
+# 仅在 MQTT 客户端启用时填写
+mqtt.client:
+  password: ${MQTT_CLIENT_PASSWORD:}

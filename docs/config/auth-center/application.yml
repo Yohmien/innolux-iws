@@ -1,0 +1,104 @@
+server:
+  port: ${IAM_SERVER_PORT:18081}
+
+spring:
+  datasource:
+    dynamic:
+      datasource:
+        master:
+          url: ${IWS_DB_URL:}
+          username: ${IWS_DB_USERNAME:}
+          password: ${IWS_DB_PASSWORD:}
+        identity:
+          url: ${IAM_IDENTITY_DB_URL:}
+          username: ${IAM_IDENTITY_DB_USERNAME:}
+          password: ${IAM_IDENTITY_DB_PASSWORD:}
+  data:
+    redis:
+      host: ${IWS_REDIS_HOST:127.0.0.1}
+      port: ${IWS_REDIS_PORT:6379}
+      database: ${IAM_REDIS_DATABASE:0}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+
+redisson:
+  keyPrefix: ${IAM_REDIS_KEY_PREFIX:innolux-iam}
+
+sa-token:
+  jwt-secret-key: ${IAM_SA_TOKEN_JWT_SECRET:}
+
+# 仅在 IAM_API_DECRYPT_ENABLED=true 时填写
+api-decrypt:
+  enabled: ${IAM_API_DECRYPT_ENABLED:false}
+  publicKey: ${IAM_API_DECRYPT_PUBLIC_KEY:}
+  privateKey: ${IAM_API_DECRYPT_PRIVATE_KEY:}
+
+# APK 发布启用 application-apk profile 后，必须选择已登记并启用的环境码
+iws:
+  endpoint:
+    current-environment: ${IWS_ENDPOINT_CURRENT_ENVIRONMENT:}
+
+iam:
+  public-base-url: ${IAM_PUBLIC_BASE_URL:}
+  frontends:
+    web-main:
+      public-base-url: ${IAM_WEB_MAIN_PUBLIC_BASE_URL:}
+      launch-uri: ${IAM_WEB_MAIN_LAUNCH_URI:}
+      redirect-uri: ${IAM_WEB_MAIN_REDIRECT_URI:}
+      logout-uri: ${IAM_WEB_MAIN_LOGOUT_URI:}
+    web-branch:
+      public-base-url: ${IAM_WEB_BRANCH_PUBLIC_BASE_URL:}
+      launch-uri: ${IAM_WEB_BRANCH_LAUNCH_URI:}
+      redirect-uri: ${IAM_WEB_BRANCH_REDIRECT_URI:}
+      logout-uri: ${IAM_WEB_BRANCH_LOGOUT_URI:}
+    pda-main:
+      public-base-url: ${IAM_PDA_PUBLIC_BASE_URL:}
+      launch-uri: ${IAM_PDA_LAUNCH_URI:}
+      redirect-uri: ${IAM_PDA_REDIRECT_URI:}
+      logout-uri: ${IAM_PDA_LOGOUT_URI:}
+    job-main:
+      public-base-url: ${IAM_JOB_PUBLIC_BASE_URL:}
+      launch-uri: ${IAM_JOB_LAUNCH_URI:}
+      redirect-uri: ${IAM_JOB_REDIRECT_URI:}
+      logout-uri: ${IAM_JOB_LOGOUT_URI:}
+    ai-main:
+      public-base-url: ${IAM_AI_PUBLIC_BASE_URL:}
+      launch-uri: ${IAM_AI_LAUNCH_URI:}
+      redirect-uri: ${IAM_AI_REDIRECT_URI:}
+      logout-uri: ${IAM_AI_LOGOUT_URI:}
+    monitor-main:
+      public-base-url: ${IAM_MONITOR_PUBLIC_BASE_URL:}
+      launch-uri: ${IAM_MONITOR_LAUNCH_URI:}
+      redirect-uri: ${IAM_MONITOR_REDIRECT_URI:}
+      logout-uri: ${IAM_MONITOR_LOGOUT_URI:}
+  applications:
+    iws-a:
+      api-base-url: ${IAM_IWS_A_API_BASE_URL:/iws-a-api}
+      client-secret: ${IAM_IWS_A_CLIENT_SECRET:}
+      session-namespace: ${IAM_IWS_A_SESSION_NAMESPACE:innolux-iws-a}
+      allowed-instance-ids:
+        - ${IAM_IWS_A_INSTANCE_ID_1:iws-a-1}
+        - ${IAM_IWS_A_INSTANCE_ID_2:iws-a-2}
+    iws-b:
+      api-base-url: ${IAM_IWS_B_API_BASE_URL:/iws-b-api}
+      client-secret: ${IAM_IWS_B_CLIENT_SECRET:}
+      session-namespace: ${IAM_IWS_B_SESSION_NAMESPACE:innolux-iws-b}
+      allowed-instance-ids:
+        - ${IAM_IWS_B_INSTANCE_ID_1:iws-b-1}
+    snail-job:
+      api-base-url: ${IAM_SNAILJOB_API_BASE_URL:/snail-job}
+      client-secret: ${IAM_SNAILJOB_CLIENT_SECRET:}
+      session-namespace: ${IAM_SNAILJOB_SESSION_NAMESPACE:innolux-snailjob}
+      allowed-instance-ids:
+        - ${IAM_SNAILJOB_INSTANCE_ID_1:snail-job-1}
+    snail-ai:
+      api-base-url: ${IAM_SNAILAI_API_BASE_URL:/snail-ai}
+      client-secret: ${IAM_SNAILAI_CLIENT_SECRET:}
+      session-namespace: ${IAM_SNAILAI_SESSION_NAMESPACE:innolux-snailai}
+      allowed-instance-ids:
+        - ${IAM_SNAILAI_INSTANCE_ID_1:snail-ai-1}
+    admin-monitor:
+      api-base-url: ${IAM_MONITOR_API_BASE_URL:/admin}
+      client-secret: ${IAM_MONITOR_CLIENT_SECRET:}
+      session-namespace: ${IAM_MONITOR_SESSION_NAMESPACE:innolux-monitor-admin}
+      allowed-instance-ids:
+        - ${IAM_MONITOR_INSTANCE_ID_1:admin-monitor-1}

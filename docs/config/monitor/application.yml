@@ -1,0 +1,24 @@
+server:
+  port: ${SERVER_PORT:18090}
+
+spring:
+  security:
+    user:
+      name: ${SPRING_SECURITY_USER_NAME:}
+      password: ${SPRING_SECURITY_USER_PASSWORD:}
+
+iam:
+  client:
+    public-base-url: ${IAM_PUBLIC_BASE_URL:}
+    center-base-url: ${IAM_CENTER_BASE_URL:}
+    application-id: ${IAM_APPLICATION_ID:admin-monitor}
+    frontend-id: ${IAM_FRONTEND_ID:monitor-main}
+    instance-id: ${IAM_INSTANCE_ID:admin-monitor-1}
+    client-secret: ${IAM_MONITOR_CLIENT_SECRET:}
+
+# 监控中心自身的注册凭据；启用时通常与上面的管理账号、密码一致
+spring.boot.admin.client:
+  enabled: ${SPRING_BOOT_ADMIN_CLIENT_ENABLED:true}
+  url: ${SPRING_BOOT_ADMIN_CLIENT_URL:http://127.0.0.1:18090/admin}
+  username: ${SPRING_BOOT_ADMIN_CLIENT_USERNAME:}
+  password: ${SPRING_BOOT_ADMIN_CLIENT_PASSWORD:}

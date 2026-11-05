@@ -1,0 +1,40 @@
+server:
+  port: ${SERVER_PORT:18089}
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+
+snail-ai:
+  server:
+    grpc-port: ${SNAIL_AI_GRPC_PORT:18189}
+  crypto:
+    secret-key: ${SNAIL_AI_CRYPTO_KEY:}
+  resource:
+    storage-type: ${SNAIL_AI_STORAGE_TYPE:LOCAL}
+    minio:
+      endpoint: ${SNAIL_AI_MINIO_ENDPOINT:http://127.0.0.1:9000}
+      access-key: ${SNAIL_AI_MINIO_ACCESS_KEY:}
+      secret-key: ${SNAIL_AI_MINIO_SECRET_KEY:}
+      bucket: ${SNAIL_AI_MINIO_BUCKET:snail-ai}
+
+iam:
+  client:
+    public-base-url: ${IAM_PUBLIC_BASE_URL:}
+    center-base-url: ${IAM_CENTER_BASE_URL:}
+    application-id: ${IAM_SNAILAI_APPLICATION_ID:snail-ai}
+    frontend-id: ${IAM_SNAILAI_FRONTEND_ID:ai-main}
+    instance-id: ${IAM_SNAILAI_INSTANCE_ID:snail-ai-1}
+    client-secret: ${IAM_SNAILAI_CLIENT_SECRET:}
+    # 中心权威账号到 AI 本地账号的显式映射；必须按现场账号补充
+    accounts:
+      admin: ${IAM_AI_LOCAL_ADMIN:admin}
+
+# 仅在启用 Spring Boot Admin 客户端时填写
+spring.boot.admin.client:
+  enabled: ${SPRING_BOOT_ADMIN_CLIENT_ENABLED:false}
+  url: ${SPRING_BOOT_ADMIN_CLIENT_URL:http://127.0.0.1:18090/admin}
+  username: ${SPRING_BOOT_ADMIN_CLIENT_USERNAME:}
+  password: ${SPRING_BOOT_ADMIN_CLIENT_PASSWORD:}

@@ -1,0 +1,31 @@
+server:
+  port: ${SERVER_PORT:18088}
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+
+snail-job:
+  server-host: ${SNAIL_JOB_SERVER_HOST:}
+  server-port: ${SNAIL_JOB_SERVER_PORT:18188}
+
+iam:
+  client:
+    public-base-url: ${IAM_PUBLIC_BASE_URL:}
+    center-base-url: ${IAM_CENTER_BASE_URL:}
+    application-id: ${IAM_SNAILJOB_APPLICATION_ID:snail-job}
+    frontend-id: ${IAM_SNAILJOB_FRONTEND_ID:job-main}
+    instance-id: ${IAM_SNAILJOB_INSTANCE_ID:snail-job-1}
+    client-secret: ${IAM_SNAILJOB_CLIENT_SECRET:}
+    # 中心权威账号到 Job 本地账号的显式映射；必须按现场账号补充
+    accounts:
+      admin: ${IAM_JOB_LOCAL_ADMIN:admin}
+
+# 仅在启用 Spring Boot Admin 客户端时填写
+spring.boot.admin.client:
+  enabled: ${SPRING_BOOT_ADMIN_CLIENT_ENABLED:false}
+  url: ${SPRING_BOOT_ADMIN_CLIENT_URL:http://127.0.0.1:18090/admin}
+  username: ${SPRING_BOOT_ADMIN_CLIENT_USERNAME:}
+  password: ${SPRING_BOOT_ADMIN_CLIENT_PASSWORD:}
