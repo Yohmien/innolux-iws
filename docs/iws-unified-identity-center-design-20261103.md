@@ -1,6 +1,6 @@
 # IWS 统一身份认证中心完整方案
 
-版本：V1.4，2026-11-03。状态：方案及细化实施步骤已编写，尚未实施、启动、部署或完成运行验收。沿用 V1.3 的“独立部署、统一认证接入，内部账号数据模型不变”边界；本版补齐代码提取、端点归属、客户端适配、验证与切换步骤。V1.0—V1.2 的平行身份库/账号组织模型建议继续作废。
+版本：V1.20，2026-11-05。状态：最终隔离版本的构建、真实 HTTP、原页面、同一 Web 构建 A→B、Job 执行器、Monitor 人员/机器及中心停机注销待撤销队列跨重启恢复、PDA H5、业务分库、数据范围、停用/改密/撤权、统一退出、中心/Redis/MySQL 故障、跨副本一次性票据、本机自签 HTTPS 跨站、iframe、禁第三方 Cookie 和非安全 HTTP IndexedDB 已完成复验；当前 JAR、PID、端口、启动命令、Web 目录和源码 HEAD 记录在 `final-runtime-20261105.json`。Job 人员入口、namespace/group 和真实隔离执行器已闭环；AI 人员 HTTP 流终止、服务端 gRPC 取消、原生权限、会话隔离和 app token 分离已通过，但上游模型 HTTP 取消仍为 `false`，不能据此宣称 AI 全部完成。PDA APK/真机、原生深链、设备存储隔离、安装图标、生产代理/外部证书、通知重投极端矩阵和全部节点集群重启仍未验收。内部账号模型、原页面复用、独立业务库唯一权威账号源和同类型单会话要求继续有效；V1.0—V1.2 的平行身份库/账号组织模型建议继续作废。
 
 ## 1. 目标与已确认边界
 
@@ -12,6 +12,11 @@
 |---|---|
 | 独立模块 | 单独可执行 JAR，包含统一登录页面；主业务服务停止时仍能登录、管理身份和进入其他存活应用 |
 | 项目内认证统一 | IWS Web、PDA、SnailJob、SnailAI、Spring Boot Admin 监控均纳入；不能只统一主站 |
+| 多 IWS 同时接入 | 同一中心支持多个独立 IWS 应用，以及每个应用的多个服务副本；所有系统引用同一权威账号身份，逐应用授权，会话与回调不串用 |
+| 同类型单会话 | 同一权威账号同一应用类型只保留一个有效应用会话；后登录成功替换旧会话，覆盖 Web/PDA 与不同设备；不同类型不互踢，多副本承载同一会话不算新登录 |
+| 界面切换适配 | Web/PDA 遵循统一契约，认证中心复用原菜单配置页管理系统/终端/菜单到已有界面的映射；实际显示结合账号权限与目标后端部署能力，不重写原页面 |
+| 登录选择系统 | 在原统一登录页选择目标系统，直接复用 iam.applications 的应用 ID、name、入口及其他现有登记字段；不新增独立清单、名称配置或登记模型，登录后检查准入并进入所选系统 |
+| 共用 Web/PDA | 默认一套 Web 构建和一套 PDA 构建/安装包选择多个 IWS 后端；不为 IWS-A/B 各复制、编译、配置部署前端；界面按目标上下文适配，前端入口与后端 API 分别登记 |
 | 只登录一次 | 同一浏览器 SSO 会话有效期间复用统一身份；访问每个系统仍须通过其接入权限校验，直接访问也不能绕过 |
 | 本地账号统一 | 首期使用本地账号；账号、密码、停用和重置在中心管理 |
 | 现有统一管理账号 | 必须保留并纳入中心，沿用已有账号名与密码，关联 IWS、Job、AI、Admin 监控已有管理身份；不另建替代账号 |
@@ -20,7 +25,7 @@
 | 企业身份源预留 | 预留 AD/LDAP、企业 OIDC 的身份来源及稳定关联，不在首期要求真实企业连接 |
 | 标准化项目 | 本次不重建、迁移或归并现有账号模型，不因独立部署另造双结构或双写；不自动改动真实库 |
 | HTTP 可用 | HTTP 和 HTTPS 都有明确可运行配置，不依赖安全上下文或第三方 Cookie 才能登录 |
-| 本轮权限 | 只交方案、任务与验收合同；不修改业务代码、执行数据库写入、启动服务或发布 |
+| 本轮权限 | 已授权修改相关业务代码、配置、测试和实施文档，并在隔离环境构建、启动和联调；真实库只读，不提交、推送或部署共享/生产环境 |
 
 “所有系统”不等于所有用户拥有全部管理权限。登录确认同一个人，应用准入、功能权限和业务对象范围分别校验。中心默认应用门户展示该用户有权进入的系统，不弹出重复账号密码窗口或逐应用重复登录确认。
 
@@ -385,7 +390,75 @@ HTTP 功能兼容不提供传输保密；签名、ApiEncrypt 或票据短时有�
 
 首期支持单实例部署及可扩展的无本机状态多实例结构。多实例正式交付前验证共享中心 Redis、票据单次消费、分布式限频、投递竞争、时钟窗口和滚动重启；本方案不声明集群已经验收。
 
-预期构建入口为后端 `mvnw -pl iws-extend/iws-auth-server -am package -Dmaven.test.skip=false` 和前端独立 `pnpm build:auth`；后者随实现新增，当前命令尚不存在。部署产物通过外部配置启动 `java -jar iws-auth-server.jar --spring.config.additional-location=file:<配置目录>/`。配置集中定义现有数据库/Redis、浏览器与内部基址、票据/会话策略、代理信任和密钥引用；密钥不作为示例字面量。依赖树证明中心可复用提取后的原账号服务而不启动 iws-admin、整套 WMS 或 process；构建成功不能替代独立运行验证。
+构建入口按当前实现核对，目标为后端 `mvnw -pl iws-extend/iws-auth-server -am package -Dmaven.test.skip=false` 和前端独立 `pnpm build:auth`。默认部署直接使用 `java -jar <JAR绝对路径>`，按 §10.1 自动选择 JAR 所在目录下的 config 外部配置并保留包内回退，不要求操作员每次手填配置路径。配置集中定义现有数据库/Redis、浏览器与内部基址、票据/会话策略、代理信任和密钥引用；密钥不作为示例字面量。依赖树证明中心可复用提取后的原账号服务而不启动 iws-admin、整套 WMS 或 process；构建成功不能替代独立运行验证。
+
+### 10.1 application.yml 外部优先与包内回退
+
+用户指定参考仓库：`C:/code/company/vietnam_avc`。已核对其 RuoYiApplication 普通 SpringApplication 启动、ry.sh/ry.bat 的 java -jar 启动，以及 ruoyi-admin/pom.xml 的 prod 配置排除规则；参考其外置配置管理方式，不照搬依赖当前工作目录或排除全部包内 YAML 的部分。以下为本项目必须实现的合同，不表示参考仓库已实现 JAR 绝对路径定位。
+
+1. 默认配置根目录为 `<实际运行JAR所在目录>/config`，生效文件按 §10.2 定位到服务专属子目录内的 `application.yml` 及 `application-{profile}.yml`；不让所有应用读取根目录同一 application.yml。支持框架原生 `.yaml`/`.properties` 时保持原生解析规则，交付统一使用 `.yml`，不另造 YAML 读取器。外部已定义属性覆盖包内对应属性，未定义属性由包内默认值补齐；所选服务的外部文件/目录不存在时，读取自身包内 application 配置。不是发现外部文件就整体丢弃包内默认值。
+2. `config` 相对实际运行 JAR 定位，不能依赖 `user.dir`、终端启动位置、源码目录或脚本所在目录。即使从其他目录执行 `java -jar <JAR绝对路径>`，仍加载该 JAR 旁边的 config；路径含空格、Windows/Linux 路径均验证。IDE/测试无可执行 JAR 时采用明确的开发启动配置，不猜测源码目录就是部署目录。
+3. 在 Spring Config Data 读取前，通过最小共用启动适配确定 JAR 目录并提供绝对配置位置，继续使用框架配置加载、绑定及 profile 机制。不把配置定位写进需要先被加载的外部 YAML；不为每个模块复制一套加载器。启动脚本可复用该入口，但不能只有脚本启动正确、直接 java -jar 时错误。
+4. 默认文件搜索位置明确限定为自身包内默认位置与 §10.2 选定的服务专属目录，按包内低、外部高设置位置组并验证 profile 优先级。不要仅追加绝对 additional-location 后仍无意读取启动工作目录的 application.yml 或 config；不得使用 config/*/ 扫描全部服务，也不得使用只指向外部文件的 config.location 丢掉包内回退。实现时核对现有 config.import、bootstrap、打包过滤及启动参数，不留下相互覆盖的多套入口。
+5. profile 仍按框架原规则选择；只加载实际激活的 profile。在配置文件层，外部普通配置也不能被包内 profile 配置反向覆盖，外部 profile 配置按原规则覆盖外部普通配置。显式命令行、系统属性和环境变量仍按框架优先级覆盖文件，且配置来源可诊断；“外部优先”指文件来源之间，不宣称高于显式运维覆盖。
+6. 各可执行服务制品保留安全的包内默认 application 配置，不能沿用参考仓库 prod 的 application*.yml 全排除规则而破坏回退。敏感值通过外部文件或环境变量提供，包内可以保留必要占位符；缺少必需凭据应明确校验失败，“回退可用”不等于无需部署参数即可连接真实依赖。发布/复制脚本不得覆盖运维已维护的 config，示例配置与实际生效配置分开交付。
+7. 仅对不存在的外部位置允许回退；外部文件存在但无法读取、YAML 非法或必要配置绑定失败时，应明确报错，不能静默退回包内后连接错误环境。启动诊断记录 JAR 目录、配置目录、激活 profile 和必要的脱敏来源信息，不输出密码或密钥。
+8. 此合同覆盖认证中心、多个 IWS 应用/副本及本次涉及的 Job/AI/Admin 监控独立 JAR。每个制品读取自身目录的 config，多个部署不能因共用工作目录而串用 applicationId、回调、数据库或协议凭据；第三方启动入口按实际源码做最小适配，不假定一处主站变更自动覆盖全部进程。
+
+配置原则依据：[Spring Boot 外部配置说明](https://docs.spring.io/spring-boot/3.5/reference/features/external-config.html)及[官方 Config Data 迁移说明](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-Config-Data-Migration-Guide)。实际实施使用当前项目 Boot 版本验证，不能用文档规则代替制品启动测试。
+
+### 10.2 多应用配置目录与启动选择
+
+统一管理的是 config 根目录、命名及发布规则，不把 Job、AI、监控、中心与 IWS 的不同 application.yml 合成一个文件。推荐同机交付布局如下，目录名为部署配置键，示例不代表服务已启动：
+
+```text
+release/
+  iws-auth-server.jar
+  iws-admin.jar
+  snail-job-server.jar
+  snail-ai-server.jar
+  iws-monitor-admin.jar
+  config/
+    auth-center/
+      application.yml
+      application-prod.yml
+    iws-a/
+      application.yml
+      application-prod.yml
+    iws-b/
+      application.yml
+      application-prod.yml
+    job/
+      application.yml
+      application-prod.yml
+    ai/
+      application.yml
+      application-prod.yml
+    monitor/
+      application.yml
+      application-prod.yml
+```
+
+1. 定义唯一的启动配置键 `iws.config.key`（对应环境变量 `IWS_CONFIG_KEY`），选择 `<configRoot>/<configKey>/`；独立中心/Job/AI/监控的制品内提供各自稳定默认键 `auth-center/job/ai/monitor`，IWS 制品默认键为 `iws`。部署同一个 IWS JAR 为 A/B 时只需在启动定义中分别设置 `iws-a/iws-b`，不复制或重打 JAR。示例 `iws-a/iws-b` 必须配套相应选择参数，不宣称不传参数能自动判断部署身份。
+2. configRoot 默认仅由 JAR 所在目录计算；如各服务 JAR 分散安装但需共用配置树，允许显式启动属性 `iws.config.root` 或环境变量 `IWS_CONFIG_ROOT` 指向同一绝对目录。启动元参数集中在部署定义中一处维护；不在应用 YAML 内定义决定该文件自身位置的配置根或键，也不靠加载外部 spring.application.name 才选择文件。显式属性与环境变量优先级按同一启动约定处理。
+3. 配置键只允许单级受控目录名，解析后目录必须位于 configRoot 内；不接受绝对路径或路径跳转作为 key。每次仅选一个服务目录，禁止扫描兄弟目录、禁止缺少 job 配置时读取 ai 或根 application.yml。缺失回退该制品包内默认配置，并仍校验原有必需项，不借回退切到另一应用身份。
+4. profile 在所选服务目录内区分 dev/prod 等环境，不用 profile 代替应用键；禁止一次激活 job、ai、monitor profile 叠加不同应用配置。多副本属于同一 IWS 应用时共用该应用目录，节点 instanceId、监听端口等少量差异由实例启动参数/环境提供，不复制整份 YAML；独立 IWS 应用各有自己的目录、applicationId、回调及凭据引用。
+5. 端口、数据源、Redis 命名空间、SSO applicationId/回调、原生 Job/AI/监控配置都留在各自服务文件；不能把这些设置无差别放到根配置广播给所有服务。首期不新增一个聚合 application.yml 或配置管理平台；共享的非敏感部署参数需要复用时使用已有环境变量引用，凭据按服务授权注入，避免误将机器或签名密钥全局共享。
+6. 共用 config 根目录不代表共用运行时身份，也不代表每个进程应获得全部配置读取权限；部署权限按实际运行账号配置。发布示例保留上述分目录结构且不携带真实秘密，应用升级只替换制品，不覆盖对应服务已有配置。
+7. 共用启动适配输出脱敏的 configRoot、configKey、选定目录和激活 profile。IAM-01/02/03～05 逐服务接入；IAM-07 交付启动定义与配置模板，IAM-08 用真实制品验证“一个 config 根下所有应用并行启动，各读各的文件”。这只是配置装配，不改变现有账号数据模型或页面。
+
+本节是对 V1.6 根目录 application.yml 示例的纠正，不保留两套隐式搜索模式。默认直接运行对应制品可使用制品默认键；同一制品的多个独立部署通过明确配置键选择，不以重命名 JAR 或当前目录猜测。
+
+### 10.3 多 Web 接入与 frontendId
+
+2026-11-05 当前工作树已把入口职责从 `IamProperties.Application` 单值迁到 `IamProperties.Frontend`，应用通过 `allowedFrontendIds` 绑定；`web-main`、`web-branch` 已在隔离 HTTP 环境分别登录 IWS-A/B，同一 Web 构建同一入口 A→B 也已实测。本机自签 HTTPS 已复验跨站顶层 A→B、iframe、禁第三方 Cookie 和非安全 HTTP IndexedDB；生产代理拓扑、外部证书链和多前端并发矩阵仍不能仅凭本机结果宣称全部部署完成。
+
+1. frontendId 标识受信前端入口，applicationId 标识原后端应用，instanceId 标识后端节点，sys_client.client_id 仍表示原登录渠道。一个 frontendId 可对接多个 applicationId，一个 applicationId 可允许多个 frontendId；同一公开入口扩容共用 frontendId，不同入口分别登记。新增前端不复制用户或原后端应用。
+2. 目标配置在原 IAM 命名空间内新增 iam.frontends.<frontendId>，只描述 enabled、terminal、公开基址和精确 launch/redirect/logout；原 iam.applications 项补 allowed-frontend-ids，继续作为系统 ID、name、API、type、权限及协议凭据唯一来源。前端登记不是另一份系统清单，不建立人员/账号表。原单值入口职责迁入此绑定，同步实际协议和配置模板，不长期保留两套入口推断。
+3. Web 在认证前读取本部署公开运行时配置：源码模板 `public/frontend-config.json`，发布静态根同名文件，字段 frontendId、iamBaseUrl；读取代码为 `src/utils/frontendConfig.ts`，根部署请求 /frontend-config.json，/iws/ 子路径按 `BASE_URL` 请求 /iws/frontend-config.json，使用 no-store。读取发生在应用列表、登录跳转及路由鉴权前，缺失、非 JSON、非法 frontendId 或中心地址明确报错。新域名 Web 只改部署 JSON 与中心登记，不重打 JS；PDA 在现有 `config.js` 导出 `iamFrontendId`、`iamPublicUrl`，复用发布流程。PDA 真实构建/真机仍未完成。
+4. frontendId 是公开选择标识，不是认证凭据。中心必须核验登记启停、terminal、前后端绑定与原账号权限，回调只取登记值；受信来源配置不代替服务端身份验证。未知、停用、错终端、未绑定、缺失标识均拒绝，不猜默认前端。
+5. 原授权/票据/核销/应用会话/界面上下文/退出增加受核验的 frontendId 绑定，与 applicationId、terminal、state、事务和精确回调贯穿校验；错入口票据拒绝。后端协议仍使用原凭据，浏览器不持有 client-secret。frontendId 不参与划分账号+applicationType 的互斥范围，不能通过新 Web 增加同类型有效会话。
+6. 目标中心 YAML 示例和完整配置规则已分别写入中心/Web/PDA README，并回填实际运行时路径和代码入口。新增 Web 的相对代理前缀、HTTPS、来源与回调仍须按真实部署验证，不依赖 center classpath 决定业务界面。
 
 ## 11. 初始化、交付顺序与恢复
 
@@ -397,23 +470,23 @@ HTTP 功能兼容不提供传输保密；签名、ApiEncrypt 或票据短时有�
 6. 上一轮 181 表/77 WMS 表/256 菜单是此前版本证据；本次不因拆进程改变账号表清单，核对当前正式基线的实际结构与数据摘要保持，不能用表数相同掩盖字段/关联变化。
 7. 先在隔离库/端口完成真实联调，再对实际部署单独授权。切换/恢复按应用制品、路由、配置和会话命名空间办理，不以恢复服务为由回填或覆盖用户、角色、公司和部门数据。
 
-交付制品包括 auth-server JAR/容器、复用现有管理页面的认证 UI 产物、薄 SDK/契约、四类服务适配、Web/PDA 接入、协议配置、现有模型/数据不变校验、部署/恢复手册、测试证据及源码/制品散列。本轮只交设计，不生成账号迁移/归并脚本。
+交付制品包括 auth-server JAR/容器、复用现有管理页面的认证 UI 产物、薄 SDK/契约、四类服务适配、Web/PDA 接入、协议配置、现有模型/数据不变校验、部署/恢复手册、测试证据及源码/制品散列。本轮已按授权实施源码和隔离环境验证，但不生成账号迁移/归并脚本。
 
 ## 12. 实施任务图
 
-使用已有任务状态语义。下表是实施前规划：ready 表示前置可开始，不表示已获本轮实施/数据库写入权限；其余任务按真实验收解锁。主代理持续推进，不使用子代理。
+使用已有任务状态语义。下表是当前实施任务图：ready 表示前置可开始，不表示任务已通过验收；其余任务按真实验收解锁。主代理持续推进，不使用子代理。
 
 | ID | 状态 / 依赖 | 范围与交付 | 关闭条件 |
 |---|---|---|---|
-| IAM-00 | ready / 无 | 技术验证：原账号服务提取边界、现有权限码、SSO 插件、原生安全接缝、Job/AI UI 源码构建与许可、Boot 4 装配 | 一中心一应用使用原 sys_user/角色菜单权限完成统一认证、接入与撤销；账号模型不变；票据重放拒绝；Job/AI 源码可复现构建；无全局 Bean 覆盖 |
-| IAM-01 | pending / IAM-00 | 提取原认证与必要账号服务，独立 server/UI，复用用户/角色/部门/岗位/公司查询和原权限服务；中心会话/撤销基础 | 单独构建启动；同库原表认证；已有统一管理账号以原账号密码管理中心；主业务进程停止仍可认证/管理已提取账号能力；无新增身份数据模型，无双写，原树/权限/审计规则保持 |
-| IAM-02 | pending / IAM-01 | 薄客户端 SDK、IWS 身份适配及独立前端入口、PDA H5/原生绑定 | 主站正式登录与会话切换；普通角色完成已授权查询，WMS 计划操作由 IAM-06 验收；中心凭据不外泄；HTTP 可用；PDA 真机单列 |
-| IAM-03 | pending / IAM-02 | Job 统一身份、系统接入权限、原生用户上下文、namespace ACL 和机器调用边界 | 复用统一身份；无 Job 接入授权的用户通过直接 URL/API/已有会话均不能访问；非管理员资源隔离；无原生密码旁路；调度执行器未被人员 SSO 误阻断 |
-| IAM-04 | pending / IAM-02 | AI 统一身份、系统接入权限、资源角色/控制台、流式撤销、app token 分离 | 无 AI 接入授权拒绝；有接入授权仍拒绝资源越权；注销/撤权后流式会话按期失效；模型 Key/机器 OpenAPI 不与人用 Token 混用 |
-| IAM-05 | pending / IAM-02 | 监控统一身份、既有接入权限、安全链适配及注册/Actuator 机器认证 | 无 monitor:admin:list 权限拒绝；有权限后遵守原监控内部规则；不另建角色体系；无第二人员密码入口；监控注册/Actuator 机器认证保持可用 |
-| IAM-06 | pending / IAM-02 | 对接现有 WMS/计划事件身份与授权上下文，关联 REV-01/REV-06，不新建业务授权模型 | 无 HTTP 会话真实 worker 使用可信来源身份及原公司/对象权限检查；UNKNOWN 不被退出清除；不伪造超管登录；需新增持久业务授权的部分回到独立 WMS 整改 |
-| IAM-07 | pending / IAM-03、IAM-04、IAM-05、IAM-06 | 既有模型/数据不变校验，原空库入口联调，部署/路由配置及恢复手册 | 原用户/角色/公司/部门树/岗位/菜单权限及关联保持；既有统一管理账号原密码登录；三项接入权限由原角色授权；无迁移/归并/第二账号库；未授权真实部署则不得声称已部署 |
-| IAM-08 | pending / IAM-07 | 同版完整整合、恢复与安全验收，更新任务/合同/交接 | §13 全部首期用例及本次影响到的 WMS 身份/权限回归通过，源码/JAR/UI/SQL 证据同版；原 WMS 独立整改门禁另列状态，不以认证完成宣称它们已修复，整体发布仍须满足适用门禁 |
+| IAM-00 | in_progress / 无 | 技术验证：原账号服务提取边界、现有权限码、SSO 插件、原生安全接缝、Job/AI UI 源码构建与许可、Boot 4 装配 | IWS/Admin/Job/AI 人员接缝、账号模型不变、票据重放拒绝、HTTP 独立启动和 47 模块同版构建已实测；本机自签 HTTPS/跨站/iframe/禁第三方 Cookie 已实测。Job 2.0.2 前后端源码已取得，AI 1.1.1 后端源码已取得，但 AI admin 前端仍只有压缩制品。人员 SSO 由包装层源码承担，不修改压缩 JS；完整上游 UI 可复现构建、生产代理/外部证书和全部节点矩阵仍未验证，故本任务不关闭 |
+| IAM-01 | done / IAM-00 | 提取原认证与必要账号服务，独立 server/UI，复用用户/角色/部门/岗位/公司查询和原权限服务；中心会话/撤销基础 | 独立 JAR 构建启动；隔离库原表认证；原管理员和原页面真实操作；IWS-A/A2/B 停止时中心仍可登录并读取账号角色；无新增身份表或账号字段 |
+| IAM-02 | in_progress / IAM-01 | 薄客户端 SDK、IWS 身份适配及独立前端入口、PDA H5/原生绑定 | Web/IWS 的同一构建多 frontendId、A/B 切换、令牌隔离、同类型替换、统一退出、HTTP、原页面复用和单应用撤权粒度已实测；同一构建同一入口 A→B 已闭环。PDA 已用官方 Vue3/Vite uni-app 构建 H5，并在 2026-11-05 复验 HTTP 浏览器登录、A/B、hash 回调、页面映射、请求前缀和存储；APK、真机外部浏览器及 `iws-pda://` 回调仍未验证，不能关闭 |
+| IAM-03 | done / IAM-02 | Job 统一身份、系统接入权限、原生用户上下文、namespace ACL 和机器调用边界 | 人员 SSO、中心接入权限、显式本地用户映射、原生 Token、namespace/group 拒绝、改密/停用/撤权、统一退出、密码登录关闭、真实隔离执行器注册/执行/掉线恢复和错误凭据拒绝均已真实验证；上游 Job 2.0.2 源码已找到，现有控制台压缩制品未手改，维护代码位于包装层 |
+| IAM-04 | in_progress / IAM-02 | AI 统一身份、系统接入权限、资源角色/控制台、流式撤销、app token 分离 | 人员 SSO、显式本地用户映射、原生权限、单应用撤权、改密/停用、统一退出、真实 HTTP 人员流终止、服务端 gRPC 取消、会话隔离和 app token 分离已实测；`ai-full-acceptance.json` 明确 `upstreamModelCancellation=false`，外部真实模型 HTTP 取消未闭环。AI 1.1.1 后端源码已找到，admin 前端仍只有压缩制品 |
+| IAM-05 | done / IAM-02 | 监控统一身份、既有接入权限、安全链适配及注册/Actuator 机器认证 | 普通监控用户、原管理员、接入撤权、改密传播、统一退出、待撤销持久化、机器 Basic/Actuator、人员/机器路径隔离和透明网页图标均已验证；中心停机时人员注销进入本地持久待撤销队列，Monitor 重启后保留，中心恢复后撤销旧根会话；无 CSRF 注销为 403，标准 `X-XSRF-TOKEN` 注销为 302 |
+| IAM-06 | done / IAM-02 | 对接现有 WMS/计划事件身份与授权上下文，关联 REV-01/REV-06，不新建业务授权模型 | HTTP 身份接缝、无浏览器 worker、持久发起人授权、重启恢复、撤权拒执和 UNKNOWN 不自动成功/重放已由 Testcontainers 测试验证；原 WMS 独立业务缺陷继续单列，不计入本次认证修复 |
+| IAM-07 | in_progress / IAM-03、IAM-04、IAM-05、IAM-06 | 既有模型/数据不变校验，原空库入口联调，部署/路由配置及恢复手册 | 原空库结构、原管理员、三项接入权限、外部配置/HTTP/服务重启、Job/AI 包装配置和最终运行清单已核；PDA 原生、AI 上游模型 HTTP 取消和完整外部矩阵未闭环，不能宣称完整切换就绪 |
+| IAM-08 | in_progress / IAM-07 | 同版完整整合、恢复与安全验收，更新任务/合同/交接 | §13 尚未全部通过；最终 47 模块构建、WMS 493/493、Job 12/12、AI 21/21、Monitor 7/7（中心停机注销与 CSRF 修复后定向 10/10）、Redis 1/1、Web 277/277、真实 A/B、G20/G21/G22/G24、写请求故障、MySQL/Redis 故障、SSE/WS、WebSocket 跨副本、本机 HTTPS/跨站、禁第三方 Cookie、HTTP IndexedDB、Job 执行器和 PDA H5 已回填；PDA APK/真机、AI 上游模型取消、生产代理/外部证书及通知重投极端矩阵仍保留 |
 
 ```mermaid
 flowchart LR
@@ -434,7 +507,7 @@ flowchart LR
 
 ### 12.1 执行原则与最小变更顺序
 
-以下是实施时应执行的步骤，不是本轮已经执行的记录。子步骤沿用 IAM-00—IAM-08 归属，不另起一套任务状态。允许写入范围仅为所列模块及其真实依赖接缝；真实数据库只读，写入验证限获准的隔离环境。
+以下步骤已按授权顺序执行，完成程度和未完成项以 §12 任务状态及 §13.1 证据为准。子步骤沿用 IAM-00—IAM-08 归属，不另起一套任务状态。允许写入范围仅为所列模块及其真实依赖接缝；真实数据库只读，写入验证限获准的隔离环境。
 
 先提取可复用代码，再启动中心，之后接主站和各独立系统，最后统一切换。中间版本只用于隔离验证，不对外保留两套人员密码登录。所有步骤遵循：
 
@@ -533,6 +606,44 @@ SDK 对调用方仅提供所需接缝：开始登录、核销票据、读取当�
 
 ### 12.7 IAM-02-B：接入 IWS、PDA 与前端身份绑定
 
+#### 界面适配与同类型单会话
+
+默认一套共用 Web 与一套共用 PDA 服务多个 IWS 后端；applicationId 标识后端，不代表需要另建前端。多个 IWS 可以共用同一终端入口和回调地址，但必须以已绑定并核验的 applicationId/state/事务选择正确的目标服务完成换票。launch-uri 是前端进入位置，不是后端 API；复用应用登记的公共 API 地址或代理前缀，当前未承载时仅在原 iam.applications 项内最小补充 api-base-url 等缺失字段，不建立第二份系统配置。适配器原子提交目标后端+会话+菜单能力+代次，所有业务 API、当前用户、上传/下载、字典、WS/SSE 与退出均使用绑定目标；不只替换单个 Axios baseURL。开发代理与发布请求通道分别验证，不假定 Vite 代理覆盖生产。同一 Web/PDA 构建不换 .env、不重部署即可选 A/切 B，并按原单会话策略使 A 失效；菜单和界面继续复用原组件与中心映射。详细合同已完整写入两端 README。纳入 IAM-02 及 IAM-07/08；Job/AI/监控原生控制台和中心独立 UI 的既有边界保持。
+
+原统一登录页增加目标系统选择，Web/PDA 的完整选择与配置契约已分别写入两端 README。已核对当前认证中心 IamProperties：iam.applications 是以 applicationId 为键的 Map，已有 name、type、terminals、enabled、launchUri、redirectUri、logoutUri、accessPermission 等属性。直接复用这些 YAML 配置及现有应用列表服务；不新建 login.systems、重复名称字段、独立系统清单或配置平台。未登录只投影启用且终端匹配的最小展示字段，不公开密钥/内部地址；登录后按原角色权限复核。目标选择绑定登录事务/state，明确进入才激活应用并执行互踢，列表加载/预选不得激活。错误/已删除/停用/无权限目标不静默回退默认系统；从其他应用进入可受控预选，记忆选择只保存 ID，名称和地址始终以同一 YAML 生效值为准。中心菜单配置页也引用此应用登记，不重复维护名称。配置按当前机制生效，不引入额外热加载。PDA 访问 IWS 仍按 IWS 应用类型执行互踢，不能以终端名另造 PDA 类型逃逸。
+
+Web 和 PDA 仓库的 README 均直接包含完整的“统一身份与界面切换适配契约”，分别可独立阅读，不互相引用，也不通过设计仓库链接代替正文。两份正文覆盖统一适配能力、上下文字段、菜单映射、原子激活及互踢、状态隔离和验证；契约变更同步维护两端，实施后分别回填实际接口、代码入口与验证状态。
+
+- 中心复用原菜单管理页，配置 applicationId、WEB/PDA、原 menuId 到已有 viewKey 的对应关系。沿用原菜单及角色关联，使用现有配置元数据或原 sys_config 承载必要映射，不新增平行菜单授权/账号模型；组件仅从终端已注册白名单选择。
+- Web/PDA 各提供薄平台实现，统一逻辑入口用于应用列表、明确激活、读取/应用界面上下文、处理会话替换。最终界面取系统配置、账号菜单权限、目标后端能力及终端页面注册的交集；仍由原业务后端检查公司/对象权限。中心 classpath 不决定业务菜单是否可用。
+- 中心以权威账号与 applicationType 为互斥键，在框架/Redis 中维护单一有效应用会话和代次，跨设备/rootSid/终端统一；IWS-A/B 同属 IWS，Job/AI/监控各属不同类型。后续同类型新登录成功后前会话失效，跨类型可以共存。扩容节点、多标签与刷新使用同一会话，不反复占位。
+- 原子激活、幂等事务、迟到回调、旧退出及故障恢复按 README 约定实现；失败登录不撤销旧会话。被踢端停止业务、重连和静默换票，必须人员明确选择才可重新激活，防止两个页面循环互踢；不能只靠前端清缓存或通知实现后端失效。
+- 切换时按原身份绑定/generation 保护机制隔离应用路由、菜单、权限、公司、对象、缓存和 WS/SSE；原命令 UNKNOWN 和离线待确认数据按来源保留，不删除或跨后端重放。新的会话代次不新增账号表字段。
+
+本要求覆盖 IAM-00 新范围基线、IAM-01 原菜单配置页适配、IAM-02 SDK/Web/PDA、IAM-03～05 同类应用适配、IAM-07 登记配置及 IAM-08 组合验收。此前“多 IWS 同时接入”指中心同时服务多个应用/账号，不再解释为同一账号可同时保持 IWS-A/B 的独立有效会话。§7 的普通登出/多设备管理继续适用，但“其他设备保持”只针对其仍符合本类型单会话约束的其他有效会话；不得用不同 rootSid 绕过互踢。
+
+#### 多 IWS 接入及身份一致性
+
+同时支持两种部署，不能把“多个 IWS”仅实现成一个地址的负载均衡：
+
+| 部署形式 | 应用与节点标识 | 会话、授权与故障处理 |
+|---|---|---|
+| 同一 IWS 应用的多副本 | 共用同一 SSO applicationId，节点使用不同 instanceId；instanceId 仅用于运维定位，不作为人员身份 | 同组副本使用应用组内共享会话及认证事务状态；请求切换节点仍识别同一用户，票据单次核销跨节点成立，不依赖粘性会话或单机内存 |
+| 多个独立 IWS 应用 | 每个应用使用独立 applicationId、受控回调/退出地址、协议凭据引用与会话命名空间 | 复用中心根会话获得同一身份，逐应用检查接入资格；各应用继续校验自身业务与公司范围，A 应用凭据不能直接用于 B 应用 |
+
+1. 统一主体为同一中心签发并核验的原 user_id；跨应用比较时同时确认权威签发方，不能依用户名、同名管理员或本地相同数字 ID 猜测同一人。所有 IWS、Job、AI、监控使用同一权威账号来源，禁止各部署初始化自己的管理员后宣称身份统一。
+2. 应用登记采用受控配置，包含 applicationId、启停、精确 callback/launch/logout 地址、协议凭据引用、接入权限映射和会话命名空间；节点登记包含所属 applicationId 及 instanceId。登录渠道 clientId、SSO applicationId、节点 instanceId 分别命名，不混用；不因此新增账号、角色或组织数据模型。
+3. 各 IWS 接入权限映射复用原权限链。若现有权限可区分应用则直接引用；需要分别授权的独立应用缺少权限码时，在原菜单/权限体系内补充最小权限配置并经原角色页面分配，不另建人员白名单，不默认给全部账号补权；同一应用的扩容副本不重复授予人员权限。
+4. 中心统一管理 rootSid 与 applicationId 对应的子会话关系；多副本的换票事务、state、防重放和撤销状态必须使用支持原子操作的共享存储或已验证的框架机制。同组节点使用一致的必要验签/会话配置，不把跨应用共享密钥或共享万能 Token 当作统一身份。
+5. 应用 Cookie 名、Path、浏览器存储键及认证状态绑定 applicationId/部署入口，特别验证同域不同端口；应用组内按同一浏览器入口保持一致。一个应用的旧响应、401 或退出回调不能污染另一个应用或新的登录主体。
+6. 默认统一退出撤销当前 rootSid 下所有 IWS、Job、AI、监控子会话；应用组任意节点都不能因本地缓存继续认可已撤销身份。账号停用、改密及全局角色变更按原规则传播全部受影响应用，单应用接入撤权仅影响对应应用；通知失败继续遵循 §7 的复核与失效时间边界。
+7. IWS 业务服务和业务库可以独立部署，但账号权威来源仍只有一套。逐项核对原账号/角色/部门/数据权限查询的真实连接与调用，明确是读取同一既有账号库还是调用提取后的原账号服务；不得回退到各业务库自己的账号表作为第二认证源，也不得偷偷复制一套人员组织数据。跨库关联或部署缺口必须给出证据与最小适配方案，不能假定本地 Mapper 天然可用。
+8. 配置、SDK、路由和注销处理不得硬编码只有一个 IWS 回调或单例应用；门户复用现有导航能力，按登记及接入资格展示多个 IWS。新增一个已支持类型的 IWS 应用应通过登记配置和原权限分配接入，不修改中心认证核心或重写页面。
+
+本节纳入 IAM-00 部署/身份来源基线、IAM-02 SDK 与 IWS 接入、IAM-07 配置切换以及 IAM-08 验收。最小联调拓扑为：一个中心、IWS-A 两个副本、独立 IWS-B，以及 Job、AI、Admin 监控；不得只用两个浏览器标签模拟多服务。
+
+#### 原接入步骤
+
 1. IWS 原登录页改成统一中心跳转入口。中心有效会话复用身份；无会话才显示一次原账号密码输入，成功后回到受控原页面。
 2. IWS 后端通过 SDK 校验身份及现有账号状态，按原服务装配 LoginUser，发放 IWS 本地会话；旧前端主站 Token 不传给 Job/AI/监控。
 3. 保留 Web 当前 auth binding/generation 的竞争保护：切换账号、旧 401、旧菜单/用户响应不能把新会话清掉；SSE/WS 绑定当前身份，未确认命令不自动重放。
@@ -549,6 +660,8 @@ SDK 对调用方仅提供所需接缝：开始登录、核销票据、读取当�
 4. 用匹配源码修改控制台登录守卫、bootstrap、401/403 和统一退出；原密码登录不再提供旁路，原用户/资源表结构不变。
 5. 调度客户端、group 凭据、注册、执行及 OpenAPI 走原机器认证。人员退出只撤销相关人员会话，不使执行器掉线或取消全部已受理任务。
 
+当前实现：锁定 `snailjob.version=2.0.2` 的服务端源码已核对 `AuthenticationInterceptor`、`SystemUserService` 和 namespace/group 查询；官方 `v2.0.2` 前端源码与当前压缩控制台构建物不完全同源，因此未手改压缩 JS。包装层新增 `IamJobSsoController`、`IamJobSessionFilter`、`IamJobLocalSessionService` 和 `IamJobCenterClient`，由可维护源码承担登录守卫、一次性 Token 桥接、中心会话复核、原生兼容 JWT 和退出。本地账号使用 `iam.client.accounts` 显式映射，禁用 `/auth/login` 人员密码入口；原生 `SNAIL-JOB-AUTH` 与 namespace/group 检查继续执行。真实浏览器已验证管理员与普通本地用户、错误 namespace 拒绝、接入撤权、改密、停用和统一退出。真实调度客户端尚未回归。
+
 关闭条件：有接入权限但无某 namespace 权限仍拒绝；无接入权限直接 URL/API 拒绝；原用户资源关联保持；退出/撤权后既有会话受控失效；真实调度客户端回归通过。
 
 ### 12.9 IAM-04：AI 接入步骤
@@ -558,6 +671,8 @@ SDK 对调用方仅提供所需接缝：开始登录、核销票据、读取当�
 3. 控制台通过受保护 bootstrap 获得本应用状态，原密码登录/注册/改密路由接回已有统一账号管理；不删除/重建原用户、资源、额度或密码字段。
 4. 对普通请求、流式响应及 WS 分别处理会话失效；权限撤销后达到 §7 时限即拒绝/断开，不以页面已打开继续放行。
 5. appId/app token、模型服务商 Key、后台服务调用不走人的浏览器会话，不被人员退出自动清空。
+
+当前实现：锁定 `snailai.version=1.1.1` 的后端源码已核对 `AuthenticationInterceptor`、`UserService` 和 `/LoginRequired`；admin 前端仍只有内置压缩制品，未手改。包装层新增 `IamAiSsoController`、`IamAiSessionFilter`、`IamAiLocalSessionService`、`IamAiCenterClient` 和 `IamAiStreamingRevocationAdvice`，以显式 `iam.client.accounts` 映射既有 `sai_user`，签发原生兼容 JWT，并在每个受保护请求复核中心状态。普通 AI 角色及空资源列表已真实验证，单应用撤权、改密、停用和统一退出通过；Flux 建议包装在源码层实现并编译，但隔离库缺少可用模型流，真实长连接中断和 OpenAPI app token 回归仍未执行。
 
 关闭条件：真实控制台进入和资源操作；无接入/无资源权限分开拒绝；流式撤销、模型/知识库 ACL、机器 OpenAPI 和原数据关系回归通过。
 
@@ -580,11 +695,15 @@ SDK 对调用方仅提供所需接缝：开始登录、核销票据、读取当�
 5. REV-06 的 WMS 对象策略按原公司/业务对象数据复用；不通过给用户授 `process:object:all` 解决。空间层级、规则 provider、非空范围与退役等其他缺陷继续留在原 WMS 整改，不混进认证拆分。
 6. 若原持久数据不足以安全支持某后台授权，应标明原 WMS 任务阻碍及所需业务决定；新增持久授权模型需在该业务整改中另行处理，不突破本次“账号模型不变、只独立统一”的范围。
 
+当前验证：`WmsSpacePlanWorkerIntegrationTest` 6/6 与 `WmsSpaceBackgroundAuthorizationIntegrationTest` 4/4 通过，覆盖普通公司角色、清除 HTTP 登录态后的正式 worker、跨 worker 实例恢复、持久发起人权限撤回、公司 grant 撤回和角色停用。`WmsAllocationReservationIntegrationTest` 的 UNKNOWN 组合 2/2 通过，重复推进仍保留 `UNKNOWN`、不自动成功或重放，并保留审计与调查证据。身份库与独立业务库拆分的 `WmsIdentitySplitIntegrationTest` 10/10 通过，覆盖身份数据源路由、无身份表时后台发起人、业务事务回滚后的线程/事务清理、严格路由缺失拒绝、共享锁阻塞以及原业务快照撤权拒绝；WMS 最新源码全量 493/493。原 WMS 业务缺陷仍单列。
+
 关闭条件：一个无 HTTP 登录态的真实 worker 场景通过，越权/伪造来源拒绝；正常退出不清 UNKNOWN 或释放未知资源；原公司授权及锁序保持。不能以一次静态 mock 通过替代后台真实执行。
 
 ### 12.12 IAM-07：配置收口及受控切换
 
 配置项集中在各环境一处：中心浏览器基址、内部基址、应用 callback/launch/logout 地址、clientId、签名密钥引用、Cookie 名/Path、可信代理和会话参数。已有三项权限码保持，不加入另一张人员白名单。
+
+按 §10.1 落实每个可执行 JAR 的 config 定位、包内默认配置保留、启动适配和配置示例交付；纳入 IAM-00 配置来源基线、IAM-01 独立启动、IAM-02 多 IWS 接入、IAM-03～05 各服务启动适配、IAM-07 打包/发布，以及 IAM-08 制品级验收。不能只修改 README 或本地临时启动参数。
 
 | 切换阶段 | 必须完成的动作 | 失败时处理 |
 |---|---|---|
@@ -613,7 +732,7 @@ SDK 对调用方仅提供所需接缝：开始登录、核销票据、读取当�
 
 实施开始后的下一安全动作是 IAM-00 的基线清单与技术 POC，不是先迁移数据库或生成一套新账号。源码提取之后尚未切换时可按已记录修改范围恢复代码装配；正式切换后的恢复必须使用同版 UI、JAR、路由和配置，用户、角色、公司和部门数据保持不回填。
 
-缺少 Job/AI 匹配源码、无法明确原生认证接缝、PDA 真机不可用或原 WMS 后台身份来源不足时，分别记录对应任务阻碍与解除条件；可独立完成的代码/验证继续推进，不能靠放宽认证或更改账号模型消除阻碍。本轮仅细化上述步骤，未授予启动、部署或真实数据库写入权限。
+Job 服务端源码已锁定 2.0.2、AI 服务端源码已锁定 1.1.1，但 AI admin 前端和 Job 当前控制台构建物仍缺少完全同源可维护前端；PDA 真机不可用或原 WMS 后台场景不足时，分别记录对应任务阻碍与解除条件。可独立完成的代码/验证继续推进，不能靠放宽认证或更改账号模型消除阻碍。本轮已按用户指令完成隔离构建、启动和联调写入；真实数据库仍只读，未授权提交、推送或部署共享/生产环境。
 
 ## 13. 统一验收清单
 
@@ -639,27 +758,141 @@ SDK 对调用方仅提供所需接缝：开始登录、核销票据、读取当�
 | SSO-18 | 中心数据库/Redis不可用时错误明确、无认证绕过；写前身份检查与数据库锁顺序符合 §7.3，负载和超时按实际场景压测 |
 | SSO-19 | 目前已有的统一管理账号使用原 user_id、账号名、密码和既有角色/公司/部门关联登录中心，按原权限服务使用各系统管理能力；提取、切换、原空库、重试及重启不改名、不重置、不重复创建、不恢复已撤销授权；原管理员保护规则保持 |
 | SSO-20 | 拆分前后用户、角色、公司、部门树、岗位、菜单及各关联表的 DDL/主键/字段和原有关系保持；原账号/密码/组织/授权记录无迁移性变化，登录时间/IP、审计及测试中明确执行的管理操作只产生原规则允许的预期差异；数据范围和树行为一致；不新增 iam 账号/组织/授权表或账号 epoch/revision 字段；接入权限仍由原角色菜单链计算 |
+| SSO-21 | 一个中心同时接入 IWS-A 两副本、独立 IWS-B 及 Job/AI/监控；输入一次密码后，各系统返回同一权威 user_id，且普通用户不会被映射成管理员；独立应用各自检查接入与业务权限，无 B 权限时从 A 跳转或直访 B 均拒绝 |
+| SSO-22 | IWS-A 换票请求与后续请求落不同节点仍正常；并发跨节点重放仅一次核销成功；停一个节点后剩余节点继续正确鉴权，重启节点不能恢复旧会话或权限；新增已支持类型的 IWS 登记不修改中心认证核心 |
+| SSO-23 | 同域不同端口和不同域的多个 IWS 不串 Cookie、存储、回调或身份；A 票据/本地 Token 不能用于 B；默认统一退出、账号停用与改密影响所有适用应用和副本，单应用撤权粒度正确，通知丢失仍在规定窗口失效；分别记录各节点真实请求结果 |
+| SSO-24 | 使用同一实际 JAR，分别在同目录及其他工作目录直接 java -jar 启动：存在 JAR 旁 config 时外部属性覆盖包内值，外部未定义项使用包内默认；移除外部文件/目录后回退包内，启动工作目录放置冲突配置不影响结果；覆盖激活 profile、外部普通值与包内 profile 冲突、路径含空格、显式参数/环境覆盖及每个涉及的可执行服务，记录非敏感属性来源和实际值 |
+| SSO-25 | 检查最终 JAR 包含默认 application 配置且无真实凭据；外部 YAML 非法/不可读/绑定失败明确报错、不静默回退；不同 IWS 部署读取各自 config，不串用身份配置；更新 JAR/UI 不覆盖已有外部配置，配置目录仅缺失时回退，隔离环境完成恢复验证 |
+| SSO-26 | 一个 config 根下同时启动中心、IWS-A/B、Job、AI、监控，各文件使用不同非敏感标记/端口验证只读取所选子目录；从不同工作目录启动结论相同；同一 IWS JAR 通过不同 key 分别加载 A/B，同应用多副本仅覆盖节点参数；修改 A 不改变 B/Job/AI/监控；缺失 A 时不读取根/兄弟配置；错误 key、路径跳转和不受控扫描拒绝；默认键与显式根目录启动分别验证 |
+| SSO-27 | 中心原菜单配置页为不同 IWS、WEB/PDA 指定已注册界面，普通角色实际显示随目标后端变化且不越权；组件/终端/能力不匹配拒绝，菜单配置及缓存更新不串应用；原登录和管理/业务页面复用；Web/PDA README 契约回填实际实现入口 |
+| SSO-28 | 同账号 Web 的 IWS-A 会话被随后 PDA/另一设备的 IWS-B 成功登录替换，A 后续受保护请求拒绝，Job/AI/监控不受影响；同应用多副本及复用同一会话的标签/刷新不互踢；不同账号不互踢；相同后端的新独立登录也执行类型单会话限制 |
+| SSO-29 | 并发登录、幂等重试、失败/未授权登录、迟到回调、旧退出、激活成功回调丢失、通知失败及节点重启均不形成两个有效占位或误删新会话；旧端无静默抢占循环；前端旧响应不污染新后端、UNKNOWN/离线命令不被清除或重放，真实后端与 Web/PDA 分别提供证据 |
+| SSO-30 | 原登录页从既有 iam.applications 投影选择系统，Web/PDA 均可选目标后进入正确菜单/界面；修改同一 YAML 名称/入口并生效后，各选择器/导航/菜单配置展示一致，无前端硬编码或第二套登记；登录前最小字段、登录后权限、直接预选、停用/删除/终端不支持、登录中配置变化与篡改目标/回跳分别验证；列表/预选不踢旧会话，成功进入才执行同类型替换 |
+| SSO-31 | 同一份 Web 构建和同一 PDA 构建/安装包，不换环境文件或重部署前端，分别选择 IWS-A 再切 B；真实核对业务 API、当前用户、上传/下载、字典、长连接及退出目标，页面按中心映射/角色/后端能力变化；同源/跨域及 HTTP 部署按支持矩阵验证；共用回调的错应用/错事务票据拒绝，旧响应不改新目标，A 按单会话失效；两套前端分别绑定 A/B 不算通过 |
+| SSO-32 | 两个不同公开地址的 Web 使用同一构建、不同运行时 frontendId，同时登记到旧中心并各自可选原 IWS-A/B，回调准确返回发起入口；同一入口扩容不重复登记后端。未知/停用/缺失前端ID、未绑定后端、错terminal/回调/票据拒绝；前端配置无系统重复清单或secret；不同账号可并存，同账号跨前端/终端后登录仍按原类型互踢；直接核对模板、实际协议绑定及运行时配置，不以改YAML字符串或README代替实现 |
 
 测试分层：纯函数测试验证协议/状态规则；真实 MySQL/Redis 验证原模型/权限行为保持、票据并发、会话失效及通知失败兜底；真实 HTTP 与普通角色验证安全链；浏览器验证完整跨系统登录和退出；PDA 原生单独真机验证。所有证据标明源码/制品散列、配置、执行时间、调用链和领域结果；不得用 Mock、HTTP 200、打开弹窗或复制相同密码替代整体验收。
+
+### 13.1 2026-11-04 实施证据与未完成项
+
+本节保留各轮历史证据，不代表最新整合版本已全部通过。新增修复后，旧测试数量、制品哈希和进程清单只能证明对应历史输入；当前未完成项、复验条件及状态以 §16 和缺陷台账为准，最终交付前须刷新源码—制品—进程对应关系。
+
+隔离现场为 `C:\code\company\innolux-iws\work\iam-config-validation-20261103-v17`，运行与浏览器证据目录为 `C:\code\company\innolux-iws\work\iam-web-runtime-20261103-v18`。隔离 MySQL 为容器 `iws-sql-empty-final` 的 `127.0.0.1:13306/iws_iam_20261103`，Redis 为 `127.0.0.1:16390`；真实数据库未写入。
+
+| 验证面 | 已实际观察结果 | 证据 |
+|---|---|---|
+| 构建与测试 | JDK 21 下最终 `clean package` 覆盖中心、IWS、监控、Job、AI 及 46 个 reactor 模块成功；Web `vue-tsc --noEmit`、`pnpm build`、`pnpm build:auth` 成功；最终 Job/AI/Monitor 针对性测试分别为 10/10、10/10、6/6 通过；PDA 官方 Vue3/Vite uni-app `build:h5` 成功，Node 交错/请求测试 8/8 通过 | 最终构建输出；Surefire XML；`pda-h5-acceptance.json`；Web `dist/` 与 `dist-auth/` |
+| 同版制品 | 最终 JAR SHA-256 已记录在 `final-runtime.json`；中心、admin、monitor、Job、AI 五个 JAR 与当前 19080/19081/19083/19084/19088/19089/19090 运行进程同版 | `release` JAR；`final-runtime.json`；最终进程重启后的端口监听与验收记录 |
+| 原统一账号与原页面 | 原管理员 `innolux`、原 ID、隔离库原密码登录成功；用户、角色双向分配、选择用户、部门、岗位、菜单、客户端和个人设置页面读取真实数据并可进入 | `browser-acceptance.json`、`center-user-management.png` |
+| 多前端/多 IWS | 同一 Web 构建用 web-main 登录 IWS-A、web-branch 登录 IWS-B，均准确回发起入口；A 的 IWS Token 直访 B 返回未登录 | `browser-acceptance.json`、`web-main-iws-a.png`、`web-branch-iws-b.png` |
+| 普通用户与接入权限 | 普通测试用户仅授 `iam:app:iws:a` 时 IWS-A 成功，IWS-B/Job/AI/Monitor 为 403；撤权后中心门户 `granted=false` 且旧 IWS 会话 401 | `security-acceptance.json` |
+| 会话与凭据传播 | 账号停用、密码重置后中心和 IWS 旧会话均失效，旧密码登录失败、新密码登录成功；单应用接入撤权只使对应应用旧会话 401，中心和其他应用按共享授权状态继续；共享菜单、数据范围、部门树和自定义部门范围变化仍使中心、IWS 和 Monitor 旧会话失效；同类型后登录超复核窗口后旧 A 返回 `IAM_SESSION_REPLACED` | `security-acceptance.json`、`shared-fact-acceptance.json`、`review-repair-acceptance.json`、`n3-revoke-scope-acceptance.json` |
+| 跨副本票据 | A1 换票得到的 IWS 本地 Token 在 A2 `/system/user/getInfo` 返回同一原 userId；A1/A2 并发核销同一票据只有一个成功 | `pending-iwa-acceptance.json` |
+| Admin 监控 | 普通 `monitor:admin:list` 用户经真实浏览器 SSO 进入；改密和撤权后旧监控会话 401；人员 `/admin/instances` 可访问；专用机器 Basic 访问实例与 Actuator 可用，访问浏览器控制台被导向人员 SSO | `monitor-acceptance.json`、`pending-iwa-acceptance.json`、`monitor-admin-sso.png` |
+| 统一退出与中心独立 | IWS 统一退出撤销根会话，旧中心和 IWS Token 均失效；停止 IWS-A/A2/B 后中心仍可登录并读取原用户/角色数据，随后 A1/A2/B 恢复监听 | `security-acceptance.json`、`iam-round3-center-independent.json` |
+| 第三轮真实 HTTP 收口 | 最新 Job/AI 原控制台点击退出并确认后，本地 Token 清理、中心根会话撤销、其他类型旧 Token 401、机器 Basic 保持 200；自然过期本地 JWT 不调用全局退出并自动重新 SSO；中心撤销后普通路径与 matrix/编码变体均 401；监控普通用户改密后超过复核间隔返回 401、机器 Basic 仍 200；A1/A2 并发同一票据仅一次成功且 A1 Token 可在 A2 使用 | `iam-round3-core-acceptance.json`、`sso29-matrix.json` |
+| 主体绑定与单应用撤权 | 普通中心主体可合法进入同根 IWS/Job/AI；使用原生管理员签名但保留普通中心声明的伪造 Job/AI Token 均 401；移除真实本地映射后旧 Job/AI Token 401；仅撤 AI 接入权限后 AI 旧 Token 401，中心根、IWS 和 Job 保持 200，自动 401 不触发全局退出 | `iam-round3-subject-revoke-acceptance.json`、`iam-round3-mapping-change-acceptance.json` |
+| PDA H5 终端 | 同一 H5 构建完成 IWS-A 登录，`pda-main`、PDA、`/iws-a-api` 上下文正确；页面映射与“在库管理”入口生效；同一根会话切到 IWS-B 未重复输入密码，`/iws-b-api` 请求落地，刷新保持 B，旧 A Token 最终 401；hash 回调带查询参数但导航不含访问 Token；测试映射已清理 | `pda-h5-acceptance.json`、H5 构建快照 |
+| 复评 R1 写门禁与读租约 | 中心停止后第 0.1、1.1、14.1 秒的真实 IWS 业务 POST 均返回 `code=503 统一身份中心不可达`，拒绝请求未落库；读 GET 在 14.2 秒通过，超过 30 秒租约的 31.0 秒返回 503；同类型替换后旧 Token 新写请求返回 401 `IAM_SESSION_REPLACED` | `review-repair-acceptance.json` |
+| 复评 R2 监控机器/人员隔离 | 中心撤权后，带人员 Cookie+CSRF 的 `POST /admin/instances` 返回 401；机器 Basic `/admin/instances` 仍为 200；机器凭据不能进入人员控制台 | `review-repair-acceptance.json`、`pending-iwa-acceptance.json` |
+| 复评 R3 共享授权指纹 | 仅将角色数据范围从全部收紧为本部门并保持菜单不变，旧 IWS Token 的真实查询和修改均返回 401；共享指纹覆盖菜单、角色、数据范围、部门树和自定义部门范围，应用接入权限在应用状态接口单独校验 | `review-repair-acceptance.json`；`IamAuthorizationSnapshotService` |
+| 复评 R4 撤销失败可恢复 | 中心故障时退出返回 `localLoggedOut=true, centerRevoked=false, centerRevokePending=true`，本地旧 Token 立即 401；中心恢复重试后中心、IWS、监控旧会话均失效 | `review-logout-pending-acceptance.json` |
+| 复评 R5 前置校验与回滚 | 非法 state、非法 returnPath 分别被拒绝，原 A 会话仍为 200；激活后签票失败有占位回滚；测试账号/角色已清理，验证码基线未改动 | `review-repair-acceptance.json` |
+| 第二轮复评 N1/N2 监控队列 | 重试完成时重新加载当前文件，只删除已确认的 rootSid，并发新增项保留；读取/写入/原子替换失败不再返回 `pending=true`，而是返回 `persistenceFailed=true`。监控退出页分别反馈 `logoutPending=1` 与 `logoutPersistFailed=1` | `IamMonitorPendingRevocationServiceTest.java`；`review-logout-pending-acceptance.json` |
+| 第二轮复评 N3 单应用撤权粒度 | 临时普通用户同时拥有 IWS-A、IWS-B、Monitor 资格；仅撤销 `iam:app:iws:a` 后，A 旧会话 401、A 新授权 403，Monitor 旧会话保持 200，IWS-B 换票及 `getInfo` 保持 200，门户 A/Monitor/B 的 `granted` 分别为 false/true/true。角色权限保存不再全局踢出该用户全部 Token，改由中心共享指纹和应用自身接入权限分别校验 | `n3-revoke-scope-acceptance.json`、`n3-revoke-scope-monitor.png`、`IamAuthorizationSnapshotServiceTest.java` |
+| Job/AI 人员统一身份 | 同一中心身份先进入 Job、再进入 AI 不需重复密码；两边分别保持 `snail-job`/`snail-ai` 应用会话，中心原 userId 一致，Job 显示原用户 role=2、AI 显示 role=2；Token 不进入 URL，由一次性浏览器会话桥接写入各控制台存储。普通本地角色测试中 Job role=1 只能访问已授权 `dev`，切到无 group 的 `prod` 返回 `User group permissions are empty`；AI role=1 可访问自己的空 agent 列表。无显式本地映射时返回“未配置 Job 本地用户映射”，无 `monitor:snailjob:list` 时中心授权 403，均不自动建号或提权 | `job-ai-sso-acceptance.json`、`job-ai-denial-acceptance.json` |
+| Job/AI 撤权与退出 | 仅撤 Job 接入权限后，Job 旧 Token 401、AI 旧 Token 保持 200；改密后两边旧 Token 均 401、旧密码登录失败、新密码可建立两边新会话；停用后两边旧 Token 均 401。浏览器等价执行 `localStorage.removeItem('token')` 触发 `/iam/sso/logout` 204，随后 Job 与 AI 旧 Token 均 401 | `job-ai-denial-acceptance.json`、`job-ai-logout-ui-acceptance.json` |
+| 中心 Redis 故障 | 停止隔离 Redis 后，中心登录返回 `code=500` 且无 Token，持有旧本地 Token 的 Job/AI 请求均返回 503；恢复 Redis 后中心登录重新成功。未发现本地回退或认证绕过 | `center-redis-failure-acceptance.json` |
+| 后台 worker/UNKNOWN | `WmsSpacePlanWorkerIntegrationTest` 6/6、`WmsSpaceBackgroundAuthorizationIntegrationTest` 4/4 通过：普通公司角色、清除 HTTP 登录态、正式 worker、跨 worker 重启恢复、持久发起人撤权、公司 grant 撤权和角色停用均按预期。`WmsAllocationReservationIntegrationTest` UNKNOWN 组合 2/2 通过：重复推进保持 `UNKNOWN`，不自动成功/重放，审计与调查证据保留 | 对应 Surefire XML；`WmsSpacePlanWorkerIntegrationTest`、`WmsSpaceBackgroundAuthorizationIntegrationTest`、`WmsAllocationReservationIntegrationTest` |
+| 全网页标签图标 | 认证中心、IWS Web、PDA H5 shell、Job、AI、Monitor 页面均引用透明 IWS PNG/ICO 或监控 SBS favicon 配置；浏览器请求 PNG/ICO 均为 200，PNG 解码为 1254×1254、alpha 最小值为 0，ICO 头有效；控制台与图标请求无失败。PDA `manifest.json` 的 schemes 既有修改及原生 launcher/splash/安装图标未改 | `icon-matrix-acceptance.json`、`monitor-icon-acceptance.json`、`icon-center.png`、`icon-web.png`、`icon-pda-h5-shell.png`、`icon-job.png`、`icon-ai.png`、`icon-monitor.png` |
+| 配置与模型 | 外部配置按服务子目录和 profile 加载；隔离库未新增 `iam_%` 账号/组织/授权表；用户、角色、部门、岗位、菜单和关联仍用原表 | `center-v30.out.log`、隔离库只读查询、初始化 SQL |
+
+未完成/未验证项必须继续保留：
+
+- IAM-03 Job：人员 SSO、显式本地映射、原生 Token、namespace/group、撤权、改密、停用和统一退出已验证；Job 2.0.2 服务端源码已找到，当前适用于压缩控制台的维护代码在包装层。真实调度客户端接入、group 凭据/执行器掉线隔离尚未回归，因此不关闭。
+- IAM-04 AI：人员 SSO、显式本地映射、普通角色、撤权、改密、停用和统一退出已验证；1.1.1 后端源码已找到，admin 前端仍只有压缩制品。Flux 撤权包装已实现并编译，但隔离环境没有可复现的模型流，真实长连接中断、模型/知识库 ACL 和 OpenAPI app token 分离尚未验证，因此不关闭。
+- IAM-02 PDA/SSO-14：H5 已构建并通过 HTTP 浏览器登录、A/B、hash 回调、页面映射、请求前缀、存储和旧 Token 替换；仍未完成 HBuilderX APK、真机外部浏览器、`iws-pda://` 回调、设备存储隔离、安装图标和同账号 Web/PDA 跨设备互踢。
+- SSO-06/09/10/11/18/23/24/25/26/29 等：HTTPS、跨站 iframe、禁止第三方 Cookie、完整通知丢失矩阵、数据库故障、所有节点重启和完整多服务外部配置矩阵尚未全部执行；已有 HTTP、重放、跨副本、Redis 故障和中心重启证据不能替代完整矩阵。
+- 原 WMS 独立缺陷仍按原任务跟踪，本认证工作不宣称修复 REV-01/REV-06 等业务问题。
+
+### 13.2 2026-11-04 剩余缺陷清单与执行顺序
+
+本节只列尚未关闭的事项，不重复已通过的原页面、多 IWS、Job/AI 人员 SSO、Redis 故障和 worker/UNKNOWN 证据。A 类为代码缺陷或功能缺失，B 类为代码已实现但尚缺可执行隔离验证，C 类为必须外部条件的阻碍。
+
+本节保留 2026-11-04 的未关闭快照；其中 Job 真实执行器、AI OpenAPI app token 分离及部分故障项已在 2026-11-05 的 §13.3 取得新证据。历史行不删除，但当前状态以 §13.3 及缺陷台账为准。
+
+| 类别 | 事项 | 优先级 | 当前证据/问题 | 下一动作与关闭标准 |
+|---|---|---|---|---|
+| A | AI Flux 撤权接缝 | P1 | Spring MVC 7.0.8 源码证明 `ResponseBodyEmitterReturnValueHandler` 先于 `RequestResponseBodyMethodProcessor` 订阅 Flux，原 `ResponseBodyAdvice` 不会覆盖真实 SSE；已改为在原生 emitter handler 前安装 `IamAiStreamingRevocationHandler`，真实 MVC 4/4 测试通过 | 最终 JAR 的 MVC 接缝已锁定；仍缺隔离可控流端点和真实模型 Flux HTTP 运行证据，不能用 Mock 或单元测试替代 |
+| A | AI 应用/模型/知识库 ACL | P1 | 原生控制器多数只有 `@LoginRequired` 的 ADMIN/USER 角色门禁，需按真实调用链确认是否存在资源归属或订阅 ACL；不能把注释当作细粒度授权 | 在隔离 AI 库准备两个普通本地账号和两套资源，逐个调用应用、模型、知识库、Agent/会话接口；若原生只有 ADMIN 门禁，明确记录与需求的差距，不放宽成全员访问 |
+| A | Job 真实执行器/namespace/group 与机器凭据 | P1 | 人员 SSO 已验证，但真实调度客户端、执行器掉线和 group 凭据未回归 | 启动最小隔离执行器，验证授权 namespace、越权 namespace、执行器掉线、人员退出不撤销机器凭据；无法启动的外部客户端再列 C |
+| A | 旧应用会话退出误撤新根会话 | P1 | Job/AI/IWS/Monitor 旧 Token 可在新同类型会话已替换后仅凭 rootSid 撤根；已加入应用会话/代次条件撤根和三态结果，锁竞争失败保持可重试 | 覆盖锁竞争超时、当前会话确认撤销、旧代次拒绝、旧 pending 队列不复活；用真实 HTTP 验证旧退出不影响新会话和其他类型 |
+| A | 中心请求连接/响应截止时间 | P1 | `RestClient.builder()` 默认没有本项目的显式有限截止；中心接受 TCP 后不返回时，人员请求和 Flux 状态检查可能长期占用 | 四个客户端统一使用 `IamHttpClientFactory` 的连接/响应超时；用接受连接后延迟响应的隔离 HTTP 服务验证及时 503、Flux 在预算内取消、不长期占用线程 |
+| A | PDA 迟到响应污染新上下文 | P1 | `request` 未快照 Token/application/session/generation，旧 A 响应可清掉新 B Token 或交给 B 页面；已加入请求上下文快照和旧响应拒绝 | 用可控延迟 A 请求，切换 B 后分别返回 A 200/401，确认不清理 B、不交付旧数据；覆盖 H5 和 APP 共用适配层 |
+| A | PDA 迟到/伪造回调 | P1 | `consumeIamState` 先删后比较，旧回调可删除新事务；callback 失败路径可能清理后到的新会话；已改为匹配后消费并加事务/基线保护 | 覆盖伪造 state、旧 state、重复回调、旧失败晚到、新事务先到；兑换请求必须落到所选后端且不携带旧 Token |
+| B | AI 真实流制品/外部模型链路 | P1 | 真实 MVC 接缝已可测，外部模型额度不要求用于基础接缝；真实模型 Flux 仍无运行证据 | 用隔离可控流源跑最终 JAR HTTP；真实模型另列 C，不把 Mock 流当模型运行通过 |
+| B | AI OpenAPI app token 分离 | P1 | 原生 OpenAPI interceptor 独立于人员 `Snail-Ai-Auth`，但尚未做互换凭据和人员退出不影响机器凭据的真实验证 | 用两个独立凭据调用 OpenAPI 与人员控制台，互换必须拒绝；人员统一退出后机器调用仍可用 |
+| B | 回调/撤销/重启矩阵 | P2 | 已有 HTTP、重放、Redis、中心重启和部分迟到回调证据 | 补迟到重复回调、旧退出、通知丢失、撤销重试重启恢复和数据库不可用边界；只在隔离库/Redis执行 |
+| C | PDA 真机/APK 原生回调/设备深链 | P2 | 用户确认暂无设备，暂缓真机、`iws-pda://`、设备存储隔离和安装图标验收 | 需要用户提供设备/模拟器、HBuilderX/原生打包条件；不阻塞 H5 和源码修复 |
+| C | 真实 AI 模型额度与外部服务 | P2 | 无可用模型流；不得伪造模型调用 | 需要受控测试模型或允许的额度/地址；基础流式接缝和 ACL 可先用隔离流源验证 |
+| C | 共享/生产 HTTPS、域名、代理和真实库 | P2 | 未提供共享环境或证书；真实库只读 | 需要获准的隔离 HTTPS/代理和只读数据库目标；在此之前只报告 HTTP 与隔离证据 |
+
+### 13.3 2026-11-05 最终隔离复验
+
+本节记录当前源码对应的最终隔离结果；§13.1/§13.2 的历史失败和未完成项继续保留，不用新结果覆盖失败历史。
+
+| 验证面 | 当前结果 | 证据 |
+|---|---|---|
+| 构建与测试 | JDK 21 下 47 个 reactor 模块 `clean package` 成功；WMS 493/493，Job 12/12，AI 21/21，Monitor 7/7（最终 CSRF 修复后定向 10/10），中心 Redis 1/1；Web `vue-tsc --noEmit`、277/277 Vitest、`pnpm build`、`pnpm build:auth` 成功；PDA Node 回调/请求隔离测试 11/11。10:53 定向复验身份/回调/Redis 15 项及 10:55 G20/G21/G24 组件 16 项，合计 31/31、零失败/错误/跳过 | `final-full-local-build.log`、`final-extend-dev-tests.log`、`final-auth-redis-test.log`、`final-web-build.log`、Surefire XML、PDA `node --test`；2026-11-05 定向 Maven 复验 |
+| 同版制品 | `release` 下中心、admin、Job、AI、Monitor 五个 JAR 与当前监听进程同版；中心 JAR 内 `BOOT-INF/classes/static/iam/index.html` 与 Web 源码哈希一致；Web-main/Web-branch/PDA H5 目录已记录 | `final-runtime-20261105.json` |
+| 统一身份与业务库 | 中心 API 创建、登录、改密、删除均命中权威身份源；A/B 各自 78 张业务表且身份表数量为 0；新用户在 A/B 使用同一原 userId，A 旧会话在 B 登录后返回 `IAM_SESSION_REPLACED`；业务库同名冲突用户未影响认证 | `iam-identity-routing-acceptance.json`、`iam-g20-split-acceptance.json` |
+| 权限与组织范围 | G21 自定义部门/部门树真实库存矩阵按源、目标、删除子部门精确变化；A/B 同时复验且未手动清缓存；G24 普通 scope4 部门移动 HTTP 200、业务 200、129ms，后代 ancestors 同步更新；授权树外移动返回“没有权限访问部门数据！”且原父级和 ancestors 不变 | `iam-g21-scope-matrix-acceptance.json`、`iam-g21-business-scope-acceptance.json`、`iam-g24-dept-move-scope-acceptance.json` |
+| 同构建跨系统 | 同一 Web 构建同一入口从 IWS-A 进入 IWS-B，无重复密码，同一 userId；B getInfo、菜单、字典 200；旧 A Token 401；退出发往 B；SSE Authorization 头存在且 URL 无 Token；双标签真实浏览器中后登录 B 获胜，旧 A 替换 401 不覆盖 B 的 Token/context | `same-build-switch-acceptance.json`、`iam-g22-twotab-samebuild-acceptance.json` |
+| 终端人员入口 | Job/AI 原生控制台经中心登录，Job/AI 均保留原生 Token 和同一中心主体，统一退出后旧 Token 401；Monitor 人员 SSO、机器 Basic/Actuator、机器凭据不能进入浏览器控制台；PDA H5 A/B、映射、请求前缀、存储和旧 Token 替换复验通过 | `job-ai-sso-acceptance.json`、`monitor-acceptance.json`、`pda-h5-acceptance.json` |
+| 故障与一次性能力 | 中心停机时真实业务写请求返回 `503 统一身份中心不可达` 且未落库；隔离 MySQL 停机时登录与旧中心/IWS 会话均在约 30—35 秒内失败关闭、不返回用户数据，恢复后自动重连；SSE/WS 约 18.64 秒内被踢并关闭；同一 WebSocket 票据并发仅一个握手成功，重放、错 clientId、旧 Bearer URL、过期及撤权后票据均拒绝；A1 换票 Token 在 A2 可用 | `iam-write-center-outage-valid-business-acceptance.json`、`iam-mysql-failure-acceptance.json`、`iam-push-center-outage-v2-acceptance.json`、`iam-ws-ticket-browser-v3-acceptance.json`、`iam-ws-cross-replica-acceptance.json` |
+| 监控注销恢复 | 中心停机时无 CSRF 的 `POST /admin/logout` 为 403 且人员会话仍有效；带合法 `X-XSRF-TOKEN` 的注销为 302，本地待撤销队列写入 rootSid，Monitor 重启后保留；中心恢复后队列清空，旧中心根 Token 返回 401 | `iam-monitor-pending-restart-acceptance-v2.json`；失败历史 `iam-monitor-pending-restart-failure-csrf-20261105.json`、`iam-monitor-pending-restart-failure-browser-csrf-20261105.json` |
+| HTTPS、跨站与 HTTP | 本机自签 HTTPS 顶层从 Web 发起 IWS-A，复用中心身份再进入 IWS-B，回调均回到原 Web；中心登录页可在跨站 iframe 加载；启用第三方 Cookie phaseout 后顶层登录、授权 API 仍成功且中心 Cookie 不共享进 iframe；真实非安全 HTTP 上下文中 `isSecureContext=false`，IndexedDB 写入读回成功 | `iam-tls-cross-site-acceptance.json`、`iam-tls-third-party-cookie-acceptance.json` |
+| Cleanup 读回 | 隔离身份库中 G20/G21/G24/Monitor 临时有效用户、角色、部门均为 0；A/B 中 G21 inventory/storage/warehouse 和 grants 均为 0；A/B 仅保留 G20 业务 schema 的 1 个公司 seed；业务 schema 身份表为 0 | `final-runtime-20261105.json` 的 `cleanupReadback`；2026-11-05 只读 SQL 查询 |
+| 最终稳定窗口 | 中心、IWS-A1/A2/B、两个 WS 副本、Web-main/branch、PDA H5、Job、AI、Monitor、隔离 MySQL/Redis 共 14 个端口均监听；中心登录页/应用列表、Web 配置、Job/AI/Monitor 入口、Monitor 机器 health 均通过；TLS 测试代理已停止且正式配置不含临时 frontend | `iam-final-stable-smoke-20261105.json`、`final-runtime-20261105.json` |
+
+当前仍未完成的外部或环境项：
+
+- PDA APK、真机、原生 `iws-pda://` 深链、设备存储隔离和安装图标；H5 通过不等于原生终端通过。
+- AI 外部真实模型的上游模型 HTTP 取消仍为 `false`。已核对 `snail-ai 1.1.1` 使用 Spring AI `2.0.0` / OpenAI Java SDK；上游 `ClientChatExecutor.executeStream` 丢弃 Reactor `Disposable`，`ChatDispatchStreamingHandler` 未把 gRPC 取消桥接到该订阅。当前只证明人员 HTTP 流终止、中心到 Agent 的 gRPC `ClientCall` 取消、原生权限和 app token 分离；不能在包装层伪造结论，也不能把该 SDK 限制说成已修复。
+- 生产代理拓扑、外部证书链、通知重投极端场景和全部节点集群重启未验证；本机自签 HTTPS、跨站 iframe、禁第三方 Cookie 和隔离 MySQL/Redis 故障已通过，不能替代生产矩阵。
+- 原 WMS `SCHEMA_STATE_UNSUPPORTED` 等独立业务缺陷继续单独跟踪，不随本认证工作宣称修复。
+
+恢复方式：隔离现场保持在 `C:\code\company\innolux-iws\work\iam-config-validation-20261103-v17\release`，服务按 `final-runtime-20261105.json` 记录的端口、PID、配置键和启动命令恢复；停止进程前先按端口和完整 CommandLine 校验，不能只凭历史 PID 文件直接终止。重新生成隔离配置前必须先检查 `%TEMP%\prepare_config_validation.py`，禁止重新生成危险的 `security.excludes: - /**`。真实数据库仅只读，未提交、未推送、未部署共享或生产环境。
 
 ## 14. 决策、待补输入与本轮交付边界
 
 已接受：独立部署和统一认证接入，内部账号数据模型不变；沿用现有用户、角色、公司、部门树、岗位和权限关联；保留现有统一管理账号及其账号、密码、ID、角色和组织关系。Job、AI、Admin 监控通过原角色菜单权限链校验接入，不再建准入名单；一次登录不代替权限检查。首期本地账号，企业身份源只预留代码接缝。
 
-推荐待实施验证：Sa-Token SSO 模式三、原账号服务的代码提取与单一写入口、同站优先与顶层回退、会话参数、撤销窗口、后台执行授权接缝、现有管理页面复用和独立 UI 构建。这些是实现建议，不改变已明确的数据模型边界，也不表示已经运行通过。
+本轮已落地的技术选择：原认证与账号管理源码提取到 `iws-auth`/`iws-auth-server`，IWS 保留 `getInfo/getRouters` 只读适配；中心与客户端使用服务端签名、一次性票据和共享 Redis 原子状态；Web/PDA 使用运行时 frontendId；全链路保留原账号、角色、部门和菜单表。中心 Redis 根会话保存密码哈希指纹和共享授权指纹，共享指纹覆盖角色、菜单、数据范围及部门树但不包含各应用接入权限；每个应用在自身状态查询中单独校验 `access-permission`，因此单个应用撤权不注销其他应用。角色权限保存不再对该角色用户执行无条件全局 Token 清退，停用、改密、共享授权变化和单应用撤权分别按会话守卫与应用状态传播。中心撤销失败时由 IWS Redis 队列和监控本地持久队列重试；监控队列以原子文件替换保存，重试只删除确认成功的项，持久化失败显式返回失败而不是承诺自动恢复。
 
 后续实际部署需核对：各环境浏览器可达地址/路径、代理拓扑、现有数据库/Redis及凭据渠道、既有角色菜单授权、各应用原用户对应、PDA 平台/回调能力和班次有效期。不要求另行提供人员归并或新组织树。企业身份源地址/元数据只在真实接入阶段需要。
 
-本轮已完成源码与依赖静态核对、官方文档核对和真实 dev 库只读结构/聚合查询，并按最新要求修订方案。没有运行 SSO POC、编译新中心、启动服务、改 SQL、迁移账号或执行浏览器/真机集成。本方案不作为原 WMS 不通过项已经修复的证据，原任务图状态未被自动改成完成。
+本轮已在隔离环境完成同版 clean build、服务启动、原管理员/普通用户、原页面、多 IWS、同一 Web 构建同入口 A→B、双标签、跨副本并发票据、Job/AI 人员 SSO 与拒绝路径、Job 真实隔离执行器和机器凭据边界、统一退出、自然过期、停用/改密/撤权、主体伪造拒绝、单应用撤权组合、监控人员/机器、中心/Redis/MySQL 故障、后台 worker/UNKNOWN、本机自签 HTTPS/跨站/iframe、禁第三方 Cookie、HTTP IndexedDB、PDA H5 A/B 与 HTTP 浏览器验收，并完成复评 R1—R5、第二轮复评 N1—N3、第三轮真实 HTTP 矩阵及全网页标签图标验证；未对真实库写入、未提交/推送/部署。代码已变更不改变 §13 中 PDA APK/真机、AI 上游模型 HTTP 取消、生产代理/外部证书及通知重投极端矩阵仍未通过的结论。下一安全动作是取得 PDA 构建/真机条件，处理 AI 上游模型 SDK 取消限制并补齐剩余生产/故障矩阵；不得以放宽鉴权或改动账号模型替代。
 
 ## 15. 依据
 
 - [当前根 POM](C:/code/company/innolux-iws/pom.xml)、[独立扩展模块](C:/code/company/innolux-iws/iws-extend/pom.xml)。
-- [现有认证入口](C:/code/company/innolux-iws/iws-admin/src/main/java/com/innolux/iws/web/controller/AuthController.java)、[密码策略](C:/code/company/innolux-iws/iws-admin/src/main/java/com/innolux/iws/web/service/impl/PasswordAuthStrategy.java)、[LoginUser 组装](C:/code/company/innolux-iws/iws-admin/src/main/java/com/innolux/iws/web/service/SysLoginService.java)。
-- [Sa-Token 配置](C:/code/company/innolux-iws/iws-common/iws-common-satoken/src/main/java/com/innolux/iws/common/satoken/config/SaTokenConfig.java)、[权限适配](C:/code/company/innolux-iws/iws-common/iws-common-satoken/src/main/java/com/innolux/iws/common/satoken/core/service/SaPermissionImpl.java)、[固定 ID 超管判断](C:/code/company/innolux-iws/iws-common/iws-common-satoken/src/main/java/com/innolux/iws/common/satoken/utils/LoginHelper.java:238)。
+- [独立认证中心](C:/code/company/innolux-iws/iws-extend/iws-auth-server/src/main/java/com/innolux/iws/auth/AuthServerApplication.java)、[中心票据与会话协议](C:/code/company/innolux-iws/iws-extend/iws-auth-server/src/main/java/com/innolux/iws/auth/controller/IamSsoController.java)、[密码策略](C:/code/company/innolux-iws/iws-extend/iws-auth-server/src/main/java/com/innolux/iws/web/service/impl/PasswordAuthStrategy.java)、[LoginUser 组装](C:/code/company/innolux-iws/iws-modules/iws-auth/src/main/java/com/innolux/iws/web/service/SysLoginService.java)。
+- [账号与认证提取模块](C:/code/company/innolux-iws/iws-modules/iws-auth)、[共享协议与凭据指纹](C:/code/company/innolux-iws/iws-common/iws-common-auth)、[IWS SSO 适配](C:/code/company/innolux-iws/iws-admin/src/main/java/com/innolux/iws/web/controller/IwsSsoController.java)、[Web SSO 回调](C:/code/company/ui/innolux-iws-web/src/views/sso/callback.vue)、[PDA SSO 适配](C:/code/company/ui/innolux-iws-pda-plus/utils/iam-sso.js)。
+- [Sa-Token 配置](C:/code/company/innolux-iws/iws-common/iws-common-satoken/src/main/java/com/innolux/iws/common/satoken/config/SaTokenConfig.java)、[权限适配](C:/code/company/innolux-iws/iws-common/iws-common-satoken/src/main/java/com/innolux/iws/common/satoken/core/service/SaPermissionImpl.java)、[固定 ID 超管判断](C:/code/company/innolux-iws/iws-common/iws-common-satoken/src/main/java/com/innolux/iws/common/satoken/utils/LoginHelper.java)（第 238 行）。
 - [监控安全链](C:/code/company/innolux-iws/iws-extend/iws-monitor-admin/src/main/java/com/innolux/iws/monitor/admin/config/SecurityConfig.java)、[Job 包装配置](C:/code/company/innolux-iws/iws-extend/iws-snailjob-server/pom.xml)、[AI 包装配置](C:/code/company/innolux-iws/iws-extend/iws-snailai-server/pom.xml)。
 - [Job iframe](C:/code/company/ui/innolux-iws-web/src/views/monitor/snailjob/index.vue)、[AI iframe](C:/code/company/ui/innolux-iws-web/src/views/monitor/snailai/index.vue)、[Web 登录](C:/code/company/ui/innolux-iws-web/src/api/login.ts)、[PDA 登录](C:/code/company/ui/innolux-iws-pda-plus/api/login.js)。
 - Job 原生认证依据本地 `snail-job-server-web:2.0.2` JAR 的 AuthenticationInterceptor/SystemUserServiceImpl；AI 依据 `snail-ai-server-admin:1.1.1` JAR 的 AuthenticationInterceptor/UserService 的 javap 结果。仅用于确认当前接缝，未将其解释为已有 SSO 扩展点可直接启动。
 - [WMS 最新复评与交接](C:/code/company/innolux-iws/work/inventory-completion-review-20261103/report.md)、[原在库管理设计](C:/code/company/innolux-iws-inventory-design/docs/inventory-management-design-20261026.md)、[原实施任务图](C:/code/company/innolux-iws-inventory-design/work/inventory-implementation-tasks-20261027.md)。
 
 本文是本次统一身份认证需求的权威方案；原 WMS 合同和任务继续作为各自业务依据。实施后按本方案任务同步必要合同、设计、初始化、任务和交接，项目文档仅进入个人文档交付边界，不混入来源仓库产品提交。
+
+## 16. 2026-11-04 独立复评缺陷与收尾状态
+
+完整记录见本仓 [缺陷台账与收尾验收](iws-unified-identity-center-review-issues-20261104.md)。台账保留 G01—G21、历轮 R1—R5/N1—N3 的触发条件、影响、证据及关闭门槛，区分源码风险、真实复现、修复中和已复验，不因后续修复删除失败历史。
+
+当前尚不能宣布整体完成：G17 的存量推送连接失效及故障预算、G19 的一次性 WebSocket 握手、G20 的独立业务库与唯一权威账号源、G21 的跨服务数据范围缓存均须完成对应真实验证。仅增加身份数据源注解不能证明外层业务事务、混合 SQL、后台动作和权限缓存均正确。
+
+G02/G04/G05/G06 仍需按台账补齐响应丢失、慢校验、旧退出及同浏览器回调交错等剩余故障证据；同一 Web 入口 A→B 切换、HTTPS/跨站和通知恢复按 B05 分项验收。Job/AI 人员权限、机器凭据和流取消分别取证；AI 人员 HTTP 流结束、服务端 gRPC 取消与上游模型 HTTP 取消不可合并，原生 SDK 的资源回收限制须写明版本和实际影响。脱敏报告保留 HTTP/业务状态，不能用整体空值遮掉机器访问的验证结果。
+
+收尾按台账 IAM-CLOSE-01—05 执行，复用仍适用的历史结果，按本轮变更补验。最后更新外部配置、空库初始化证据、各源码仓自包含 README、最终制品与运行清单及自测/恢复步骤，再给出可自测结论；不得把已过时的 final-runtime.json 当作最终版本证明。PDA 原生设备验收单独保留为用户明确暂缓项，验证码关闭继续作为基线，网页 favicon 统一且不改 PDA 原生应用图标。
