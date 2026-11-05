@@ -30,6 +30,7 @@ import com.innolux.iws.wms.logical.merge.process.WmsLogicalMergeCloseParentActio
 import com.innolux.iws.wms.logical.merge.process.WmsLogicalMergeCloseStateValidator;
 import com.innolux.iws.wms.logical.merge.process.WmsLogicalMergeOrchestrationService;
 import com.innolux.iws.wms.process.WmsFrozenActionInputReader;
+import com.innolux.iws.common.auth.identity.IamIdentityFacts;
 import com.innolux.iws.wms.rule.process.WmsRuleActivateAction;
 import com.innolux.iws.wms.rule.process.WmsRulePublishStateValidator;
 import com.innolux.iws.wms.rule.process.WmsRuleValidateAction;
@@ -178,8 +179,11 @@ public class WmsInventoryProcessConfiguration {
     }
 
     @Bean
-    WmsFrozenActionInputReader wmsFrozenActionInputReader(JdbcTemplate jdbcTemplate) {
-        return new WmsFrozenActionInputReader(jdbcTemplate);
+    WmsFrozenActionInputReader wmsFrozenActionInputReader(
+        JdbcTemplate jdbcTemplate,
+        IamIdentityFacts identityFacts
+    ) {
+        return new WmsFrozenActionInputReader(jdbcTemplate, identityFacts);
     }
 
     @Bean

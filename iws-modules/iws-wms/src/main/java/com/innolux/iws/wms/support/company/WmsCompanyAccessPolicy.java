@@ -14,6 +14,7 @@ package com.innolux.iws.wms.support.company;
 import cn.dev33.satoken.exception.NotPermissionException;
 import cn.hutool.http.HttpStatus;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.innolux.iws.common.auth.identity.IamIdentityFacts;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.common.satoken.utils.LoginHelper;
 import com.innolux.iws.wms.domain.WmsCompany;
@@ -22,7 +23,6 @@ import com.innolux.iws.wms.domain.WmsCompanyManagementScope;
 import com.innolux.iws.wms.mapper.WmsCompanyMapper;
 import com.innolux.iws.wms.mapper.WmsCompanyManagementGrantMapper;
 import com.innolux.iws.wms.mapper.WmsCompanyManagementScopeMapper;
-import com.innolux.iws.wms.mapper.WmsCompanyRoleMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * 公司显式角色-公司对象范围策略。
@@ -45,7 +46,7 @@ public class WmsCompanyAccessPolicy {
 
     private final WmsCompanyManagementGrantMapper grantMapper;
 
-    private final WmsCompanyRoleMapper roleMapper;
+    private final IamIdentityFacts identityFacts;
 
     private final WmsCompanyMapper companyMapper;
 
@@ -210,8 +211,16 @@ public class WmsCompanyAccessPolicy {
             wrapper.apply("1 = 0");
             return;
         }
-        // 授权谓词与公司数据查询必须在同一条 SQL 中求值，避免先读授权再查询时被并发撤权穿透。
-        wrapper.apply(companyScopeSql(companyIdColumn), userId);
+        if (hasPermissionForShare(WmsCompanyContract.PERMISSION_SCOPE_ALL, userId)) {
+            return;
+        }
+        List<Long> roleIds = identityFacts.currentRoleIdsForShare(userId);
+        if (roleIds == null || roleIds.isEmpty()) {
+            wrapper.apply("1 = 0");
+            return;
+        }
+        // identity 事实在业务事务内保持共享锁；业务库只关联角色 ID，不复制身份表。
+        wrapper.apply(companyScopeSql(companyIdColumn, roleIds), roleIds.toArray());
     }
 
     /**
@@ -229,10 +238,18 @@ public class WmsCompanyAccessPolicy {
             wrapper.apply("1 = 0");
             return;
         }
+        if (hasPermissionForShare(WmsCompanyContract.PERMISSION_SCOPE_ALL, userId)) {
+            return;
+        }
+        List<Long> roleIds = identityFacts.currentRoleIdsForShare(userId);
+        if (roleIds == null || roleIds.isEmpty()) {
+            wrapper.apply("1 = 0");
+            return;
+        }
         wrapper.apply(
             warehouseIdColumn + " in (select scope_w.warehouse_id from wms_warehouse scope_w where "
-                + companyScopeSql("scope_w.company_id") + ")",
-            userId
+                + companyScopeSql("scope_w.company_id", roleIds) + ")",
+            roleIds.toArray()
         );
     }
 
@@ -254,15 +271,13 @@ public class WmsCompanyAccessPolicy {
             .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private String companyScopeSql(String companyIdColumn) {
-        return "(exists (select 1 " + WmsCompanyRoleMapper.EFFECTIVE_PERMISSION_JOIN
-            + " where ur.user_id = {0} and m.status = '0' and m.perms = '"
-            + WmsCompanyContract.PERMISSION_SCOPE_ALL + "')"
-            + " or exists (select 1 from wms_company_management_grant g"
-            + " join sys_user_role gur on gur.role_id = g.role_id"
-            + " join sys_role gr on gr.role_id = g.role_id"
-            + " and gr.status = '0' and gr.del_flag = '0'"
-            + " where g.company_id = " + companyIdColumn + " and gur.user_id = {0}))";
+    private String companyScopeSql(String companyIdColumn, List<Long> roleIds) {
+        String placeholders = IntStream.range(0, roleIds.size())
+            .mapToObj(index -> "{" + index + "}")
+            .collect(Collectors.joining(","));
+        return "(exists (select 1 from wms_company_management_grant g"
+            + " where g.company_id = " + companyIdColumn
+            + " and g.role_id in (" + placeholders + ")))";
     }
 
     /**
@@ -322,7 +337,7 @@ public class WmsCompanyAccessPolicy {
             return true;
         }
         return userId != null
-            && roleMapper.selectCurrentUserPermission(userId, permission) != null;
+            && identityFacts.currentPermission(userId, permission);
     }
 
     /**
@@ -362,7 +377,7 @@ public class WmsCompanyAccessPolicy {
     }
 
     private boolean hasActiveGrant(Long companyId, Long userId, boolean forShare) {
-        List<Long> roleIds = roleMapper.selectCurrentRoleIdsForShare(userId);
+        List<Long> roleIds = identityFacts.currentRoleIdsForShare(userId);
         if (roleIds == null || roleIds.isEmpty()) {
             return false;
         }
@@ -375,7 +390,7 @@ public class WmsCompanyAccessPolicy {
     }
 
     private boolean hasActiveGrantRead(Long companyId, Long userId) {
-        List<Long> roleIds = roleMapper.selectCurrentRoleIdsForShare(userId);
+        List<Long> roleIds = identityFacts.currentRoleIdsForShare(userId);
         if (roleIds == null || roleIds.isEmpty()) {
             return false;
         }
@@ -402,16 +417,13 @@ public class WmsCompanyAccessPolicy {
             return true;
         }
         return userId != null
-            && roleMapper.selectCurrentUserPermissionForShare(userId, permission) != null;
+            && identityFacts.currentPermissionForShare(userId, permission);
     }
 
     private boolean isSuperAdmin(Long userId) {
         if (userId == null) {
             return false;
         }
-        if (Objects.equals(userId, LoginHelper.getUserId())) {
-            return LoginHelper.isSuperAdmin(userId);
-        }
-        return roleMapper.selectSuperAdminForShare(userId) != null;
+        return identityFacts.superAdminForShare(userId);
     }
 }

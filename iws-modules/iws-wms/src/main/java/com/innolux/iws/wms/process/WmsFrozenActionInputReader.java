@@ -10,6 +10,7 @@
  */
 package com.innolux.iws.wms.process;
 
+import com.innolux.iws.common.auth.identity.IamIdentityFacts;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.process.runtime.ActionContext;
 import com.innolux.iws.process.runtime.LocalActionInput;
@@ -24,8 +25,11 @@ public class WmsFrozenActionInputReader {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public WmsFrozenActionInputReader(JdbcTemplate jdbcTemplate) {
+    private final IamIdentityFacts identityFacts;
+
+    public WmsFrozenActionInputReader(JdbcTemplate jdbcTemplate, IamIdentityFacts identityFacts) {
         this.jdbcTemplate = jdbcTemplate;
+        this.identityFacts = identityFacts;
     }
 
     /**
@@ -78,11 +82,8 @@ public class WmsFrozenActionInputReader {
             throw new ServiceException("后台动作缺少计划实例，无法解析发起人");
         }
         List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
-            select task.create_by, task.create_dept,
-                   user.user_name, user.nick_name, dept.dept_name
+            select task.create_by, task.create_dept
               from wms_business_task task
-              left join sys_user user on user.user_id = task.create_by
-              left join sys_dept dept on dept.dept_id = task.create_dept
              where task.plan_instance_id = ?
             """, context.instanceId());
         if (rows.size() != 1) {
@@ -94,14 +95,19 @@ public class WmsFrozenActionInputReader {
         if (userId == null || userId <= 0) {
             throw new ServiceException("业务任务缺少持久发起人身份");
         }
-        String userName = text(row.get("user_name"), "USER:" + userId);
-        String nickName = text(row.get("nick_name"), userName);
+        Long deptId = nullableLong(row.get("create_dept"));
+        IamIdentityFacts.UserFact user = identityFacts.findUser(userId);
+        String userName = user == null
+            ? "USER:" + userId
+            : text(user.userName(), "USER:" + userId);
+        String nickName = user == null ? userName : text(user.nickName(), userName);
+        IamIdentityFacts.DeptFact dept = identityFacts.findDept(deptId);
         return new WmsExecutionActor(
             userId,
             userName,
             nickName,
-            nullableLong(row.get("create_dept")),
-            text(row.get("dept_name"), null)
+            deptId,
+            dept == null ? null : text(dept.deptName(), null)
         );
     }
 
