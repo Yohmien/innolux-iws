@@ -2,7 +2,49 @@
 
 ## 统一身份与界面切换适配契约
 
-状态（2026-11-05）：PDA 源码已接入统一登录、受信 `iamFrontendId`、应用列表、票据回调、会话上下文和页面适配；认证中心/IWS 侧的最终 HTTP、权限撤销、会话替换和故障传播矩阵已通过隔离验证。已使用官方 Vue3/Vite uni-app 构建链生成 H5，并在 2026-11-05 最终复验 IWS-A 登录、A/B 切换、hash 回调、页面映射、原有工作台菜单、请求前缀、Web 存储和旧 A Token 替换。PDA H5 页面标签使用透明 IWS PNG/ICO；`manifest.json` 既有 schemes 差异、launcher、桌面、启动和 splash 资源保持原样。尚未完成 HBuilderX APK、原生外部浏览器 `iws-pda://` 回调、真机设备存储隔离和安装图标验收；不能把 H5 通过解释为原生终端已通过。
+状态（2026-11-05）：PDA 源码已接入统一登录、受信 `iamFrontendId`、应用列表、票据回调、会话上下文和页面适配；认证中心/IWS 侧的最终 HTTP、权限撤销、会话替换和故障传播矩阵已通过隔离验证。已使用官方 Vue3/Vite uni-app 构建链生成 H5，并在 2026-11-05 最终复验 IWS-A 登录、A/B 切换、hash 回调、页面映射、原有工作台菜单、请求前缀、Web 存储和旧 A Token 替换。PDA H5 页面标签使用透明 IWS PNG/ICO；`manifest.json` 既有 schemes 差异、launcher、桌面、启动和 splash 资源保持原样。APP-PLUS 登录已改为应用内 WebView 拦截 `iws-pda://` 回调，不再主动打开外部浏览器；尚未完成 HBuilderX APK、真机 WebView 与设备存储隔离验收，不能把 H5 或单测通过解释为原生终端已通过。
+
+### PDA 应用内统一登录方案
+
+目标是不改变认证中心的一次性 `ticket + state` 协议，只改变 PDA 的承载方式：登录页仍在 `pages/login`，点击统一登录后由应用内 WebView 打开认证中心登录页；登录完成、认证中心跳转 `iws-pda://sso/callback?...` 时由 WebView 拦截，不交给系统浏览器或外部应用。原有登录页的 `sso-start-card` 和按钮样式直接复用，不新增中间页面。
+
+实现入口：
+
+| 文件 | 职责 |
+|---|---|
+| PDA `utils/iam-sso.js` | H5 保持顶层跳转；APP-PLUS 创建登录事务后打开应用内 WebView；取消时只清理与当前 `transactionId` 匹配的事务 |
+| PDA `utils/iam-login-webview.js` | 创建单例 `plus.webview`，精确拦截 `^iws-pda://sso/callback(?:\\?|$)`，关闭窗口并跳转现有回调页 |
+| PDA `pages/sso/callback.vue` | 原有票据核销、会话建立、更新门禁和页面导航不变 |
+| PDA `App.vue` | 保留 `plus.runtime.arguments` 深链处理，作为系统回调兜底；主链路不依赖外部浏览器 |
+
+运行流程：
+
+1. `pages/login` 调用 `startIamLogin`，生成并保存一次性登录事务。
+2. APP-PLUS 使用 `plus.webview.create` 打开 `/iam/login`，H5 仍使用当前页面的顶层跳转。
+3. 认证中心完成登录和授权后返回 `iws-pda://sso/callback?ticket=...&state=...`。
+4. WebView 的 `overrideUrlLoading` 只拦截精确回调地址，关闭 WebView 后通过 `uni.reLaunch` 进入 `pages/sso/callback`。
+5. 回调页继续执行原有 `consumeIamState`、票据核销和导航；取消、返回或关闭窗口时清理当前事务并返回登录页。
+
+认证中心配置：
+
+```yaml
+pda-main:
+  enabled: true
+  terminal: PDA
+  client-mode: APP
+  public-base-url:
+  launch-uri: iws-pda://pages/work/index
+  redirect-uri: iws-pda://sso/callback
+  logout-uri: iws-pda://pages/login
+```
+
+`client-mode: APP` 时不使用 `public-base-url`；`BROWSER` 模式仍要求 HTTP(S) 或同源路径。回调 URI 必须由认证中心精确登记，不能由客户端动态传入；否则会把一次性票据交给未受信地址。应用内 WebView 使用自己的第一方 Cookie 空间，不复用系统浏览器登录态，但同一 APK 后续登录可复用该 WebView 的认证中心会话。不同 PDA 共用认证中心地址，不需要为每台设备登记 IP。
+
+验收边界：
+
+- 已通过 Node 单测：应用内回调拦截、用户关闭取消、重复打开替换、创建失败清理 4/4；既有回调交错和请求隔离回归 13/13。
+- 已通过认证中心配置校验测试：APP 无公开基址、APP 拒绝公开基址、BROWSER 要求 HTTP(S)、APP 空公开基址通过 Bean Validation 4/4。
+- 仍需用 HBuilderX 生成 APK 并在 Android 真机验证：系统浏览器未被打开、WebView Cookie、返回键、断网、应用后台恢复、重复回调和生产 HTTPS。
 
 ### 统一适配入口与上下文
 

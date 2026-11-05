@@ -51,10 +51,11 @@ iam:
       redirect-uri: ${IAM_WEB_BRANCH_REDIRECT_URI:}
       logout-uri: ${IAM_WEB_BRANCH_LOGOUT_URI:}
     pda-main:
+      client-mode: ${IAM_PDA_CLIENT_MODE:APP}
       public-base-url: ${IAM_PDA_PUBLIC_BASE_URL:}
-      launch-uri: ${IAM_PDA_LAUNCH_URI:}
-      redirect-uri: ${IAM_PDA_REDIRECT_URI:}
-      logout-uri: ${IAM_PDA_LOGOUT_URI:}
+      launch-uri: ${IAM_PDA_LAUNCH_URI:iws-pda://pages/work/index}
+      redirect-uri: ${IAM_PDA_REDIRECT_URI:iws-pda://sso/callback}
+      logout-uri: ${IAM_PDA_LOGOUT_URI:iws-pda://pages/login}
     job-main:
       public-base-url: ${IAM_JOB_PUBLIC_BASE_URL:}
       launch-uri: ${IAM_JOB_LAUNCH_URI:}

@@ -57,10 +57,11 @@ iam:
     pda-main:
       enabled: true
       terminal: PDA
+      client-mode: ${IAM_PDA_CLIENT_MODE:APP}
       public-base-url: ${IAM_PDA_PUBLIC_BASE_URL:}
-      launch-uri: ${IAM_PDA_LAUNCH_URI:}
-      redirect-uri: ${IAM_PDA_REDIRECT_URI:}
-      logout-uri: ${IAM_PDA_LOGOUT_URI:}
+      launch-uri: ${IAM_PDA_LAUNCH_URI:iws-pda://pages/work/index}
+      redirect-uri: ${IAM_PDA_REDIRECT_URI:iws-pda://sso/callback}
+      logout-uri: ${IAM_PDA_LOGOUT_URI:iws-pda://pages/login}
     job-main:
       enabled: true
       terminal: WEB

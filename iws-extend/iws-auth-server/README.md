@@ -136,10 +136,11 @@ iam:
     pda-main:
       enabled: true
       terminal: PDA
-      public-base-url: ${PDA_MAIN_PUBLIC_BASE_URL}
-      launch-uri: ${PDA_MAIN_LAUNCH_URI}
-      redirect-uri: ${PDA_MAIN_REDIRECT_URI}
-      logout-uri: ${PDA_MAIN_LOGOUT_URI}
+      client-mode: APP
+      public-base-url:
+      launch-uri: iws-pda://pages/work/index
+      redirect-uri: iws-pda://sso/callback
+      logout-uri: iws-pda://pages/login
   applications:
     iws-a:
       name: IWS-A
