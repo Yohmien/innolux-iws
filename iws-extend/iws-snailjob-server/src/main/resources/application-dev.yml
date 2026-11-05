@@ -11,9 +11,9 @@ spring:
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${SPRING_DATASOURCE_URL:}
-    username: ${SPRING_DATASOURCE_USERNAME:}
-    password: ${SPRING_DATASOURCE_PASSWORD:}
+    url: ${IWS_DB_URL:jdbc:mysql://localhost:3306/innolux-iws?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true}
+    username: ${IWS_DB_USERNAME:root}
+    password: ${IWS_DB_PASSWORD:abc123}
     hikari:
       connection-timeout: 30000
       validation-timeout: 5000
@@ -50,11 +50,17 @@ snail-job:
 spring.boot.admin.client:
   # 增加客户端开关
   enabled: true
-  url: http://localhost:18090/admin
+  url: ${MONITOR_URL:http://127.0.0.1:18090/admin}
   instance:
     service-host-type: IP
     metadata:
       username: ${spring.boot.admin.client.username}
       userpassword: ${spring.boot.admin.client.password}
-  username: ${SPRING_BOOT_ADMIN_CLIENT_USERNAME:}
-  password: ${SPRING_BOOT_ADMIN_CLIENT_PASSWORD:}
+  username: ${SPRING_BOOT_ADMIN_CLIENT_USERNAME:iws-monitor}
+  password: ${SPRING_BOOT_ADMIN_CLIENT_PASSWORD:iws-monitor-local-dev}
+
+iam:
+  client:
+    client-secret: ${IAM_SNAILJOB_CLIENT_SECRET:iws-local-dev-client-job}
+    accounts:
+      innolux: innolux

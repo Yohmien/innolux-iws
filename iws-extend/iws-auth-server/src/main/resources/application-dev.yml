@@ -17,16 +17,16 @@ spring:
         master:
           type: ${spring.datasource.type}
           driverClassName: com.mysql.cj.jdbc.Driver
-          url: ${IWS_DB_URL:}
-          username: ${IWS_DB_USERNAME:}
-          password: ${IWS_DB_PASSWORD:}
+          url: ${IWS_DB_URL:jdbc:mysql://localhost:3306/innolux-iws?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true}
+          username: ${IWS_DB_USERNAME:root}
+          password: ${IWS_DB_PASSWORD:abc123}
         # 权威账号库；共享同库时可与 master 使用相同连接，独立部署时单独指向账号库
         identity:
           type: ${spring.datasource.type}
           driverClassName: com.mysql.cj.jdbc.Driver
-          url: ${IAM_IDENTITY_DB_URL:}
-          username: ${IAM_IDENTITY_DB_USERNAME:}
-          password: ${IAM_IDENTITY_DB_PASSWORD:}
+          url: ${IAM_IDENTITY_DB_URL:${spring.datasource.dynamic.datasource.master.url}}
+          username: ${IAM_IDENTITY_DB_USERNAME:${spring.datasource.dynamic.datasource.master.username}}
+          password: ${IAM_IDENTITY_DB_PASSWORD:${spring.datasource.dynamic.datasource.master.password}}
       maxPoolSize: 10
       minIdle: 2
       connectionTimeout: 30000
@@ -39,9 +39,26 @@ spring.data:
   redis:
     host: ${IWS_REDIS_HOST:localhost}
     port: ${IWS_REDIS_PORT:6379}
-    database: ${IAM_REDIS_DATABASE:0}
+    database: ${IAM_REDIS_DATABASE:${IWS_REDIS_DATABASE:0}}
+    password: ${IWS_REDIS_PASSWORD:}
     timeout: 10s
     ssl.enabled: false
+
+sa-token:
+  jwt-secret-key: ${IAM_SA_TOKEN_JWT_SECRET:iam-local-dev-jwt-signing-key-20261105}
+
+iam:
+  applications:
+    iws-a:
+      client-secret: ${IAM_IWS_A_CLIENT_SECRET:iws-local-dev-client-a}
+    iws-b:
+      client-secret: ${IAM_IWS_B_CLIENT_SECRET:iws-local-dev-client-b}
+    snail-job:
+      client-secret: ${IAM_SNAILJOB_CLIENT_SECRET:iws-local-dev-client-job}
+    snail-ai:
+      client-secret: ${IAM_SNAILAI_CLIENT_SECRET:iws-local-dev-client-ai}
+    admin-monitor:
+      client-secret: ${IAM_MONITOR_CLIENT_SECRET:iws-local-dev-client-monitor}
 
 redisson:
   keyPrefix: ${IAM_REDIS_KEY_PREFIX:innolux-iam}
