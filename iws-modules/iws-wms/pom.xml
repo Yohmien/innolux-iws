@@ -44,6 +44,11 @@
 
         <dependency>
             <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-auth</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
             <artifactId>iws-common-log</artifactId>
         </dependency>
 
@@ -84,6 +89,12 @@
             <groupId>com.innolux.iws</groupId>
             <artifactId>iws-endpoint</artifactId>
             <version>${revision}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-auth</artifactId>
             <scope>test</scope>
         </dependency>
 

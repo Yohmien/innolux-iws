@@ -19,10 +19,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.innolux.iws.common.auth.identity.IamIdentityFacts;
 import com.innolux.iws.common.core.domain.PageResult;
 import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.common.satoken.utils.LoginHelper;
-import com.innolux.iws.system.api.RoleService;
 import com.innolux.iws.wms.domain.WmsCompany;
 import com.innolux.iws.wms.domain.WmsCommandAttempt;
 import com.innolux.iws.wms.domain.WmsCompanyManagementGrant;
@@ -43,7 +43,6 @@ import com.innolux.iws.wms.domain.vo.WmsCompanyRoleVo;
 import com.innolux.iws.wms.mapper.WmsCompanyManagementGrantMapper;
 import com.innolux.iws.wms.mapper.WmsCompanyManagementScopeMapper;
 import com.innolux.iws.wms.mapper.WmsCompanyMapper;
-import com.innolux.iws.wms.mapper.WmsCompanyRoleMapper;
 import com.innolux.iws.wms.service.IWmsCompanyService;
 import com.innolux.iws.wms.support.company.WmsCompanyAccessPolicy;
 import com.innolux.iws.wms.support.company.WmsCompanyAuditService;
@@ -89,15 +88,13 @@ public class WmsCompanyServiceImpl implements IWmsCompanyService {
 
     private final WmsCompanyManagementGrantMapper grantMapper;
 
-    private final WmsCompanyRoleMapper roleMapper;
+    private final IamIdentityFacts identityFacts;
 
     private final WmsCompanyAccessPolicy accessPolicy;
 
     private final WmsCompanyAuditService auditService;
 
     private final IwsCrudMetaRegistry metaRegistry;
-
-    private final RoleService roleService;
 
     private final PlatformTransactionManager transactionManager;
 
@@ -557,14 +554,14 @@ public class WmsCompanyServiceImpl implements IWmsCompanyService {
         if (roleIds.isEmpty()) {
             return;
         }
-        List<Long> existingRoleIds = roleMapper.selectExistingRoleIdsForShare(roleIds);
+        List<Long> existingRoleIds = identityFacts.existingRoleIdsForShare(roleIds);
         Set<Long> existing = new LinkedHashSet<>(existingRoleIds);
         if (existing.size() != roleIds.size()) {
             Set<Long> missing = new LinkedHashSet<>(roleIds);
             missing.removeAll(existing);
             throw new ServiceException("目标角色不存在: " + missing, HttpStatus.HTTP_BAD_REQUEST);
         }
-        Map<Long, String> roleNames = roleService.selectRoleNamesByIds(roleIds);
+        Map<Long, String> roleNames = identityFacts.roleNames(roleIds);
         if (roleNames == null || roleNames.size() != roleIds.size()) {
             throw new ServiceException("目标角色名称读取不完整", HttpStatus.HTTP_CONFLICT);
         }
@@ -588,7 +585,7 @@ public class WmsCompanyServiceImpl implements IWmsCompanyService {
             .toList();
         Map<Long, String> roleNames = roleIds.isEmpty()
             ? Map.of()
-            : roleService.selectRoleNamesByIds(roleIds);
+            : identityFacts.roleNames(roleIds);
         List<WmsCompanyRoleVo> roles = roleIds.stream()
             .map(roleId -> new WmsCompanyRoleVo(roleId, roleNames.get(roleId)))
             .toList();
