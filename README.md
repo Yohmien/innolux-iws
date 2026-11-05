@@ -59,6 +59,11 @@ admin 监控中心、SnailJob 控制台、SnailAI 控制台与主服务登录统
 
 日常开发只启动 `IWS+ Main Service` 和前端即可。需要监控、任务调度或 AI 能力时，再分别启动 `IWS Monitor Admin`、`IWS SnailJob Server`、`IWS SnailAI Server`。
 
+默认启动配置：
+
+- 同机开发：前端 Web / PDA 保持 `VITE_BACKEND_HOST=127.0.0.1`；后端保持 `dev` 默认值，只需按本机实际情况启动 MySQL、Redis，按需启动 MinIO。不需要修改认证中心的 Web 启动与回调地址，默认仍为 `http://127.0.0.1:18000`。
+- 前后端分机开发：前端 Web / PDA 修改 `.env.development` 的 `VITE_BACKEND_HOST` 为后端机器 IP，重启前端；认证中心同步将 Web 启动地址 `IAM_WEB_MAIN_LAUNCH_URI`、回调地址 `IAM_WEB_MAIN_REDIRECT_URI` 指向浏览器可访问的前端地址，例如 `http://10.189.88.204:18000/` 与 `http://10.189.88.204:18000/sso/callback`，再重启认证中心。MySQL、Redis、MinIO 仍按实际部署覆盖对应环境变量，其余应用配置保持默认。
+
 ## 本机开发账号与数据源
 
 以下为本机 `dev` 环境的配置值，用于本地联调和问题定位；共享或生产环境必须替换默认密码与接入令牌。账号、数据库和对象存储配置分散在启动模块与扩展服务的配置文件中。
