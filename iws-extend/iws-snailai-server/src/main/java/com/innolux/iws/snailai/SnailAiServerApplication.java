@@ -11,7 +11,13 @@
 
 package com.innolux.iws.snailai;
 
+import com.innolux.iws.common.launch.IwsConfigLocationSupport;
+import com.innolux.iws.snailai.iam.IamAiConfiguration;
+import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import java.util.TimeZone;
+import java.util.List;
 
 /**
  * Snail AI Server 启动程序
@@ -28,7 +34,13 @@ public class SnailAiServerApplication {
      * @param args 启动参数
      */
     public static void main(String[] args) {
-        com.aizuda.snail.ai.starter.SnailAiApplication.main(args);
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+        SpringApplication application = new SpringApplication(
+            com.aizuda.snail.ai.starter.SnailAiApplication.class
+        );
+        application.addPrimarySources(List.of(IamAiConfiguration.class));
+        IwsConfigLocationSupport.configure(application, SnailAiServerApplication.class, args, "ai");
+        application.run(args);
     }
 
 }

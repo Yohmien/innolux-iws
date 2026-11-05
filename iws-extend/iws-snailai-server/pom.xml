@@ -23,11 +23,30 @@
     <artifactId>iws-snailai-server</artifactId>
 
     <dependencies>
+        <!-- 运行 JAR 外部配置启动适配 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-launch</artifactId>
+        </dependency>
+
+        <!-- 统一身份中心服务端协议 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-auth</artifactId>
+        </dependency>
+
         <!-- Snail AI 服务端 -->
         <dependency>
             <groupId>com.aizuda</groupId>
             <artifactId>snail-ai-starter</artifactId>
             <version>${snailai.version}</version>
+        </dependency>
+
+        <!-- AI 流撤销到远程 gRPC 调用的取消传播 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
+            <version>${spring-boot.version}</version>
         </dependency>
 
         <dependency>
@@ -46,6 +65,17 @@
             <groupId>de.codecentric</groupId>
             <artifactId>spring-boot-admin-starter-client</artifactId>
             <version>${spring-boot-admin.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
