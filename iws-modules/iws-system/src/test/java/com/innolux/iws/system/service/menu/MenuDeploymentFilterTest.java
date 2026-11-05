@@ -14,6 +14,7 @@ package com.innolux.iws.system.service.menu;
 import com.innolux.iws.system.domain.SysMenu;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -37,6 +38,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @DisplayName("动态菜单部署能力过滤")
 @Tag("dev")
 class MenuDeploymentFilterTest {
+
+    @Test
+    void businessMenusExcludeCenterPagesAndTheirButtons() {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("iws-deployment",
+            Map.of("iam.client.application-type", "IWS")));
+        List<SysMenu> result = new MenuDeploymentFilter(environment).filter(List.of(
+            menu(1L, 0L, "system", null, null),
+            menu(2L, 1L, "user", "system/user/index", "system:user:list"),
+            menu(3L, 1L, "dict", "system/dict/index", "system:dict:list"),
+            menu(4L, 0L, "online", "monitor/online/index", "monitor:online:list"),
+            menu(5L, 2L, "", null, "system:user:add"),
+            menu(6L, 1L, "notice", "system/notice/index", "system:notice:list"),
+            menu(7L, 1L, "user-report", "system/user-report/index", null)
+        ));
+        assertEquals(Set.of(1L, 6L, 7L), result.stream().map(SysMenu::getMenuId).collect(Collectors.toSet()));
+    }
 
     private static final Set<Long> UNRELATED_MENUS = Set.of(1L, 2L, 3L, 4L);
 

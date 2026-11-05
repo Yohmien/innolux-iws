@@ -27,13 +27,19 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 按 endpoint/process 部署能力过滤动态菜单。
+ * 按 endpoint/process 部署能力和统一认证中心归属过滤动态菜单。
  *
  * <p>两个开关默认关闭；开关开启后仍要求模块标记类位于当前类路径。
- * 被关闭模块的根菜单连同全部后代一起移除，避免子路由残留。</p>
+ * 被关闭模块的根菜单连同全部后代一起移除，避免子路由残留。
+ * IWS 业务应用同时移除中心所属管理页，中心自身保留这些页面。</p>
  */
 @Component
 public class MenuDeploymentFilter {
+
+    private static final Set<String> CENTER_COMPONENT_PREFIXES = Set.of(
+        "system/user", "system/role", "system/dept", "system/post", "system/menu",
+        "system/client", "system/dict", "system/config", "system/apk", "monitor/online"
+    );
 
     /**
      * endpoint 模块部署开关。
@@ -88,10 +94,11 @@ public class MenuDeploymentFilter {
         }
         boolean endpointEnabled = isEnabled(DeployableModule.ENDPOINT);
         boolean processEnabled = isEnabled(DeployableModule.PROCESS);
-        if (endpointEnabled && processEnabled) {
+        boolean businessApplication = "IWS".equals(environment.getProperty("iam.client.application-type"));
+        if (endpointEnabled && processEnabled && !businessApplication) {
             return menus;
         }
-        Set<Long> removedIds = removedMenuIds(menus, endpointEnabled, processEnabled);
+        Set<Long> removedIds = removedMenuIds(menus, endpointEnabled, processEnabled, businessApplication);
         if (removedIds.isEmpty()) {
             return menus;
         }
@@ -117,9 +124,11 @@ public class MenuDeploymentFilter {
      * @param menus           扁平菜单
      * @param endpointEnabled endpoint 是否可用
      * @param processEnabled  process 是否可用
+     * @param businessApplication 当前部署是否为业务 IWS
      * @return 应移除的菜单标识
      */
-    private static Set<Long> removedMenuIds(List<SysMenu> menus, boolean endpointEnabled, boolean processEnabled) {
+    private static Set<Long> removedMenuIds(List<SysMenu> menus, boolean endpointEnabled, boolean processEnabled,
+                                          boolean businessApplication) {
         Map<Long, List<SysMenu>> childrenByParent = new HashMap<>();
         for (SysMenu menu : menus) {
             if (menu.getMenuId() != null && menu.getParentId() != null) {
@@ -132,7 +141,8 @@ public class MenuDeploymentFilter {
                 continue;
             }
             if ((!endpointEnabled && DeployableModule.ENDPOINT.owns(menu))
-                || (!processEnabled && DeployableModule.PROCESS.owns(menu))) {
+                || (!processEnabled && DeployableModule.PROCESS.owns(menu))
+                || (businessApplication && belongsToIdentityCenter(menu))) {
                 pending.addLast(menu.getMenuId());
             }
         }
@@ -147,6 +157,13 @@ public class MenuDeploymentFilter {
             }
         }
         return removedIds;
+    }
+
+    /** 判断页面是否由认证中心承载，避免按用户等相似名称误匹配业务页面。 */
+    private static boolean belongsToIdentityCenter(SysMenu menu) {
+        String component = menu.getComponent() == null ? "" : menu.getComponent().replace('\\', '/');
+        return CENTER_COMPONENT_PREFIXES.stream()
+            .anyMatch(prefix -> component.equals(prefix) || component.startsWith(prefix + "/"));
     }
 
     /**
