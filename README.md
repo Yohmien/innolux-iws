@@ -64,18 +64,29 @@ admin 监控中心、SnailJob 控制台、SnailAI 控制台与主服务登录统
 
 **同机开发**
 
-- Web / PDA：保持 [Web `.env.development`](../ui/innolux-iws-web/.env.development) 与 [PDA `.env.development`](../ui/innolux-iws-pda-plus/.env.development) 中的 `VITE_BACKEND_HOST=127.0.0.1`。
-- 认证中心：保持 [`application.yml` 的 `iam.frontends.web-main` 与 `iam.frontends.pda-main`](iws-extend/iws-auth-server/src/main/resources/application.yml) 默认地址，不需要修改启动、回调或退出地址。
-- MySQL / Redis：默认值见[主服务 `application-dev.yml`](iws-admin/src/main/resources/application-dev.yml)与[认证中心 `application-dev.yml`](iws-extend/iws-auth-server/src/main/resources/application-dev.yml)；SnailJob、SnailAI 的 MySQL 配置分别见 [SnailJob `application-dev.yml`](iws-extend/iws-snailjob-server/src/main/resources/application-dev.yml) 与 [SnailAI `application-dev.yml`](iws-extend/iws-snailai-server/src/main/resources/application-dev.yml)。
-- MinIO：按需启动，AI 服务配置见 [SnailAI `application.yml`](iws-extend/iws-snailai-server/src/main/resources/application.yml)，具体启动与桶配置见 [MinIO 对象存储](#minio-对象存储按需)。
-- 启动项：[IWS Auth Server](.run/IWS_Auth_Server.run.xml) → [IWS+ Main Service](.run/IWS_Main_Service.run.xml) → 前端。
+| 配置项 | 操作 | 直达位置 |
+| --- | --- | --- |
+| Web | 保持 `VITE_BACKEND_HOST=127.0.0.1` | [Web `.env.development`：34 行](../ui/innolux-iws-web/.env.development#L34) |
+| PDA | 保持 `VITE_BACKEND_HOST=127.0.0.1` | [PDA `.env.development`：3 行](../ui/innolux-iws-pda-plus/.env.development#L3) |
+| 认证中心 Web | 保持默认启动、回调、退出地址 | [Web 入口：124 行](iws-extend/iws-auth-server/src/main/resources/application.yml#L124)、[启动：128 行](iws-extend/iws-auth-server/src/main/resources/application.yml#L128)、[回调：129 行](iws-extend/iws-auth-server/src/main/resources/application.yml#L129)、[退出：130 行](iws-extend/iws-auth-server/src/main/resources/application.yml#L130) |
+| 认证中心 PDA | 保持默认启动、回调、退出地址 | [PDA 入口：131 行](iws-extend/iws-auth-server/src/main/resources/application.yml#L131) |
+| MySQL | 保持默认值，或按实际服务覆盖 | [主服务：121 行](iws-admin/src/main/resources/application-dev.yml#L121)、[认证中心：20 行](iws-extend/iws-auth-server/src/main/resources/application-dev.yml#L20)、[SnailJob：14 行](iws-extend/iws-snailjob-server/src/main/resources/application-dev.yml#L14)、[SnailAI：14 行](iws-extend/iws-snailai-server/src/main/resources/application-dev.yml#L14) |
+| Redis | 保持默认值，或按实际服务覆盖 | [主服务：177 行](iws-admin/src/main/resources/application-dev.yml#L177)、[认证中心：40 行](iws-extend/iws-auth-server/src/main/resources/application-dev.yml#L40) |
+| MinIO | 按需启动；默认本地地址为 `127.0.0.1:9000` | [SnailAI MinIO：55 行](iws-extend/iws-snailai-server/src/main/resources/application.yml#L55)、[MinIO 操作说明](#minio-对象存储按需) |
+| 启动项 | 依次启动认证中心、主服务和前端 | [IWS Auth Server](.run/IWS_Auth_Server.run.xml#L13)、[IWS+ Main Service](.run/IWS_Main_Service.run.xml#L2) |
 
 **前后端分机开发**
 
-- Web / PDA：修改 [Web `.env.development`](../ui/innolux-iws-web/.env.development) 与 [PDA `.env.development`](../ui/innolux-iws-pda-plus/.env.development) 中的 `VITE_BACKEND_HOST` 为后端机器 IP，重启前端。
-- 认证中心：在 [`application.yml` 的 `iam.frontends.web-main`](iws-extend/iws-auth-server/src/main/resources/application.yml) 同步设置 `IAM_WEB_MAIN_PUBLIC_BASE_URL`、`IAM_WEB_MAIN_LAUNCH_URI`、`IAM_WEB_MAIN_REDIRECT_URI` 和 `IAM_WEB_MAIN_LOGOUT_URI` 为浏览器可访问的前端地址，例如 `http://10.189.88.204:18000`、`http://10.189.88.204:18000/`、`http://10.189.88.204:18000/sso/callback` 和 `http://10.189.88.204:18000/login`，再重启认证中心；PDA 使用真实设备地址同理覆盖 `IAM_PDA_*`。
-- MySQL / Redis / MinIO：使用同机开发列出的配置入口按实际部署覆盖环境变量，其余应用配置保持默认。
-- 启动项：[IWS Auth Server](.run/IWS_Auth_Server.run.xml) → [IWS+ Main Service](.run/IWS_Main_Service.run.xml) → 前端。
+| 配置项 | 操作 | 直达位置 |
+| --- | --- | --- |
+| Web | 将 `VITE_BACKEND_HOST` 改为后端机器 IP | [Web `.env.development`：34 行](../ui/innolux-iws-web/.env.development#L34) |
+| PDA | 将 `VITE_BACKEND_HOST` 改为后端机器 IP | [PDA `.env.development`：3 行](../ui/innolux-iws-pda-plus/.env.development#L3) |
+| 认证中心 Web | 将公开基址、启动、回调、退出地址改为真实前端地址 | [公开基址：127 行](iws-extend/iws-auth-server/src/main/resources/application.yml#L127)、[启动：128 行](iws-extend/iws-auth-server/src/main/resources/application.yml#L128)、[回调：129 行](iws-extend/iws-auth-server/src/main/resources/application.yml#L129)、[退出：130 行](iws-extend/iws-auth-server/src/main/resources/application.yml#L130) |
+| 认证中心 PDA | 使用真实设备地址覆盖 `IAM_PDA_*` | [PDA 入口：131 行](iws-extend/iws-auth-server/src/main/resources/application.yml#L131) |
+| MySQL | 按实际部署覆盖环境变量 | [主服务：121 行](iws-admin/src/main/resources/application-dev.yml#L121)、[认证中心：20 行](iws-extend/iws-auth-server/src/main/resources/application-dev.yml#L20)、[SnailJob：14 行](iws-extend/iws-snailjob-server/src/main/resources/application-dev.yml#L14)、[SnailAI：14 行](iws-extend/iws-snailai-server/src/main/resources/application-dev.yml#L14) |
+| Redis | 按实际部署覆盖环境变量 | [主服务：177 行](iws-admin/src/main/resources/application-dev.yml#L177)、[认证中心：40 行](iws-extend/iws-auth-server/src/main/resources/application-dev.yml#L40) |
+| MinIO | 按实际部署覆盖环境变量 | [SnailAI MinIO：55 行](iws-extend/iws-snailai-server/src/main/resources/application.yml#L55) |
+| 启动项 | 依次启动认证中心、主服务和前端 | [IWS Auth Server](.run/IWS_Auth_Server.run.xml#L13)、[IWS+ Main Service](.run/IWS_Main_Service.run.xml#L2) |
 
 ## 本机开发账号与数据源
 
