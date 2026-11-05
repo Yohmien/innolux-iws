@@ -36,6 +36,55 @@ release/
 
 外部配置覆盖包内同名属性，缺项由包内默认补齐；所选服务外部文件不存在时回退该制品包内默认配置。非法或不可读的外部配置应报错，不能静默回退。显式启动参数、系统属性和环境变量沿用框架优先级。发布不覆盖运维已有配置，真实凭据不写入仓库或示例。
 
+## APK 发布管理
+
+APK 发布事实由认证中心独占，代码位于 `iws-modules/iws-app-release`，只由 `iws-auth-server` 依赖。IWS-A/B 不再包含 APK Controller、发布动作、Mapper 或 `/app/apk/*` 安全放行项；同一 Android 包名在所有业务后端共用一个发布序列和更新策略。
+
+### 启用前提
+
+- 中心目标库需包含 `sys_apk_release`、`iws_endpoint_*` 和 `iws_process_*` 表。新库先执行 `script/sql/iws_init_from_empty.sql`，再执行 `iws_apk_management.sql` 创建中心 APK 菜单；已有中心表缺少策略/下载字段时，先执行 `iws_apk_force_update.sql`、`iws_apk_download_access.sql`，最后再以 `iws_apk_management.sql` 校验完整结构并补齐菜单。
+- 对象存储需已配置并可由中心访问。`SystemApplicationRunner` 会在启动时初始化 OSS 配置缓存；缺少该初始化时上传/下载不可用。
+- 使用 `SPRING_PROFILES_ACTIVE=prod,apk` 显式启用 `application-apk.yml`。该 profile 只开启 APK 所需的 endpoint/process，计划调度器保持关闭；普通登录不要求该 profile。
+- `iam.public-base-url` 是浏览器登录页基址，PDA 公开 APK API 使用中心服务根地址，不追加页面 `/iam` 或业务 `/innolux` 前缀。
+- `iam.applications.<id>.allowed-instance-ids` 必须包含实际后端 `iam.client.instance-id`。遗漏时 SSO 票据会返回“目标应用节点未登记”，与 APK 权限无关。
+
+中心启动示例：
+
+```powershell
+java -jar iws-auth-server.jar `
+  --iws.config.root=C:\iws\config `
+  --iws.config.key=auth-center `
+  --spring.profiles.active=prod,apk
+```
+
+外部 `config/auth-center/application.yml` 至少明确中心公开地址、受信前端、后端应用、实例白名单、client secret 和数据库/Redis/OSS 配置。真实 secret 只放部署配置。
+
+### 接口与权限
+
+| 范围 | 路径 | 权限/约束 |
+| --- | --- | --- |
+| 管理列表 | `GET /system/apk/list` | `system:apk:list` |
+| 版本历史 | `GET /system/apk/history` | `system:apk:list` |
+| 上传/解析 | `POST /system/apk/upload` | `system:apk:upload` |
+| 策略调整 | `POST /system/apk/{releaseId}/force-update` | `system:apk:publish` |
+| 发布/重试 | `POST /system/apk/{releaseId}/publish` | `system:apk:publish` |
+| 初始化发布计划 | `POST /system/apk/initialize` | `system:apk:publish` |
+| 公开最新版本 | `GET /app/apk/latest` | 登录前可访问，仅返回已发布版本 |
+| 公开历史/下载 | `GET /app/apk/history`、`GET /app/apk/download` | 登录前可访问；未发布文件不可下载 |
+
+发布必须通过计划事件 IMMEDIATE 产生事实，Controller 不能直接把记录写成 `PUBLISHED`。同包名同 `versionCode` 同摘要上传幂等，同版本不同摘要拒绝；多个历史已发布版本可共存，最新版本按数值 `versionCode` 确定。
+
+### 自测
+
+```powershell
+mvnw.cmd -pl iws-modules/iws-app-release -am test -Dsurefire.failIfNoSpecifiedTests=false
+mvnw.cmd -pl iws-extend/iws-auth-server -am clean package -DskipTests
+```
+
+启动后使用具备 `system:apk:*` 的管理员进入 `/iam/system/apk`，上传真实可解析 APK，确认过程实例成功、状态为 `PUBLISHED`、历史/策略/下载可用；再用只读角色和无权限角色检查按钮与后端 403。PDA H5 只验证统一登录，不应请求 APK 更新接口；Android 原生更新和安装需另做真机验收。
+
+本轮隔离环境的制品、测试、浏览器证据和未完成项见 `C:\code\company\innolux-iws\work\apk-central-release-20261105\verification.md` 与 `defects.md`。真实中心库尚未完成只读 MCP 核验，不能把隔离库结果当作生产数据证明。
+
 ## 后端系统如何登记
 
 直接复用已有 `iam.applications`，配置绑定类是 `IamProperties.Application`，不另建登录页专用系统清单。受信前端入口单独登记在 `iam.frontends`，二者通过 `allowed-frontend-ids` 绑定；`frontendId`、后端 `applicationId`、节点 `instanceId` 和原登录渠道 `sys_client.client_id` 不可混用。
