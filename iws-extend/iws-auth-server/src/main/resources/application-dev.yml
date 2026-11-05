@@ -1,0 +1,56 @@
+# @Date         : 2026-11-03
+# @Author       : YONGJIE.PENG
+# @Email        : YONGJIE.PENG@INNOLUX.COM
+# @Job          : INNOLUX IWS 标准化重构
+# @Module       : IWS 统一身份认证
+# @Version      : V1.0
+# @Description  : 统一身份中心开发环境数据源与缓存配置；
+# @ModifyRecord : V1.0 新建；
+
+spring:
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    dynamic:
+      primary: master
+      strict: true
+      datasource:
+        master:
+          type: ${spring.datasource.type}
+          driverClassName: com.mysql.cj.jdbc.Driver
+          url: ${IWS_DB_URL:}
+          username: ${IWS_DB_USERNAME:}
+          password: ${IWS_DB_PASSWORD:}
+        # 权威账号库；共享同库时可与 master 使用相同连接，独立部署时单独指向账号库
+        identity:
+          type: ${spring.datasource.type}
+          driverClassName: com.mysql.cj.jdbc.Driver
+          url: ${IAM_IDENTITY_DB_URL:}
+          username: ${IAM_IDENTITY_DB_USERNAME:}
+          password: ${IAM_IDENTITY_DB_PASSWORD:}
+      maxPoolSize: 10
+      minIdle: 2
+      connectionTimeout: 30000
+      validationTimeout: 5000
+      idleTimeout: 600000
+      maxLifetime: 1800000
+      keepaliveTime: 30000
+
+spring.data:
+  redis:
+    host: ${IWS_REDIS_HOST:localhost}
+    port: ${IWS_REDIS_PORT:6379}
+    database: ${IAM_REDIS_DATABASE:0}
+    timeout: 10s
+    ssl.enabled: false
+
+redisson:
+  keyPrefix: ${IAM_REDIS_KEY_PREFIX:innolux-iam}
+  threads: 2
+  nettyThreads: 4
+  singleServerConfig:
+    clientName: IWS-IAM
+    connectionMinimumIdleSize: 2
+    connectionPoolSize: 8
+    idleConnectionTimeout: 10000
+    timeout: 3000
+    subscriptionConnectionPoolSize: 8

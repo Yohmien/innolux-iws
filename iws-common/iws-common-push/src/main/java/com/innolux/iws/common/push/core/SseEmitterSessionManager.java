@@ -155,6 +155,52 @@ public class SseEmitterSessionManager implements PushSessionManager {
     }
 
     /**
+     * 返回当前节点全部已认证 SSE 连接快照。
+     *
+     * @return 连接标识快照
+     */
+    public List<PushSessionIdentity> activeSessions() {
+        List<PushSessionIdentity> sessions = new ArrayList<>();
+        USER_TOKEN_EMITTERS.forEach((userId, emitters) ->
+            emitters.forEach((token, ignored) -> sessions.add(new PushSessionIdentity(userId, token)))
+        );
+        return sessions;
+    }
+
+    /**
+     * 通知指定连接身份已失效并立即关闭，避免客户端静默重连。
+     *
+     * @param userId 用户主键
+     * @param token  本地登录 Token
+     */
+    public void kick(Long userId, String token) {
+        if (userId == null || token == null) {
+            return;
+        }
+        Map<String, SseEmitter> emitters = USER_TOKEN_EMITTERS.get(userId);
+        if (MapUtil.isEmpty(emitters)) {
+            USER_TOKEN_EMITTERS.remove(userId);
+            return;
+        }
+        SseEmitter emitter = emitters.remove(token);
+        if (emitter == null) {
+            if (emitters.isEmpty()) {
+                USER_TOKEN_EMITTERS.remove(userId);
+            }
+            return;
+        }
+        sendKickedMessage(emitter);
+        try {
+            emitter.complete();
+        } catch (Exception ignore) {
+            // 连接可能已被客户端关闭，身份失效结果不受通知失败影响。
+        }
+        if (emitters.isEmpty()) {
+            USER_TOKEN_EMITTERS.remove(userId);
+        }
+    }
+
+    /**
      * 执行 SSE 心跳检测并清理失效连接。
      */
     public void sseMonitor() {

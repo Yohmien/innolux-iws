@@ -17,8 +17,11 @@ import com.innolux.iws.common.push.handler.PlusWebSocketHandler;
 import com.innolux.iws.common.push.interceptor.PlusWebSocketInterceptor;
 import com.innolux.iws.common.push.listener.MessageTopicListener;
 import com.innolux.iws.common.push.properties.MessageProperties;
+import com.innolux.iws.common.push.service.PushConnectionAuthorizer;
+import com.innolux.iws.common.push.service.PushTicketService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.redisson.api.RedissonClient;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -65,8 +68,22 @@ public class MessageWebSocketConfiguration {
      * 建立连接前做登录校验、客户端ID校验
      */
     @Bean
-    public HandshakeInterceptor handshakeInterceptor() {
-        return new PlusWebSocketInterceptor();
+    public HandshakeInterceptor handshakeInterceptor(
+        PushTicketService ticketService,
+        org.springframework.beans.factory.ObjectProvider<PushConnectionAuthorizer> authorizer
+    ) {
+        return new PlusWebSocketInterceptor(ticketService, authorizer);
+    }
+
+    /**
+     * WebSocket 一次性握手票据服务。
+     *
+     * @param redissonClient 共享 Redis 客户端
+     * @return 票据服务
+     */
+    @Bean
+    public PushTicketService pushTicketService(RedissonClient redissonClient) {
+        return new PushTicketService(redissonClient);
     }
 
     /**

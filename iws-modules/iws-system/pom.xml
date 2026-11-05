@@ -27,6 +27,12 @@
     </description>
 
     <dependencies>
+        <!-- 统一身份与账号能力 -->
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-auth</artifactId>
+        </dependency>
+
         <!-- 通用工具-->
         <dependency>
             <groupId>com.innolux.iws</groupId>

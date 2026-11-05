@@ -37,6 +37,13 @@
                 <version>${revision}</version>
             </dependency>
 
+            <!-- 运行 JAR 外部配置启动适配 -->
+            <dependency>
+                <groupId>com.innolux.iws</groupId>
+                <artifactId>iws-common-launch</artifactId>
+                <version>${revision}</version>
+            </dependency>
+
             <!-- 接口模块 -->
             <dependency>
                 <groupId>com.innolux.iws</groupId>
@@ -195,6 +202,13 @@
             <dependency>
                 <groupId>com.innolux.iws</groupId>
                 <artifactId>iws-common-mcp</artifactId>
+                <version>${revision}</version>
+            </dependency>
+
+            <!-- 统一身份认证协议 -->
+            <dependency>
+                <groupId>com.innolux.iws</groupId>
+                <artifactId>iws-common-auth</artifactId>
                 <version>${revision}</version>
             </dependency>
 

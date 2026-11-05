@@ -1,0 +1,253 @@
+# @Date         : 2026-11-03
+# @Author       : YONGJIE.PENG
+# @Email        : YONGJIE.PENG@INNOLUX.COM
+# @Job          : INNOLUX IWS 标准化重构
+# @Module       : IWS 统一身份认证
+# @Version      : V1.0
+# @Description  : 独立统一身份认证中心运行配置；
+# @ModifyRecord : V1.0 新建；
+
+server:
+  port: ${IAM_SERVER_PORT:18081}
+  servlet:
+    context-path: /
+  jetty:
+    max-http-form-post-size: -1
+    threads:
+      min: 8
+      max: 128
+
+spring:
+  application:
+    name: IWS-Identity-Center
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  messages:
+    basename: i18n/messages
+  mvc:
+    static-path-pattern: /static/**
+    format:
+      date-time: yyyy-MM-dd HH:mm:ss
+  jackson:
+    serialization:
+      indent_output: false
+      fail_on_empty_beans: false
+    deserialization:
+      fail_on_unknown_properties: false
+
+logging:
+  config: classpath:logback-auth.xml
+  level:
+    com.innolux.iws: info
+    org.springframework: warn
+    org.mybatis.spring.mapper: error
+
+captcha:
+  enable: false
+  type: math
+  numberLength: 1
+  charLength: 4
+
+user:
+  password:
+    maxRetryCount: 5
+    lockTime: 10
+
+sa-token:
+  token-name: Authorization
+  is-concurrent: true
+  is-share: false
+  jwt-secret-key: ${IAM_SA_TOKEN_JWT_SECRET:}
+
+security:
+  excludes:
+    - /iam/**
+    - /favicon.ico
+    - /error
+    - /*.html
+    - /**/*.html
+    - /**/*.css
+    - /**/*.js
+    - /doc.html
+    - /nextdoc/**
+    - /v3/api-docs/**
+    - /swagger-ui/**
+
+mybatis-plus:
+  enableLogicDelete: true
+  mapperPackage: com.innolux.iws.**.mapper
+  mapperLocations: classpath*:mapper/**/*Mapper.xml
+  typeAliasesPackage: com.innolux.iws.**.domain
+  global-config:
+    dbConfig:
+      idType: ASSIGN_ID
+
+api-decrypt:
+  enabled: ${IAM_API_DECRYPT_ENABLED:false}
+  headerFlag: ${IAM_API_DECRYPT_HEADER_FLAG:encrypt-key}
+  publicKey: ${IAM_API_DECRYPT_PUBLIC_KEY:}
+  privateKey: ${IAM_API_DECRYPT_PRIVATE_KEY:}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+nextdoc4j:
+  enabled: false
+
+message:
+  enabled: false
+
+iam:
+  public-base-url: ${IAM_PUBLIC_BASE_URL:http://127.0.0.1:18081}
+  ticket-ttl: ${IAM_TICKET_TTL:60s}
+  root-session-ttl: ${IAM_ROOT_SESSION_TTL:8h}
+  request-clock-skew: ${IAM_REQUEST_CLOCK_SKEW:5m}
+  frontends:
+    web-main:
+      enabled: true
+      terminal: WEB
+      public-base-url: ${IAM_WEB_MAIN_PUBLIC_BASE_URL:http://127.0.0.1:18000}
+      launch-uri: ${IAM_WEB_MAIN_LAUNCH_URI:http://127.0.0.1:18000/}
+      redirect-uri: ${IAM_WEB_MAIN_REDIRECT_URI:http://127.0.0.1:18000/sso/callback}
+      logout-uri: ${IAM_WEB_MAIN_LOGOUT_URI:http://127.0.0.1:18000/login}
+    web-branch:
+      enabled: true
+      terminal: WEB
+      public-base-url: ${IAM_WEB_BRANCH_PUBLIC_BASE_URL:http://127.0.0.1:18002}
+      launch-uri: ${IAM_WEB_BRANCH_LAUNCH_URI:http://127.0.0.1:18002/}
+      redirect-uri: ${IAM_WEB_BRANCH_REDIRECT_URI:http://127.0.0.1:18002/sso/callback}
+      logout-uri: ${IAM_WEB_BRANCH_LOGOUT_URI:http://127.0.0.1:18002/login}
+    pda-main:
+      enabled: true
+      terminal: PDA
+      public-base-url: ${IAM_PDA_PUBLIC_BASE_URL:http://127.0.0.1:9022}
+      launch-uri: ${IAM_PDA_LAUNCH_URI:http://127.0.0.1:9022/#/pages/work/index}
+      redirect-uri: ${IAM_PDA_REDIRECT_URI:http://127.0.0.1:9022/#/pages/sso/callback}
+      logout-uri: ${IAM_PDA_LOGOUT_URI:http://127.0.0.1:9022/#/pages/login}
+    job-main:
+      enabled: true
+      terminal: WEB
+      public-base-url: ${IAM_JOB_PUBLIC_BASE_URL:http://127.0.0.1:18088}
+      launch-uri: ${IAM_JOB_LAUNCH_URI:http://127.0.0.1:18088/snail-job/iam/sso/start}
+      redirect-uri: ${IAM_JOB_REDIRECT_URI:http://127.0.0.1:18088/snail-job/iam/sso/callback}
+      logout-uri: ${IAM_JOB_LOGOUT_URI:http://127.0.0.1:18088/snail-job/iam/sso/start}
+    ai-main:
+      enabled: true
+      terminal: WEB
+      public-base-url: ${IAM_AI_PUBLIC_BASE_URL:http://127.0.0.1:18089}
+      launch-uri: ${IAM_AI_LAUNCH_URI:http://127.0.0.1:18089/snail-ai/iam/sso/start}
+      redirect-uri: ${IAM_AI_REDIRECT_URI:http://127.0.0.1:18089/snail-ai/iam/sso/callback}
+      logout-uri: ${IAM_AI_LOGOUT_URI:http://127.0.0.1:18089/snail-ai/iam/sso/start}
+    monitor-main:
+      enabled: true
+      terminal: WEB
+      public-base-url: ${IAM_MONITOR_PUBLIC_BASE_URL:http://127.0.0.1:18090}
+      launch-uri: ${IAM_MONITOR_LAUNCH_URI:http://127.0.0.1:18090/admin/sso/start}
+      redirect-uri: ${IAM_MONITOR_REDIRECT_URI:http://127.0.0.1:18090/admin/sso/callback}
+      logout-uri: ${IAM_MONITOR_LOGOUT_URI:http://127.0.0.1:18090/admin/sso/start}
+  applications:
+    iws-a:
+      type: IWS
+      name: IWS+ A
+      terminals: [WEB, PDA]
+      description: 智能仓储管理系统 A
+      api-base-url: ${IAM_IWS_A_API_BASE_URL:/iws-a-api}
+      allowed-frontend-ids: [web-main, web-branch, pda-main]
+      access-permission: ${IAM_IWS_A_ACCESS_PERMISSION:iam:app:iws:a}
+      client-secret: ${IAM_IWS_A_CLIENT_SECRET:}
+      session-namespace: ${IAM_IWS_A_SESSION_NAMESPACE:innolux-iws-a}
+      allowed-instance-ids:
+        - ${IAM_IWS_A_INSTANCE_ID_1:iws-a-1}
+        - ${IAM_IWS_A_INSTANCE_ID_2:iws-a-2}
+    iws-b:
+      type: IWS
+      name: IWS+ B
+      terminals: [WEB, PDA]
+      description: 智能仓储管理系统 B
+      api-base-url: ${IAM_IWS_B_API_BASE_URL:/iws-b-api}
+      allowed-frontend-ids: [web-main, web-branch, pda-main]
+      access-permission: ${IAM_IWS_B_ACCESS_PERMISSION:iam:app:iws:b}
+      client-secret: ${IAM_IWS_B_CLIENT_SECRET:}
+      session-namespace: ${IAM_IWS_B_SESSION_NAMESPACE:innolux-iws-b}
+      allowed-instance-ids:
+        - ${IAM_IWS_B_INSTANCE_ID_1:iws-b-1}
+    snail-job:
+      type: SNAIL_JOB
+      name: 任务调度中心
+      terminals: [WEB]
+      description: SnailJob 调度控制台
+      api-base-url: ${IAM_SNAILJOB_API_BASE_URL:/snail-job}
+      allowed-frontend-ids: [job-main]
+      access-permission: ${IAM_SNAILJOB_ACCESS_PERMISSION:monitor:snailjob:list}
+      client-secret: ${IAM_SNAILJOB_CLIENT_SECRET:}
+      session-namespace: ${IAM_SNAILJOB_SESSION_NAMESPACE:innolux-snailjob}
+      allowed-instance-ids:
+        - ${IAM_SNAILJOB_INSTANCE_ID_1:snail-job-1}
+    snail-ai:
+      type: SNAIL_AI
+      name: AI 控制台
+      terminals: [WEB]
+      description: SnailAI 应用与知识库控制台
+      api-base-url: ${IAM_SNAILAI_API_BASE_URL:/snail-ai}
+      allowed-frontend-ids: [ai-main]
+      access-permission: ${IAM_SNAILAI_ACCESS_PERMISSION:monitor:snailai:list}
+      client-secret: ${IAM_SNAILAI_CLIENT_SECRET:}
+      session-namespace: ${IAM_SNAILAI_SESSION_NAMESPACE:innolux-snailai}
+      allowed-instance-ids:
+        - ${IAM_SNAILAI_INSTANCE_ID_1:snail-ai-1}
+    admin-monitor:
+      type: ADMIN_MONITOR
+      name: Admin 监控
+      terminals: [WEB]
+      description: Spring Boot Admin 运行监控
+      api-base-url: ${IAM_MONITOR_API_BASE_URL:/admin}
+      allowed-frontend-ids: [monitor-main]
+      access-permission: ${IAM_MONITOR_ACCESS_PERMISSION:monitor:admin:list}
+      client-secret: ${IAM_MONITOR_CLIENT_SECRET:}
+      session-namespace: ${IAM_MONITOR_SESSION_NAMESPACE:innolux-monitor-admin}
+      allowed-instance-ids:
+        - ${IAM_MONITOR_INSTANCE_ID_1:admin-monitor-1}
+  views:
+    - application-type: IWS
+      terminal: WEB
+      view-key: index
+      name: IWS 首页
+    - application-type: IWS
+      terminal: WEB
+      view-key: system/user/index
+      name: 用户管理
+    - application-type: IWS
+      terminal: WEB
+      view-key: system/role/index
+      name: 角色管理
+    - application-type: IWS
+      terminal: WEB
+      view-key: system/dept/index
+      name: 部门管理
+    - application-type: IWS
+      terminal: WEB
+      view-key: system/post/index
+      name: 岗位管理
+    - application-type: IWS
+      terminal: WEB
+      view-key: system/menu/index
+      name: 菜单管理
+    - application-type: IWS
+      terminal: WEB
+      view-key: system/client/index
+      name: 客户端管理
+    - application-type: IWS
+      terminal: WEB
+      view-key: system/user/profile/index
+      name: 个人设置
+    - application-type: IWS
+      terminal: PDA
+      view-key: pages/work/index
+      name: PDA 工作台
+    - application-type: IWS
+      terminal: PDA
+      view-key: pages/work/inventory/locate
+      name: PDA 在库定位

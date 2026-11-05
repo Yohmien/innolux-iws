@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ - @Date         : 2026-11-03
+ - @Author       : YONGJIE.PENG
+ - @Email        : YONGJIE.PENG@INNOLUX.COM
+ - @Job          : INNOLUX IWS 标准化重构
+ - @Module       : IWS 统一身份认证
+ - @Version      : V1.0
+ - @Description  : 独立统一身份认证中心进程；
+ - @ModifyRecord : V1.0 新建；
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.innolux.iws</groupId>
+        <artifactId>iws-extend</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>iws-auth-server</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-launch</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-auth</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-common-mail</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>${project.artifactId}</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

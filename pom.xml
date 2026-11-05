@@ -444,6 +444,13 @@
                 <version>${revision}</version>
             </dependency>
 
+            <!-- 统一身份与账号模块 -->
+            <dependency>
+                <groupId>com.innolux.iws</groupId>
+                <artifactId>iws-auth</artifactId>
+                <version>${revision}</version>
+            </dependency>
+
             <!-- 调度任务模块 -->
             <dependency>
                 <groupId>com.innolux.iws</groupId>
