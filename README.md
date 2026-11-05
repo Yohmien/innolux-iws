@@ -28,6 +28,7 @@ INNOLUX IWS 是面向智能仓储场景的前后端一体化系统，当前系�
 | --- | --- | --- | --- | --- |
 | 前端 Web | pnpm dev | `18000` | `http://localhost:18000` | Vue/Vite 开发服务 |
 | 主后端 | IWS+ Main Service | `18080` | `http://localhost:18080` | 登录、权限、菜单、WMS 后端接口 |
+| 认证中心 | IWS Auth Server | `18081` | `http://localhost:18081/iam` | 统一登录、应用导航与一次性票据 |
 | 监控中心 | IWS Monitor Admin | `18090` | `http://localhost:18090/admin` | Spring Boot Admin 监控台 |
 | SnailJob 控制台 | IWS SnailJob Server | `18088` | `http://localhost:18088/snail-job` | 调度中心 Web 与接口 |
 | SnailJob 通信 | IWS SnailJob Server | `18188` | 内部通信端口 | 主服务接入调度中心 |
@@ -57,12 +58,24 @@ admin 监控中心、SnailJob 控制台、SnailAI 控制台与主服务登录统
 2. 初始化脚本按组件认证模型保存 BCrypt、SHA-256 或 PBKDF2 哈希，不把密码明文写入密码字段；本地凭据由受控配置或占位路由注入。
 3. 正式部署后应通过各系统自身功能更换默认密码，避免使用初始密码上线。
 
-日常开发只启动 `IWS+ Main Service` 和前端即可。需要监控、任务调度或 AI 能力时，再分别启动 `IWS Monitor Admin`、`IWS SnailJob Server`、`IWS SnailAI Server`。
+日常开发启动 `IWS Auth Server`、`IWS+ Main Service` 和前端。需要监控、任务调度或 AI 能力时，再分别启动 `IWS Monitor Admin`、`IWS SnailJob Server`、`IWS SnailAI Server`。
 
 默认启动配置：
 
-- 同机开发：前端 Web / PDA 保持 `VITE_BACKEND_HOST=127.0.0.1`；后端保持 `dev` 默认值，只需按本机实际情况启动 MySQL、Redis，按需启动 MinIO。不需要修改认证中心的 Web 启动与回调地址，默认仍为 `http://127.0.0.1:18000`。
-- 前后端分机开发：前端 Web / PDA 修改 `.env.development` 的 `VITE_BACKEND_HOST` 为后端机器 IP，重启前端；认证中心同步将 Web 启动地址 `IAM_WEB_MAIN_LAUNCH_URI`、回调地址 `IAM_WEB_MAIN_REDIRECT_URI` 指向浏览器可访问的前端地址，例如 `http://10.189.88.204:18000/` 与 `http://10.189.88.204:18000/sso/callback`，再重启认证中心。MySQL、Redis、MinIO 仍按实际部署覆盖对应环境变量，其余应用配置保持默认。
+**同机开发**
+
+- Web / PDA：保持 [Web `.env.development`](../ui/innolux-iws-web/.env.development) 与 [PDA `.env.development`](../ui/innolux-iws-pda-plus/.env.development) 中的 `VITE_BACKEND_HOST=127.0.0.1`。
+- 认证中心：保持 [`application.yml` 的 `iam.frontends.web-main` 与 `iam.frontends.pda-main`](iws-extend/iws-auth-server/src/main/resources/application.yml) 默认地址，不需要修改启动、回调或退出地址。
+- MySQL / Redis：默认值见[主服务 `application-dev.yml`](iws-admin/src/main/resources/application-dev.yml)与[认证中心 `application-dev.yml`](iws-extend/iws-auth-server/src/main/resources/application-dev.yml)；SnailJob、SnailAI 的 MySQL 配置分别见 [SnailJob `application-dev.yml`](iws-extend/iws-snailjob-server/src/main/resources/application-dev.yml) 与 [SnailAI `application-dev.yml`](iws-extend/iws-snailai-server/src/main/resources/application-dev.yml)。
+- MinIO：按需启动，AI 服务配置见 [SnailAI `application.yml`](iws-extend/iws-snailai-server/src/main/resources/application.yml)，具体启动与桶配置见 [MinIO 对象存储](#minio-对象存储按需)。
+- 启动项：[IWS Auth Server](.run/IWS_Auth_Server.run.xml) → [IWS+ Main Service](.run/IWS_Main_Service.run.xml) → 前端。
+
+**前后端分机开发**
+
+- Web / PDA：修改 [Web `.env.development`](../ui/innolux-iws-web/.env.development) 与 [PDA `.env.development`](../ui/innolux-iws-pda-plus/.env.development) 中的 `VITE_BACKEND_HOST` 为后端机器 IP，重启前端。
+- 认证中心：在 [`application.yml` 的 `iam.frontends.web-main`](iws-extend/iws-auth-server/src/main/resources/application.yml) 同步设置 `IAM_WEB_MAIN_PUBLIC_BASE_URL`、`IAM_WEB_MAIN_LAUNCH_URI`、`IAM_WEB_MAIN_REDIRECT_URI` 和 `IAM_WEB_MAIN_LOGOUT_URI` 为浏览器可访问的前端地址，例如 `http://10.189.88.204:18000`、`http://10.189.88.204:18000/`、`http://10.189.88.204:18000/sso/callback` 和 `http://10.189.88.204:18000/login`，再重启认证中心；PDA 使用真实设备地址同理覆盖 `IAM_PDA_*`。
+- MySQL / Redis / MinIO：使用同机开发列出的配置入口按实际部署覆盖环境变量，其余应用配置保持默认。
+- 启动项：[IWS Auth Server](.run/IWS_Auth_Server.run.xml) → [IWS+ Main Service](.run/IWS_Main_Service.run.xml) → 前端。
 
 ## 本机开发账号与数据源
 
@@ -71,6 +84,7 @@ admin 监控中心、SnailJob 控制台、SnailAI 控制台与主服务登录统
 | 模块 | 配置位置 | 主要配置 |
 | --- | --- | --- |
 | 主服务 `iws-admin` | `iws-admin/src/main/resources/application.yml`、`application-dev.yml` | 端口 `18080`、MySQL、Redis、MQTT、SnailJob/SnailAI 客户端、邮件与短信 |
+| 认证中心 `iws-auth-server` | `iws-extend/iws-auth-server/src/main/resources/application.yml`、`application-dev.yml` | 端口 `18081`、MySQL、Redis、受信前端与应用注册、票据与会话 |
 | Web `innolux-iws-web` | `.env.development` | 后端 `http://127.0.0.1:18080`、监控/调度/AI 入口、接口加密密钥 |
 | 监控中心 `iws-monitor-admin` | `iws-extend/iws-monitor-admin/src/main/resources/application.yml` | 登录账号、端口 `18090`、被监控客户端凭据 |
 | 调度中心 `iws-snailjob-server` | `iws-extend/iws-snailjob-server/src/main/resources/application.yml`、`application-dev.yml` | 端口 `18088` / `18188`、MySQL、监控客户端 |
@@ -206,18 +220,19 @@ JSON、lockfile、二进制资源等不支持注释或不适合写头的文件�
 2. Project SDK、Maven Runner、Maven Importer 均使用 `JDK 21`。
 3. 右侧 Maven 面板执行 Reload All Maven Projects。
 4. 本地先启动 MySQL `3306` 与 Redis `6379`，并确认目标数据库已按需准备初始化和 WMS 核心表；使用文件或图片上传时再启动 MinIO。演示数据只在明确允许的环境执行。
-5. Run/Debug 下拉框使用以下四个共享启动项：
+5. Run/Debug 下拉框使用以下五个共享启动项：
 
 | 启动项 | 是否必启 | 说明 |
 | --- | --- | --- |
+| `IWS Auth Server` | 是 | 统一身份认证中心，端口 `18081`，访问 `/iam` |
 | `IWS+ Main Service` | 是 | 主后端服务，默认 `dev` 环境，端口 `18080` |
 | `IWS Monitor Admin` | 否 | 监控中心，端口 `18090`，访问 `/admin` |
 | `IWS SnailJob Server` | 否 | 任务调度中心，端口 `18088` / `18188` |
 | `IWS SnailAI Server` | 否 | AI 服务中心，端口 `18089` / `18189` |
 
-基础联调启动顺序：按需 MinIO -> MySQL、Redis -> `IWS+ Main Service` -> 前端。
+基础联调启动顺序：按需 MinIO -> MySQL、Redis -> `IWS Auth Server` -> `IWS+ Main Service` -> 前端。
 
-完整能力启动顺序：按需 MinIO -> MySQL、Redis -> `IWS Monitor Admin` -> `IWS SnailJob Server` -> `IWS SnailAI Server` -> `IWS+ Main Service` -> 前端。
+完整能力启动顺序：按需 MinIO -> MySQL、Redis -> `IWS Monitor Admin` -> `IWS Auth Server` -> `IWS SnailJob Server` -> `IWS SnailAI Server` -> `IWS+ Main Service` -> 前端。
 
 ## MinIO 对象存储（按需）
 
