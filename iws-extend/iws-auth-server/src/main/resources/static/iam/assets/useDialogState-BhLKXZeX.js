@@ -1,1 +1,0 @@
-import{mi as e}from"./request-DG81-z0O.js";function t(t=``){let n=e({visible:!1,title:t});return{dialog:n,openDialog:e=>{e!==void 0&&(n.title=e),n.visible=!0},closeDialog:()=>{n.visible=!1},toggleDialog:()=>{n.visible=!n.visible},setTitle:e=>{n.title=e}}}export{t};
