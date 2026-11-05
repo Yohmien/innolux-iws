@@ -172,9 +172,15 @@ public class IamProperties {
         private String terminal;
 
         /**
-         * 前端公开基址。
+         * 前端客户端模式；BROWSER 或 APP。
          */
         @NotBlank
+        @Pattern(regexp = "BROWSER|APP")
+        private String clientMode = "BROWSER";
+
+        /**
+         * BROWSER 模式的公开基址；APP 模式不需要配置。
+         */
         private String publicBaseUrl;
 
         /**
