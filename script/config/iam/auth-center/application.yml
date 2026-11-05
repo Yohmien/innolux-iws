@@ -24,6 +24,19 @@ redisson:
 sa-token:
   jwt-secret-key: ${IAM_SA_TOKEN_JWT_SECRET:}
 
+--- # APK 发布目录与计划事件；默认关闭，设置 SPRING_PROFILES_ACTIVE=prod,apk 后启用
+iws:
+  endpoint:
+    enabled: false
+    current-environment: ${IWS_ENDPOINT_CURRENT_ENVIRONMENT:TEST}
+  process:
+    enabled: false
+    immediate:
+      max-concurrency: ${IWS_APK_MAX_CONCURRENCY:4}
+      response-reserve-ms: ${IWS_APK_RESPONSE_RESERVE_MS:500}
+    scheduler:
+      enabled: false
+
 iam:
   public-base-url: ${IAM_PUBLIC_BASE_URL:http://127.0.0.1:18081/iam}
   frontends:

@@ -100,6 +100,21 @@ nextdoc4j:
 message:
   enabled: false
 
+--- # 认证中心 APK 发布所需的目录/计划能力；默认关闭，不影响统一登录
+iws:
+  endpoint:
+    enabled: false
+    current-environment: ${IWS_ENDPOINT_CURRENT_ENVIRONMENT:TEST}
+  process:
+    enabled: false
+    immediate:
+      max-concurrency: ${IWS_APK_MAX_CONCURRENCY:4}
+      response-reserve-ms: ${IWS_APK_RESPONSE_RESERVE_MS:500}
+    scheduler:
+      enabled: false
+    workflow:
+      enabled: false
+
 iam:
   public-base-url: ${IAM_PUBLIC_BASE_URL:http://127.0.0.1:18081}
   ticket-ttl: ${IAM_TICKET_TTL:60s}

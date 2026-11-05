@@ -1,0 +1,16 @@
+# @Date         : 2026-11-05
+# @Author       : YONGJIE.PENG
+# @Email        : YONGJIE.PENG@INNOLUX.COM
+# @Job          : INNOLUX IWS 标准化重构
+# @Module       : IWS 统一 APK 发布
+# @Version      : V1.0
+# @Description  : 认证中心显式启用 APK 发布所需目录与计划事件能力；
+# @ModifyRecord : V1.0 新建，仅用于认证中心；
+
+iws:
+  endpoint:
+    enabled: true
+  process:
+    enabled: true
+    scheduler:
+      enabled: false

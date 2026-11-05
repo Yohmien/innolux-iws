@@ -28,10 +28,10 @@
 --   3. endpoint 结构（6 张表）、唯一 CATALOG 控制行、默认环境 TEST 与 IWS 系统
 --   4. process 结构（16 张表）
 --   5. endpoint/process 菜单和按钮权限（53 行）
---   6. APK 发布记录表（1 张表）与系统管理菜单（5 行）
+--   6. APK 发布记录表（1 张表）；菜单只由认证中心初始化脚本创建
 --   7. 在库管理公司最小闭环菜单（7 行）、空间页面菜单（6 行）与业务目录页面（1 行，复用既有根）
 -- 共 181 张表，其中 WMS 77 张。
--- 菜单种子共 259 行。
+-- 菜单种子共 254 行。
 --
 -- 种子只保留系统运行所需的默认模板配置：部门/岗位/角色/菜单/字典/参数、
 -- 默认管理员、SnailJob 初始管理员与默认组、默认客户端、OSS 模板、流程分类和流程表达式、
@@ -7226,7 +7226,7 @@ DROP TEMPORARY TABLE IF EXISTS tmp_iws_menu_expected;
 DROP TEMPORARY TABLE IF EXISTS tmp_iws_menu_sys_columns;
 
 -- ----------------------------------------------------------------------------
--- APK 应用版本管理：发布记录表与系统管理菜单
+-- APK 应用版本管理：仅保留发布记录表；业务系统不再初始化 APK 菜单
 -- ----------------------------------------------------------------------------
 CREATE TABLE `sys_apk_release` (
   `release_id` bigint NOT NULL,
@@ -7252,12 +7252,6 @@ CREATE TABLE `sys_apk_release` (
   KEY `idx_apk_name` (`app_name`),
   KEY `idx_apk_published` (`package_name`,`status`,`version_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040000,'APK管理',1761400000000000001,12,'apk','system/apk/index','','N','Y','C','0','0','','upload','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'APK发布管理菜单');
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040001,'APK查询',1761400000000040000,1,'',NULL,NULL,'N','Y','F','0','0','system:apk:list','#','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'');
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040002,'APK上传',1761400000000040000,2,'',NULL,NULL,'N','Y','F','0','0','system:apk:upload','#','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'');
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040003,'发布/初始化',1761400000000040000,3,'',NULL,NULL,'N','Y','F','0','0','system:apk:publish','#','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'');
-INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000040004,'APK下载',1761400000000040000,4,'',NULL,NULL,'N','Y','F','0','0','system:apk:download','#','','',1761000000000000103,1761100000000000001,CURRENT_TIMESTAMP,NULL,NULL,'');
 
 -- 在库管理公司最小闭环：复用既有在库管理目录作为父级（visible 0 显示、1 隐藏）；只登记权限，不授予角色。
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000050100,'公司管理',1761400000000020004,1,'company','wms/inventory/company/index','','N','Y','C','0','0','inventory:company:query','peoples','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'公司最小闭环');
@@ -8023,7 +8017,7 @@ SET @init_final_ok = (
     @init_preflight_ok = 1
     AND @init_final_table_count = 181
     AND @init_final_wms_table_count = 77
-    AND @init_final_menu_count = 259
+    AND @init_final_menu_count = 254
     AND @init_final_event_menu_count = 53
     AND @init_final_role_menu_count = 133
     AND @init_final_space_root_ok = 1

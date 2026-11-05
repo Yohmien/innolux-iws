@@ -1,0 +1,19 @@
+# @Date         : 2026-11-05
+# @Author       : YONGJIE.PENG
+# @Email        : YONGJIE.PENG@INNOLUX.COM
+# @Job          : INNOLUX IWS 标准化重构
+# @Module       : IWS 统一 APK 发布
+# @Version      : V1.0
+# @Description  : 认证中心显式启用 APK 发布所需 endpoint/process 能力；
+# @ModifyRecord : V1.0 新建，仅用于认证中心 APK 管理；
+
+# 启用前必须确认中心目标库存在 endpoint/process/APK 表，且
+# iws.endpoint.current-environment 指向已启用环境。该 profile 只影响发布能力，
+# 未启用时统一登录和管理查询仍可使用。
+iws:
+  endpoint:
+    enabled: true
+  process:
+    enabled: true
+    scheduler:
+      enabled: false

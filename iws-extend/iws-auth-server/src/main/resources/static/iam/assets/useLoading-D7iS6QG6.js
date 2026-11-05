@@ -1,0 +1,1 @@
+import{gi as e}from"./request-DG81-z0O.js";function t(t=!1){let n=e(t);return{loading:n,setLoading:e=>{n.value=e},withLoading:async e=>{n.value=!0;try{return await e()}finally{n.value=!1}}}}export{t};

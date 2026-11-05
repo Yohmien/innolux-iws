@@ -37,6 +37,7 @@
         <module>iws-endpoint</module>
         <module>iws-process</module>
         <module>iws-auth</module>
+        <module>iws-app-release</module>
     </modules>
 
 </project>

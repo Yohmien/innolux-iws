@@ -451,6 +451,13 @@
                 <version>${revision}</version>
             </dependency>
 
+            <!-- 统一身份认证中心 APK 发布模块 -->
+            <dependency>
+                <groupId>com.innolux.iws</groupId>
+                <artifactId>iws-app-release</artifactId>
+                <version>${revision}</version>
+            </dependency>
+
             <!-- 调度任务模块 -->
             <dependency>
                 <groupId>com.innolux.iws</groupId>

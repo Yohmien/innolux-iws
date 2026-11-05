@@ -1,1 +1,0 @@
-import{Gi as e,a as t}from"./request-DWWQw-PK.js";var n=e({getConfigKey:()=>r});function r(e){return t({url:`/system/config/configKey/`+e,method:`get`})}export{r as n,n as t};

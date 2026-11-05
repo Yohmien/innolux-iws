@@ -13,25 +13,17 @@ package com.innolux.iws.auth;
 
 import com.innolux.iws.auth.config.IamProperties;
 import com.innolux.iws.common.launch.IwsConfigLocationSupport;
-import com.innolux.iws.system.runner.SystemApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
 
 /**
  * 统一身份认证中心应用。
  */
 @EnableConfigurationProperties(IamProperties.class)
 @SpringBootApplication
-@ComponentScan(
-    basePackages = "com.innolux.iws",
-    excludeFilters = @ComponentScan.Filter(
-        type = FilterType.ASSIGNABLE_TYPE,
-        classes = SystemApplicationRunner.class
-    )
-)
+@ComponentScan(basePackages = "com.innolux.iws")
 public class AuthServerApplication {
 
     /**

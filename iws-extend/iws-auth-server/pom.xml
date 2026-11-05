@@ -33,6 +33,10 @@
         </dependency>
         <dependency>
             <groupId>com.innolux.iws</groupId>
+            <artifactId>iws-app-release</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.innolux.iws</groupId>
             <artifactId>iws-common-mail</artifactId>
         </dependency>
         <dependency>

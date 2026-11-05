@@ -4,16 +4,18 @@
  * @Email        : YONGJIE.PENG@INNOLUX.COM
  * @Job          : INNOLUX IWS 标准化重构
  * @Module       : APK 应用版本管理
- * @Version      : V1.0
+ * @Version      : V1.1
  * @Description  : 幂等新增 APK 下载计数、来源 IP 与访问信息字段；
  * @ModifyRecord : V1.0 新建；
+ *                 V1.1 2026-11-05 明确仅由统一身份认证中心执行，并支持执行器覆盖目标库；
  */
 
--- 目标：MySQL 8.0；单一目标库参数见下一行。
+-- 目标：MySQL 8.0；该脚本只属于统一身份认证中心，不得在 IWS-A/IWS-B 业务库执行。
 -- 执行：mysql --database=innolux-iws --default-character-set=utf8mb4 --batch --raw < iws_apk_download_access.sql
+-- 需要显式传入非默认库时，可增加 --init-command="SET @ada_schema_input='目标库'"。
 -- 同一连接顺序执行，不添加 --force。执行器必须断言输出中的“门禁结果”为 1；失败时 DDL 受门控跳过。
 
-SET @ada_schema = 'innolux-iws';
+SET @ada_schema = COALESCE(NULLIF(@ada_schema_input, ''), 'innolux-iws');
 SET @ada_schema_q = CONCAT('`', REPLACE(@ada_schema, '`', '``'), '`');
 
 SET @ada_target_ok = (
