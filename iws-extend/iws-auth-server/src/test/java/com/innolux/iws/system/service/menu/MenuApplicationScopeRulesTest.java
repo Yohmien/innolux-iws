@@ -13,6 +13,7 @@ package com.innolux.iws.system.service.menu;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -24,6 +25,18 @@ class MenuApplicationScopeRulesTest {
         assertTrue(MenuApplicationScopeRules.isVisible("*", "iws-a"));
         assertTrue(MenuApplicationScopeRules.isVisible("iws-a", "iws-a"));
         assertFalse(MenuApplicationScopeRules.isVisible("iws-b", "iws-a"));
+    }
+
+    @Test
+    void blankApplicationDefaultsToIwsA() {
+        assertEquals(
+            "iws-a",
+            MenuApplicationScopeRules.normalize(null)
+        );
+        assertEquals(
+            "iws-a",
+            MenuApplicationScopeRules.normalize(" ")
+        );
     }
 
     @Test
