@@ -11,6 +11,7 @@
 
 package com.innolux.iws.snailjob.iam;
 
+import com.innolux.iws.common.auth.domain.IamTicketExchangeResponse;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -112,5 +114,70 @@ class IamJobCallbackTransactionTest {
         assertEquals(401, failedResponse.getStatus());
         assertNull(session.getAttribute("iamJobState"));
         assertFalse(session.isInvalid());
+    }
+
+    @Test
+    void bridgeWritesTokenWithoutDependingOnHttpSession() throws Exception {
+        IamJobProperties properties = new IamJobProperties();
+        properties.setApplicationId("snail-job");
+        properties.setFrontendId("job-main");
+        IamJobCenterClient centerClient = mock(IamJobCenterClient.class);
+        IamJobLocalSessionService localSessionService = mock(IamJobLocalSessionService.class);
+        IamJobSsoController controller = new IamJobSsoController(
+            properties,
+            centerClient,
+            localSessionService
+        );
+        IamTicketExchangeResponse identity = new IamTicketExchangeResponse(
+            "iws-auth-center",
+            "snail-job",
+            "SNAIL_JOB",
+            "job-main",
+            100L,
+            "admin",
+            "root-a",
+            "session-a",
+            1,
+            "WEB",
+            "snail-job-1",
+            "/",
+            999
+        );
+        IamJobLocalSessionService.PreparedSession prepared =
+            new IamJobLocalSessionService.PreparedSession(null, null, "dev");
+        when(centerClient.inspect("ticket-a", "job-main", "state-a")).thenReturn(identity);
+        when(centerClient.exchange(anyString(), anyString(), anyString(), anyString()))
+            .thenReturn(identity);
+        when(localSessionService.prepare(identity)).thenReturn(prepared);
+        when(localSessionService.issue(any(), any()))
+            .thenReturn(new IamJobLocalSessionService.IssuedSession(
+                "local-token-a",
+                "/",
+                "dev"
+            ));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setContextPath("/snail-job");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        controller.bridge(
+            "ticket-a",
+            "state-a",
+            "snail-job",
+            "job-main",
+            "WEB",
+            request,
+            response
+        );
+
+        String html = response.getContentAsString();
+        assertEquals(200, response.getStatus());
+        assertTrue(html.contains("value=\"token\""));
+        assertTrue(html.contains("value=\"local-token-a\""));
+        assertTrue(html.contains("value=\"/snail-job/\""));
+        assertTrue(html.contains("value=\"namespaceId\""));
+        assertTrue(html.contains("value=\"dev\""));
+        assertFalse(html.contains("/iam/sso/bootstrap"));
+        assertNull(response.getRedirectedUrl());
+        assertNull(request.getSession(false));
     }
 }

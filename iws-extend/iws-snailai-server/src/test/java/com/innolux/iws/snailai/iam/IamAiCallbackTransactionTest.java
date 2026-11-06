@@ -11,6 +11,8 @@
 
 package com.innolux.iws.snailai.iam;
 
+import com.aizuda.snail.ai.persistence.admin.po.UserPO;
+import com.innolux.iws.common.auth.domain.IamTicketExchangeResponse;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -21,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -112,5 +115,62 @@ class IamAiCallbackTransactionTest {
         assertEquals(401, failedResponse.getStatus());
         assertNull(session.getAttribute("iamAiState"));
         assertFalse(session.isInvalid());
+    }
+
+    @Test
+    void bridgeWritesTokenWithoutDependingOnHttpSession() throws Exception {
+        IamAiProperties properties = new IamAiProperties();
+        properties.setApplicationId("snail-ai");
+        properties.setFrontendId("ai-main");
+        IamAiCenterClient centerClient = mock(IamAiCenterClient.class);
+        IamAiLocalSessionService localSessionService = mock(IamAiLocalSessionService.class);
+        IamAiSsoController controller = new IamAiSsoController(
+            properties,
+            centerClient,
+            localSessionService
+        );
+        IamTicketExchangeResponse identity = new IamTicketExchangeResponse(
+            "iws-auth-center",
+            "snail-ai",
+            "SNAIL_AI",
+            "ai-main",
+            100L,
+            "admin",
+            "root-a",
+            "session-a",
+            1,
+            "WEB",
+            "snail-ai-1",
+            "/",
+            999
+        );
+        when(centerClient.inspect("ticket-a", "ai-main", "state-a")).thenReturn(identity);
+        when(centerClient.exchange(anyString(), anyString(), anyString(), anyString()))
+            .thenReturn(identity);
+        when(localSessionService.prepare(identity)).thenReturn(mock(UserPO.class));
+        when(localSessionService.issue(any(), any()))
+            .thenReturn(new IamAiLocalSessionService.IssuedSession("local-token-a", "/"));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setContextPath("/snail-ai");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        controller.bridge(
+            "ticket-a",
+            "state-a",
+            "snail-ai",
+            "ai-main",
+            "WEB",
+            request,
+            response
+        );
+
+        String html = response.getContentAsString();
+        assertEquals(200, response.getStatus());
+        assertTrue(html.contains("value=\"SOY_token\""));
+        assertTrue(html.contains("value=\"local-token-a\""));
+        assertTrue(html.contains("value=\"/snail-ai/\""));
+        assertFalse(html.contains("/iam/sso/bootstrap"));
+        assertNull(response.getRedirectedUrl());
+        assertNull(request.getSession(false));
     }
 }
