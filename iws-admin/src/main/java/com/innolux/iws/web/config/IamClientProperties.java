@@ -19,6 +19,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -104,6 +105,11 @@ public class IamClientProperties {
      */
     @Min(1)
     private long responseTimeoutMs = 5000;
+
+    /**
+     * 同源浏览器刷新时可静默恢复本地会话的最长时间。
+     */
+    private Duration sessionResumeTtl = Duration.ofHours(8);
 
     /**
      * 中心不可达时，已校验根会话允许继续访问的短租约秒数。
