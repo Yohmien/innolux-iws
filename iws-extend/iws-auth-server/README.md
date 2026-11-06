@@ -304,6 +304,8 @@ iam:
 
 同一公开入口背后的扩容副本共用 frontendId；不同受信公开入口使用不同 frontendId。PDA 按其已注册的平台回调登记同一逻辑关系，不能照抄 Web 回调或通过把 IWS 类型改成 PDA 逃逸互踢。前端公开基址是部署位置，不能从用户任意输入的 URL 动态注册。
 
+浏览器在进入统一登录前读取公开接口 `GET /iam/login/frontend?frontendId=<id>&terminal=<WEB|PDA>`，核对浏览器当前来源与 `iam.frontends.<frontendId>` 的 `public-base-url`、`launch-uri`、`redirect-uri`、`logout-uri` 是否同源。地址误填为 `localhost`、`127.0.0.1`、旧前端主机或错误端口时，Web 停止跳转并展示配置错误页，列出实际值、期望值和配置字段；同一页面在 30 秒内连续发起第 3 次登录时也会触发熔断。修正配置后从错误页明确重新登录，不通过继续刷新或反复授权绕过。
+
 登录/切换步骤：
 1. 前端读自己的 frontendId，向原应用列表及登录授权能力传 frontendId、terminal、所选 applicationId。展示仍使用原应用 name，不能用 frontendId 代替目标后端。
 2. 中心核验前端/后端启用、终端相符、allowed-frontend-ids 关系及原账号准入，回调从登记中选取，不信任浏览器任意传入地址。origin/代理来源按受控部署配置校验，但不把可伪造的公开 frontendId 当成身份凭据。
