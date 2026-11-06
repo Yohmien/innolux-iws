@@ -12,7 +12,6 @@
 package com.innolux.iws.auth.controller;
 
 import cn.dev33.satoken.annotation.SaIgnore;
-import cn.dev33.satoken.exception.NotPermissionException;
 import com.innolux.iws.auth.config.IamProperties;
 import com.innolux.iws.auth.service.IamServiceRequestVerifier;
 import com.innolux.iws.auth.service.IamApplicationPreparation;
@@ -168,19 +167,19 @@ public class IamSsoController {
     public R<IamAuthorizationResponse> authorize(@RequestBody AuthorizeRequest request) {
         IamProperties.Application application = properties.getApplications().get(request.applicationId());
         if (application == null || !application.isEnabled()) {
-            throw new NotPermissionException("未登记的目标应用");
+            throw new ServiceException("未登记的目标应用", 403);
         }
         IamProperties.Frontend frontend = requireFrontend(request.frontendId(), request.terminal());
         if (!application.getAllowedFrontendIds().contains(request.frontendId())) {
-            throw new NotPermissionException("当前前端未绑定目标应用");
+            throw new ServiceException("当前前端未绑定目标应用", 403);
         }
         SysUserVo user = requireActiveUser();
         if (!hasPermission(currentPermissions(), application.getAccessPermission())) {
-            throw new NotPermissionException("未获得目标应用接入权限");
+            throw new ServiceException("未获得目标应用接入权限", 403);
         }
         String terminal = frontend.getTerminal();
         if (!application.getTerminals().contains(terminal)) {
-            throw new NotPermissionException("目标应用未开放该终端");
+            throw new ServiceException("目标应用未开放该终端", 403);
         }
         if (request.transactionId() == null || !TRANSACTION_PATTERN.matcher(request.transactionId()).matches()) {
             throw new ServiceException("登录事务标识格式不合法");
@@ -190,7 +189,7 @@ public class IamSsoController {
         String rootSid = sessionRegistry.currentRootSid();
         IamSessionStatusResponse status = sessionRegistry.status(rootSid);
         if (!status.active() || !user.getUserId().equals(status.userId())) {
-            throw new NotPermissionException("统一身份会话已失效");
+            throw new ServiceException("统一身份会话已失效", 403);
         }
         LoginUser loginUser = LoginHelper.getLoginUser();
         IamApplicationPreparation preparation = sessionRegistry.prepareApplication(
@@ -451,17 +450,17 @@ public class IamSsoController {
         );
         SysUserVo user = userService.selectUserById(record.userId());
         if (user == null || SystemConstants.DISABLE.equals(user.getStatus())) {
-            throw new NotPermissionException("统一身份账号已停用或不存在");
+            throw new ServiceException("统一身份账号已停用或不存在", 403);
         }
         if (!hasPermission(
             permissionService.getMenuPermission(record.userId()),
             application.getAccessPermission()
         )) {
-            throw new NotPermissionException("目标应用接入权限已撤销");
+            throw new ServiceException("目标应用接入权限已撤销", 403);
         }
         IamSessionStatusResponse status = sessionRegistry.status(record.rootSid());
         if (!status.active() || !record.userId().equals(status.userId())) {
-            throw new NotPermissionException("统一身份会话已失效");
+            throw new ServiceException("统一身份会话已失效", 403);
         }
         return new IamTicketExchangeResponse(
             IamProtocolConstants.ISSUER,
@@ -508,7 +507,7 @@ public class IamSsoController {
             identity.terminal()
         );
         if (!status.active() || !identity.userId().equals(status.userId())) {
-            throw new NotPermissionException("统一身份应用会话已失效或被替换");
+            throw new ServiceException("统一身份应用会话已失效或被替换", 403);
         }
     }
 
@@ -520,7 +519,7 @@ public class IamSsoController {
     private SysUserVo requireActiveUser() {
         SysUserVo user = userService.selectUserById(LoginHelper.getUserId());
         if (user == null || SystemConstants.DISABLE.equals(user.getStatus())) {
-            throw new NotPermissionException("统一身份账号已停用或不存在");
+            throw new ServiceException("统一身份账号已停用或不存在", 403);
         }
         return user;
     }
@@ -557,11 +556,11 @@ public class IamSsoController {
     private IamProperties.Frontend requireFrontend(String frontendId, String terminal) {
         IamProperties.Frontend frontend = properties.getFrontends().get(frontendId);
         if (frontend == null || !frontend.isEnabled()) {
-            throw new NotPermissionException("受信前端未登记或已停用");
+            throw new ServiceException("受信前端未登记或已停用", 403);
         }
         String normalized = terminal == null ? "" : terminal.toUpperCase(java.util.Locale.ROOT);
         if (!frontend.getTerminal().equals(normalized)) {
-            throw new NotPermissionException("前端终端不匹配");
+            throw new ServiceException("前端终端不匹配", 403);
         }
         return frontend;
     }
@@ -581,14 +580,14 @@ public class IamSsoController {
     ) {
         IamProperties.Application application = properties.getApplications().get(applicationId);
         if (application == null || !application.isEnabled()) {
-            throw new NotPermissionException("目标应用未登记或已停用");
+            throw new ServiceException("目标应用未登记或已停用", 403);
         }
         IamProperties.Frontend frontend = requireFrontend(frontendId, terminal);
         if (!application.getAllowedFrontendIds().contains(frontendId)) {
-            throw new NotPermissionException("当前前端未绑定目标应用");
+            throw new ServiceException("当前前端未绑定目标应用", 403);
         }
         if (!application.getTerminals().contains(frontend.getTerminal())) {
-            throw new NotPermissionException("目标应用未开放该终端");
+            throw new ServiceException("目标应用未开放该终端", 403);
         }
         return application;
     }
