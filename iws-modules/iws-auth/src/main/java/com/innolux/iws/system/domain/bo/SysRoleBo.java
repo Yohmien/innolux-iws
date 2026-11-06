@@ -95,6 +95,11 @@ public class SysRoleBo implements Serializable {
     private Long[] menuIds;
 
     /**
+     * 应用维度的菜单组；键为 applicationId。
+     */
+    private Map<String, Long[]> applicationMenuIds;
+
+    /**
      * 部门组（数据权限）
      */
     private Long[] deptIds;

@@ -15,8 +15,10 @@ import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.hutool.core.lang.tree.Tree;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import com.innolux.iws.auth.config.IamProperties;
 import com.innolux.iws.common.core.domain.PageResult;
 import com.innolux.iws.common.core.domain.R;
+import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.common.core.utils.SpringUtils;
 import com.innolux.iws.common.excel.utils.ExcelBuilder;
 import com.innolux.iws.common.log.annotation.Log;
@@ -39,6 +41,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 角色信息
@@ -54,6 +57,7 @@ public class SysRoleController extends BaseController {
     private final ISysRoleService roleService;
     private final ISysUserService userService;
     private final ISysDeptService deptService;
+    private final IamProperties iamProperties;
 
     /**
      * 分页查询角色列表。
@@ -155,11 +159,31 @@ public class SysRoleController extends BaseController {
     public R<Void> editPermission(@RequestBody SysRoleBo role) {
         roleService.checkRoleAllowed(role);
         roleService.checkRoleDataScope(role.getRoleId());
+        validateMenuApplications(role.getApplicationMenuIds());
         if (roleService.updateRolePermission(role) > 0) {
             // 统一身份会话按应用权限和授权指纹复核；这里全局清退会把单应用撤权升级为全部应用注销。
             return R.ok();
         }
         return R.fail("修改角色'" + role.getRoleName() + "'权限失败，请联系管理员");
+    }
+
+    /**
+     * 校验角色菜单只引用已启用的 IWS 应用。
+     *
+     * @param applicationMenuIds 应用菜单映射
+     */
+    private void validateMenuApplications(Map<String, Long[]> applicationMenuIds) {
+        if (applicationMenuIds == null) {
+            return;
+        }
+        applicationMenuIds.keySet().forEach(applicationId -> {
+            IamProperties.Application application = iamProperties.getApplications().get(applicationId);
+            if (application == null
+                || !application.isEnabled()
+                || !"IWS".equals(application.getType())) {
+                throw new ServiceException("菜单应用范围未登记、已停用或不是 IWS 应用");
+            }
+        });
     }
 
     /**

@@ -122,6 +122,11 @@ public class SysMenu extends BaseEntity {
     private String remark;
 
     /**
+     * 菜单所属应用；* 表示各应用共享。
+     */
+    private String applicationId;
+
+    /**
      * 父菜单名称
      */
     @TableField(exist = false)

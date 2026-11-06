@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import com.innolux.iws.common.core.constant.Constants;
 import com.baomidou.dynamic.datasource.annotation.DS;
 import com.innolux.iws.common.core.constant.SystemConstants;
+import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.common.core.utils.MapstructUtils;
 import com.innolux.iws.common.core.utils.StringUtils;
 import com.innolux.iws.common.core.utils.TreeBuildUtils;
@@ -26,14 +27,18 @@ import com.innolux.iws.common.satoken.utils.LoginHelper;
 import com.innolux.iws.system.domain.SysMenu;
 import com.innolux.iws.system.domain.SysRole;
 import com.innolux.iws.system.domain.SysRoleMenu;
+import com.innolux.iws.system.domain.SysRoleMenuApplication;
 import com.innolux.iws.system.domain.bo.SysMenuBo;
 import com.innolux.iws.system.domain.vo.MetaVo;
 import com.innolux.iws.system.domain.vo.RouterVo;
 import com.innolux.iws.system.domain.vo.SysMenuVo;
 import com.innolux.iws.system.mapper.SysMenuMapper;
 import com.innolux.iws.system.mapper.SysRoleMapper;
+import com.innolux.iws.system.mapper.SysRoleMenuApplicationMapper;
 import com.innolux.iws.system.mapper.SysRoleMenuMapper;
 import com.innolux.iws.system.service.ISysMenuService;
+import com.innolux.iws.system.service.menu.MenuApplicationScopeRules;
+import com.innolux.iws.system.service.menu.MenuApplicationScopeResolver;
 import com.innolux.iws.system.service.menu.MenuDeploymentFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +59,9 @@ public class SysMenuServiceImpl implements ISysMenuService {
     private final SysMenuMapper menuMapper;
     private final SysRoleMapper roleMapper;
     private final SysRoleMenuMapper roleMenuMapper;
+    private final SysRoleMenuApplicationMapper roleMenuApplicationMapper;
     private final MenuDeploymentFilter menuDeploymentFilter;
+    private final MenuApplicationScopeResolver menuApplicationScopeResolver;
 
     /**
      * 根据用户查询系统菜单列表
@@ -76,9 +83,11 @@ public class SysMenuServiceImpl implements ISysMenuService {
      */
     @Override
     public List<SysMenuVo> selectMenuList(SysMenuBo menu, Long userId) {
+        String applicationId = resolveQueryApplicationId(menu.getApplicationId());
         // 管理员显示所有菜单信息 不是管理员 按用户id过滤菜单
+        List<SysMenuVo> menus;
         if (LoginHelper.isSuperAdmin(userId)) {
-            return menuMapper.lambda()
+            menus = menuMapper.lambda()
                 .likeIfText(SysMenu::getMenuName, menu.getMenuName())
                 .eqIfText(SysMenu::getVisible, menu.getVisible())
                 .eqIfText(SysMenu::getStatus, menu.getStatus())
@@ -87,8 +96,10 @@ public class SysMenuServiceImpl implements ISysMenuService {
                 .orderByAsc(SysMenu::getParentId)
                 .orderByAsc(SysMenu::getOrderNum)
                 .voList();
+        } else {
+            menus = menuMapper.selectMenuListByUserId(menu, userId);
         }
-        return menuMapper.selectMenuListByUserId(menu, userId);
+        return filterMenuListByApplication(menus, applicationId);
     }
 
     /**
@@ -99,7 +110,7 @@ public class SysMenuServiceImpl implements ISysMenuService {
      */
     @Override
     public Set<String> selectMenuPermsByUserId(Long userId) {
-        return menuMapper.selectMenuPermsByUserId(userId);
+        return menuApplicationScopeResolver.effectiveMenuPermissions(userId);
     }
 
     /**
@@ -110,7 +121,9 @@ public class SysMenuServiceImpl implements ISysMenuService {
      */
     @Override
     public Set<String> selectMenuPermsByRoleId(Long roleId) {
-        return menuMapper.selectMenuPermsByRoleId(roleId);
+        return menuApplicationScopeResolver
+            .allRoleMenuPermissions(List.of(roleId))
+            .getOrDefault(roleId, Set.of());
     }
 
     /**
@@ -121,7 +134,7 @@ public class SysMenuServiceImpl implements ISysMenuService {
      */
     @Override
     public Map<Long, Set<String>> selectMenuPermsByRoleIds(Collection<Long> roleIds) {
-        return menuMapper.selectMenuPermsByRoleIds(roleIds);
+        return menuApplicationScopeResolver.allRoleMenuPermissions(roleIds);
     }
 
     /**
@@ -134,9 +147,12 @@ public class SysMenuServiceImpl implements ISysMenuService {
     public List<SysMenu> selectMenuTreeByUserId(Long userId) {
         List<SysMenu> menus;
         if (LoginHelper.isSuperAdmin(userId)) {
-            menus = menuMapper.selectMenuTreeAll();
+            menus = menuApplicationScopeResolver.filterMenusForApplication(
+                menuMapper.selectMenuTreeAll(),
+                menuApplicationScopeResolver.currentApplicationId()
+            );
         } else {
-            menus = menuMapper.selectMenuTreeByUserId(userId);
+            menus = menuApplicationScopeResolver.effectiveMenus(userId);
         }
         menus = menuDeploymentFilter.filter(menus);
         if (CollUtil.isEmpty(menus)) {
@@ -166,6 +182,56 @@ public class SysMenuServiceImpl implements ISysMenuService {
     public List<Long> selectMenuListByRoleId(Long roleId) {
         SysRole role = roleMapper.selectById(roleId);
         return menuMapper.selectMenuListByRoleId(roleId, role.getMenuCheckStrictly());
+    }
+
+    /**
+     * 根据角色ID和应用标识查询有效菜单。
+     *
+     * @param roleId        角色ID
+     * @param applicationId 应用标识
+     * @return 选中菜单列表
+     */
+    @Override
+    public List<Long> selectMenuListByRoleId(Long roleId, String applicationId) {
+        SysRole role = roleMapper.selectById(roleId);
+        String effectiveApplicationId = resolveQueryApplicationId(applicationId);
+        List<Long> menuIds = filterMenuIdsByApplication(
+            menuApplicationScopeResolver.roleMenuIds(roleId, effectiveApplicationId),
+            effectiveApplicationId
+        );
+        if (role == null || menuIds.isEmpty()) {
+            return menuIds;
+        }
+        if (!Boolean.TRUE.equals(role.getMenuCheckStrictly())) {
+            return menuIds;
+        }
+        Map<Long, Long> parentByMenuId = menuMapper.lambda()
+            .select(SysMenu::getMenuId, SysMenu::getParentId)
+            .in(SysMenu::getMenuId, menuIds)
+            .list()
+            .stream()
+            .filter(menu -> menu.getMenuId() != null && menu.getParentId() != null)
+            .collect(java.util.stream.Collectors.toMap(
+                SysMenu::getMenuId,
+                SysMenu::getParentId,
+                (left, right) -> left
+            ));
+        Set<Long> parentIds = new HashSet<>(parentByMenuId.values());
+        return menuIds.stream()
+            .filter(menuId -> !parentIds.contains(menuId))
+            .toList();
+    }
+
+    /**
+     * 判断角色是否显式配置了应用独立菜单。
+     *
+     * @param roleId        角色ID
+     * @param applicationId 应用标识
+     * @return true 已配置 false 未配置
+     */
+    @Override
+    public boolean isRoleMenuScopeConfigured(Long roleId, String applicationId) {
+        return menuApplicationScopeResolver.isRoleScopeConfigured(roleId, applicationId);
     }
 
     /**
@@ -315,7 +381,10 @@ public class SysMenuServiceImpl implements ISysMenuService {
      */
     @Override
     public boolean checkMenuExistRole(Long menuId) {
-        return roleMenuMapper.lambda().eq(SysRoleMenu::getMenuId, menuId).exists();
+        return roleMenuMapper.lambda().eq(SysRoleMenu::getMenuId, menuId).exists()
+            || roleMenuApplicationMapper.lambda()
+            .eq(SysRoleMenuApplication::getMenuId, menuId)
+            .exists();
     }
 
     /**
@@ -326,6 +395,8 @@ public class SysMenuServiceImpl implements ISysMenuService {
      */
     @Override
     public int insertMenu(SysMenuBo bo) {
+        prepareMenuApplication(bo);
+        validateParentApplication(bo);
         SysMenu menu = MapstructUtils.convert(bo, SysMenu.class);
         return menuMapper.insert(menu);
     }
@@ -338,6 +409,9 @@ public class SysMenuServiceImpl implements ISysMenuService {
      */
     @Override
     public int updateMenu(SysMenuBo bo) {
+        prepareMenuApplication(bo);
+        validateParentApplication(bo);
+        validateChildrenApplication(bo);
         SysMenu menu = MapstructUtils.convert(bo, SysMenu.class);
         return menuMapper.updateById(menu);
     }
@@ -363,6 +437,7 @@ public class SysMenuServiceImpl implements ISysMenuService {
     public void deleteMenuById(Collection<Long> menuIds) {
         menuMapper.deleteByIds(menuIds);
         roleMenuMapper.deleteByMenuIds(menuIds);
+        roleMenuApplicationMapper.deleteByMenuIds(menuIds);
     }
 
     /**
@@ -373,9 +448,11 @@ public class SysMenuServiceImpl implements ISysMenuService {
      */
     @Override
     public boolean checkMenuNameUnique(SysMenuBo menu) {
+        String applicationId = MenuApplicationScopeRules.normalize(menu.getApplicationId());
         boolean exist = menuMapper.lambda()
             .eq(SysMenu::getMenuName, menu.getMenuName())
             .eq(SysMenu::getParentId, menu.getParentId())
+            .in(SysMenu::getApplicationId, readableApplicationIds(applicationId))
             .neIfPresent(SysMenu::getMenuId, menu.getMenuId())
             .exists();
         return !exist;
@@ -393,12 +470,14 @@ public class SysMenuServiceImpl implements ISysMenuService {
         if (SystemConstants.TYPE_BUTTON.equals(menu.getMenuType())) {
             return true;
         }
+        String applicationId = MenuApplicationScopeRules.normalize(menuBo.getApplicationId());
         long menuId = ObjectUtil.isNull(menu.getMenuId()) ? -1L : menu.getMenuId();
         Long parentId = menu.getParentId();
         String path = menu.getPath();
         String routeName = StringUtils.isEmpty(menu.getRouteName()) ? path : menu.getRouteName();
         List<SysMenu> sysMenuList = menuMapper.lambda()
             .in(SysMenu::getMenuType, SystemConstants.TYPE_DIR, SystemConstants.TYPE_MENU)
+            .in(SysMenu::getApplicationId, readableApplicationIds(applicationId))
             .and(w ->
                 w.eq(SysMenu::getPath, path).or().eq(SysMenu::getPath, routeName)
             ).list();
@@ -423,6 +502,153 @@ public class SysMenuServiceImpl implements ISysMenuService {
             }
         }
         return true;
+    }
+
+    /**
+     * 过滤菜单视图到当前应用和共享菜单。
+     *
+     * @param menus         菜单
+     * @param applicationId 应用标识；为空时不限制
+     * @return 过滤结果
+     */
+    private List<SysMenuVo> filterMenuListByApplication(
+        List<SysMenuVo> menus,
+        String applicationId
+    ) {
+        if (StringUtils.isBlank(applicationId)) {
+            return menus;
+        }
+        return menus.stream()
+            .filter(menu -> MenuApplicationScopeRules.isVisible(
+                menu.getApplicationId(),
+                applicationId
+            ))
+            .toList();
+    }
+
+    /**
+     * 过滤角色菜单 ID 到指定应用的完整菜单定义。
+     *
+     * @param menuIds       菜单 ID
+     * @param applicationId 应用标识
+     * @return 应用范围内菜单 ID
+     */
+    private List<Long> filterMenuIdsByApplication(
+        Collection<Long> menuIds,
+        String applicationId
+    ) {
+        if (menuIds == null || menuIds.isEmpty() || StringUtils.isBlank(applicationId)) {
+            return menuIds == null ? List.of() : List.copyOf(menuIds);
+        }
+        Set<Long> visibleMenuIds = menuMapper.lambda()
+            .select(SysMenu::getMenuId, SysMenu::getApplicationId)
+            .in(SysMenu::getMenuId, menuIds)
+            .list()
+            .stream()
+            .filter(menu -> MenuApplicationScopeRules.isVisible(
+                menu.getApplicationId(),
+                applicationId
+            ))
+            .map(SysMenu::getMenuId)
+            .collect(java.util.stream.Collectors.toSet());
+        return menuIds.stream()
+            .filter(visibleMenuIds::contains)
+            .toList();
+    }
+
+    /**
+     * 解析菜单查询使用的应用范围；业务进程始终以自身应用为准。
+     *
+     * @param requestedApplicationId 请求应用标识
+     * @return 生效应用标识
+     */
+    private String resolveQueryApplicationId(String requestedApplicationId) {
+        String currentApplicationId = menuApplicationScopeResolver.currentApplicationId();
+        return StringUtils.isBlank(currentApplicationId)
+            ? requestedApplicationId
+            : currentApplicationId;
+    }
+
+    /**
+     * 规范化菜单写入范围并阻止业务进程跨应用修改。
+     *
+     * @param menu 菜单参数
+     */
+    private void prepareMenuApplication(SysMenuBo menu) {
+        String currentApplicationId = menuApplicationScopeResolver.currentApplicationId();
+        String requestedApplicationId = MenuApplicationScopeRules.normalize(
+            menu.getApplicationId()
+        );
+        if (StringUtils.isNotBlank(currentApplicationId)
+            && !currentApplicationId.equals(requestedApplicationId)) {
+            throw new ServiceException("业务进程只能维护当前应用菜单");
+        }
+        menu.setApplicationId(
+            StringUtils.isBlank(currentApplicationId)
+                ? requestedApplicationId
+                : currentApplicationId
+        );
+    }
+
+    /**
+     * 校验新增或修改菜单的父节点归属。
+     *
+     * @param menu 菜单参数
+     */
+    private void validateParentApplication(SysMenuBo menu) {
+        if (menu.getParentId() == null || Constants.TOP_PARENT_ID.equals(menu.getParentId())) {
+            return;
+        }
+        SysMenu parent = menuMapper.selectById(menu.getParentId());
+        if (parent == null) {
+            throw new ServiceException("上级菜单不存在");
+        }
+        if (!MenuApplicationScopeRules.isParentCompatible(
+            parent.getApplicationId(),
+            menu.getApplicationId()
+        )) {
+            throw new ServiceException("菜单应用范围与上级菜单不兼容");
+        }
+    }
+
+    /**
+     * 校验菜单改变应用范围后，直属子菜单仍属于有效范围。
+     *
+     * @param menu 菜单参数
+     */
+    private void validateChildrenApplication(SysMenuBo menu) {
+        if (menu.getMenuId() == null) {
+            return;
+        }
+        SysMenu existing = menuMapper.selectById(menu.getMenuId());
+        if (existing == null
+            || MenuApplicationScopeRules.normalize(existing.getApplicationId())
+            .equals(menu.getApplicationId())) {
+            return;
+        }
+        boolean incompatible = menuMapper.lambda()
+            .eq(SysMenu::getParentId, menu.getMenuId())
+            .list()
+            .stream()
+            .anyMatch(child -> !MenuApplicationScopeRules.isParentCompatible(
+                menu.getApplicationId(),
+                child.getApplicationId()
+            ));
+        if (incompatible) {
+            throw new ServiceException("菜单应用范围与子菜单不兼容");
+        }
+    }
+
+    /**
+     * 计算应用菜单保存时需要检查冲突的定义范围。
+     *
+     * @param applicationId 应用标识
+     * @return 共享及当前应用范围
+     */
+    private List<String> readableApplicationIds(String applicationId) {
+        return MenuApplicationScopeRules.SHARED_APPLICATION_ID.equals(applicationId)
+            ? List.of(MenuApplicationScopeRules.SHARED_APPLICATION_ID)
+            : List.of(MenuApplicationScopeRules.SHARED_APPLICATION_ID, applicationId);
     }
 
 }

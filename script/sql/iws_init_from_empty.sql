@@ -1702,6 +1702,24 @@ CREATE TABLE `sys_role_menu` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_role_menu_scope` (
+  `role_id` bigint NOT NULL COMMENT '角色ID',
+  `application_id` varchar(64) NOT NULL COMMENT '统一身份应用标识',
+  PRIMARY KEY (`role_id`,`application_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='角色应用菜单作用域';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_role_menu_application` (
+  `role_id` bigint NOT NULL COMMENT '角色ID',
+  `application_id` varchar(64) NOT NULL COMMENT '统一身份应用标识',
+  `menu_id` bigint NOT NULL COMMENT '菜单ID',
+  PRIMARY KEY (`role_id`,`application_id`,`menu_id`),
+  KEY `idx_role_menu_application_menu` (`menu_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='角色应用菜单关联';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_social` (
   `id` bigint NOT NULL COMMENT '主键',
   `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -7287,6 +7305,11 @@ INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000056003,'UNKNOWN查证',1761400000000050600,3,'',NULL,'','N','Y','F','0','0','inventory:allocation:investigate','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000050700,'在库业务',1761400000000020004,7,'business','wms/inventory/business/index','','N','Y','C','0','0','','log','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000057001,'业务任务查询',1761400000000050700,1,'',NULL,'','N','Y','F','0','0','inventory:task:query','#','','',NULL,NULL,CURRENT_TIMESTAMP,NULL,NULL,'');
+
+-- 存量标准菜单初始化为共享范围，应用专属菜单由管理端按 IWS 应用创建
+ALTER TABLE `sys_menu`
+    ADD COLUMN `application_id` varchar(64) NOT NULL DEFAULT '*' COMMENT '所属应用，* 表示共享' AFTER `remark`,
+    ADD INDEX `idx_sys_menu_application` (`application_id`);
 
 -- ----------------------------------------------------------------------------
 -- 最终验收：结构数量、必要种子和空业务表不变量

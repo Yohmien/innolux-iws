@@ -16,8 +16,10 @@ import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.annotation.SaMode;
 import cn.hutool.core.lang.tree.Tree;
 import lombok.RequiredArgsConstructor;
+import com.innolux.iws.auth.config.IamProperties;
 import com.innolux.iws.common.core.constant.SystemConstants;
 import com.innolux.iws.common.core.domain.R;
+import com.innolux.iws.common.core.exception.ServiceException;
 import com.innolux.iws.common.core.utils.StringUtils;
 import com.innolux.iws.common.log.annotation.Log;
 import com.innolux.iws.common.log.enums.BusinessType;
@@ -46,6 +48,7 @@ import java.util.List;
 public class SysMenuController extends BaseController {
 
     private final ISysMenuService menuService;
+    private final IamProperties iamProperties;
 
     /**
      * 获取路由信息
@@ -70,6 +73,7 @@ public class SysMenuController extends BaseController {
     @SaCheckPermission("system:menu:list")
     @GetMapping("/list")
     public R<List<SysMenuVo>> list(SysMenuBo menu) {
+        validateIwsApplication(menu.getApplicationId());
         List<SysMenuVo> menus = menuService.selectMenuList(menu, LoginHelper.getUserId());
         return R.ok(menus);
     }
@@ -98,6 +102,7 @@ public class SysMenuController extends BaseController {
     @SaCheckPermission("system:menu:query")
     @GetMapping("/treeselect")
     public R<List<Tree<Long>>> treeselect(SysMenuBo menu) {
+        validateIwsApplication(menu.getApplicationId());
         List<SysMenuVo> menus = menuService.selectMenuList(menu, LoginHelper.getUserId());
         return R.ok(menuService.buildMenuTreeSelect(menus));
     }
@@ -110,12 +115,64 @@ public class SysMenuController extends BaseController {
      */
     @SaCheckPermission("system:menu:query")
     @GetMapping(value = "/roleMenuTreeselect/{roleId}")
-    public R<MenuTreeSelectVo> roleMenuTreeselect(@PathVariable("roleId") Long roleId) {
-        List<SysMenuVo> menus = menuService.selectMenuList(LoginHelper.getUserId());
+    public R<MenuTreeSelectVo> roleMenuTreeselect(
+        @PathVariable("roleId") Long roleId,
+        @RequestParam(value = "applicationId", required = false) String applicationId
+    ) {
+        validateIwsApplication(applicationId);
+        SysMenuBo scopeQuery = new SysMenuBo();
+        scopeQuery.setApplicationId(applicationId);
+        List<SysMenuVo> menus = menuService.selectMenuList(scopeQuery, LoginHelper.getUserId());
+        boolean configured = menuService.isRoleMenuScopeConfigured(roleId, applicationId);
         MenuTreeSelectVo selectVo = new MenuTreeSelectVo(
-            menuService.selectMenuListByRoleId(roleId),
-            menuService.buildMenuTreeSelect(menus));
+            menuService.selectMenuListByRoleId(roleId, applicationId),
+            menuService.buildMenuTreeSelect(menus),
+            configured,
+            applicationId
+        );
         return R.ok(selectVo);
+    }
+
+    /**
+     * 返回角色菜单可配置的 IWS 应用范围。
+     *
+     * @return 应用标识和名称
+     */
+    @SaCheckPermission(value = {
+        "system:menu:query",
+        "system:role:query",
+        "system:role:edit"
+    }, mode = SaMode.OR)
+    @GetMapping("/applicationScopes")
+    public R<List<MenuApplicationScopeOption>> applicationScopes() {
+        List<MenuApplicationScopeOption> options = iamProperties.getApplications().entrySet().stream()
+            .filter(entry -> entry.getValue().isEnabled())
+            .filter(entry -> "IWS".equals(entry.getValue().getType()))
+            .map(entry -> new MenuApplicationScopeOption(
+                entry.getKey(),
+                entry.getValue().getName()
+            ))
+            .toList();
+        return R.ok(options);
+    }
+
+    /**
+     * 校验应用菜单作用域只引用已启用的 IWS 应用。
+     *
+     * @param applicationId 应用标识
+     */
+    private void validateIwsApplication(String applicationId) {
+        if (StringUtils.isBlank(applicationId) || "*".equals(applicationId.trim())) {
+            return;
+        }
+        IamProperties.Application application = iamProperties.getApplications().get(
+            applicationId.trim()
+        );
+        if (application == null
+            || !application.isEnabled()
+            || !"IWS".equals(application.getType())) {
+            throw new ServiceException("菜单应用范围未登记、已停用或不是 IWS 应用");
+        }
     }
 
     /**
@@ -130,6 +187,7 @@ public class SysMenuController extends BaseController {
     @RepeatSubmit()
     @PostMapping
     public R<Void> add(@Validated @RequestBody SysMenuBo menu) {
+        validateMenuApplication(menu);
         if (!menuService.checkMenuNameUnique(menu)) {
             return R.fail("新增菜单'" + menu.getMenuName() + "'失败，菜单名称已存在");
         } else if (SystemConstants.YES.equals(menu.getIsFrame()) && !StringUtils.ishttp(menu.getPath())) {
@@ -152,6 +210,7 @@ public class SysMenuController extends BaseController {
     @RepeatSubmit()
     @PutMapping
     public R<Void> edit(@Validated @RequestBody SysMenuBo menu) {
+        validateMenuApplication(menu);
         if (!menuService.checkMenuNameUnique(menu)) {
             return R.fail("修改菜单'" + menu.getMenuName() + "'失败，菜单名称已存在");
         } else if (SystemConstants.YES.equals(menu.getIsFrame()) && !StringUtils.ishttp(menu.getPath())) {
@@ -185,12 +244,40 @@ public class SysMenuController extends BaseController {
     }
 
     /**
+     * 校验并规范化可写菜单的应用范围。
+     *
+     * @param menu 菜单参数
+     */
+    private void validateMenuApplication(SysMenuBo menu) {
+        if (StringUtils.isBlank(menu.getApplicationId())) {
+            menu.setApplicationId("*");
+            return;
+        }
+        menu.setApplicationId(menu.getApplicationId().trim());
+        validateIwsApplication(menu.getApplicationId());
+    }
+
+    /**
      * 角色菜单列表树信息
      *
      * @param checkedKeys 选中菜单列表
      * @param menus       菜单下拉树结构列表
      */
-    public record MenuTreeSelectVo(List<Long> checkedKeys, List<Tree<Long>> menus) {
+    public record MenuTreeSelectVo(
+        List<Long> checkedKeys,
+        List<Tree<Long>> menus,
+        boolean configured,
+        String applicationId
+    ) {
+    }
+
+    /**
+     * 角色菜单应用范围选项。
+     *
+     * @param applicationId 应用标识
+     * @param name          应用名称
+     */
+    public record MenuApplicationScopeOption(String applicationId, String name) {
     }
 
     /**
