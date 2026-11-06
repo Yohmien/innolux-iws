@@ -4,6 +4,8 @@
 
 状态（2026-11-05）：中心、IWS Web/PDA 源码、Admin 监控及多前端 SSO 链路已在最终隔离版本完成真实联调。JDK 21 全量构建覆盖 47 个 reactor 模块；WMS 493/493、Job 12/12、AI 21/21、Monitor 7/7、中心 Redis 1/1 测试通过；Web `vue-tsc` 及 277/277 Vitest 通过，普通构建和认证中心构建均成功。真实 HTTP 已验证同一 Web 构建从 IWS-A 同源切到 IWS-B 不再输入密码、旧 A Token 401、退出准确落到 B、SSE 使用 Authorization 头且不把 Token 放入 URL；还覆盖独立业务库、G21 数据范围更新、G24 部门移动及后代祖先更新、中心停机写请求 503、SSE/WS 失效传播、WebSocket 一次性票据跨副本并发核销和监控改密传播。本机自签 HTTPS 已验证跨站顶层 Web→Center→IWS-A→IWS-B 回调回原入口、iframe 登录页、禁第三方 Cookie 时顶层登录，以及真实非安全 HTTP 上下文的 IndexedDB 读写；隔离 MySQL 停机时登录和旧会话均失败关闭且不返回用户数据，恢复后自动重连。Job 2.0.2 与 AI 1.1.1 的后端源码接缝已核对，并在包装层实现显式账号映射、中心票据核销、原生兼容 Token、请求复核、登录守卫和统一退出；Job 隔离执行器已实际注册、执行、掉线恢复并验证错误凭据拒绝。AI 人员 HTTP 流终止、服务端 gRPC 取消、原生资源权限、会话隔离及 app token 分离已验证，但上游模型 HTTP 取消仍为 `false`，不能用人员门禁通过替代模型 SDK 限制。PDA 已用官方 Vue3/Vite uni-app 构建 H5，并在 HTTP Chromium 中复验中心登录、A/B 切换、hash 回调、页面映射、请求前缀、存储隔离和旧 A Token 替换；尚未完成 HBuilderX APK、原生 `iws-pda://` 回调、真机存储隔离和安装图标验收。上游两份管理控制台仍以压缩制品交付，未手改压缩 JS；可维护的 SSO 启动/回调/守卫/退出代码在 `iws-snailjob-server`、`iws-snailai-server` 包装层。生产代理拓扑、外部证书、全部节点重启和通知重投极端矩阵仍未闭环；真实数据库未写入，未提交、推送或部署共享/生产环境。
 
+登录验证码开关只由认证中心系统参数 `sys.login.captchaEnabled` 管理，默认 `false`；IWS 业务 Web 不展示或维护该开关，`captcha.enable` 不再作为登录验证码回退配置。存量库可执行 `script/sql/iws_login_captcha_default_off.sql` 收敛为关闭。
+
 补充（2026-11-05）：Monitor 在最终 CSRF 修复后定向测试 10/10 通过；中心停机时人员本地注销可进入持久待撤销队列，Monitor 重启后队列保留，中心恢复后撤销旧根会话。无 CSRF 的注销仍返回 403，只有带合法 `X-XSRF-TOKEN` 的浏览器注销才进入 LogoutHandler。该结果不改变 Monitor 7/7 全量历史结果，也不表示生产代理和完整通知重投矩阵已验收。
 
 ## 配置文件放在哪里
