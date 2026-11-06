@@ -250,7 +250,7 @@ public class SysMenuController extends BaseController {
      */
     private void validateMenuApplication(SysMenuBo menu) {
         if (StringUtils.isBlank(menu.getApplicationId())) {
-            menu.setApplicationId("*");
+            menu.setApplicationId("iws-a");
             return;
         }
         menu.setApplicationId(menu.getApplicationId().trim());

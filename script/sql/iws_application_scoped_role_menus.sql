@@ -51,7 +51,7 @@ BEGIN
   DECLARE v_scope_pk INT DEFAULT 0;
   DECLARE v_menu_pk INT DEFAULT 0;
 
-  IF @target_ok <> 1 OR @menu_table_ok <> 2 OR @role_table_ok <> 1 THEN
+  IF @target_ok <> 1 OR @menu_table_ok <> 1 OR @role_table_ok <> 1 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = '目标库或角色菜单前置结构不满足升级条件';
   END IF;
 
@@ -63,7 +63,7 @@ BEGIN
 
   IF v_menu_application_exists = 0 THEN
     ALTER TABLE `sys_menu`
-      ADD COLUMN `application_id` varchar(64) NOT NULL DEFAULT '*'
+      ADD COLUMN `application_id` varchar(64) NOT NULL DEFAULT 'iws-a'
         COMMENT '所属应用，* 表示共享' AFTER `remark`;
   ELSE
     SELECT
@@ -83,10 +83,15 @@ BEGIN
 
     IF LOWER(v_menu_application_type) <> 'varchar(64)'
       OR v_menu_application_nullable <> 'NO'
-      OR v_menu_application_default <> '*'
+      OR v_menu_application_default NOT IN ('*', 'iws-a')
       OR v_menu_application_comment <> '所属应用，* 表示共享' THEN
       SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'sys_menu.application_id 类型、空值、默认值或注释与目标结构不一致';
+    END IF;
+
+    IF v_menu_application_default = '*' THEN
+      ALTER TABLE `sys_menu`
+        ALTER COLUMN `application_id` SET DEFAULT 'iws-a';
     END IF;
   END IF;
 
@@ -114,9 +119,29 @@ BEGIN
       ADD INDEX `idx_sys_menu_application` (`application_id`);
   END IF;
 
+  -- 默认业务菜单归 IWS-A；仅认证中心、AI、共享监控/工具及官网保持共享
   UPDATE `sys_menu`
-  SET `application_id` = '*'
-  WHERE `application_id` = '';
+  SET `application_id` = 'iws-a'
+  WHERE `application_id` IN ('', '*');
+
+  WITH RECURSIVE shared_menu (menu_id) AS (
+    SELECT menu_id
+    FROM `sys_menu`
+    WHERE menu_id IN (
+      1761400000000000001,
+      1761400000000000002,
+      1761400000000000003,
+      1761400000000000004,
+      1761400000000000008
+    )
+    UNION ALL
+    SELECT child.menu_id
+    FROM `sys_menu` child
+    INNER JOIN shared_menu parent ON child.parent_id = parent.menu_id
+  )
+  UPDATE `sys_menu` target
+  INNER JOIN shared_menu scope ON scope.menu_id = target.menu_id
+  SET target.application_id = '*';
 
   CREATE TABLE IF NOT EXISTS `sys_role_menu_scope` (
     `role_id` bigint NOT NULL COMMENT '角色ID',
@@ -192,7 +217,7 @@ WHERE TABLE_SCHEMA = @target_schema
   AND COLUMN_NAME = 'application_id'
   AND LOWER(COLUMN_TYPE) = 'varchar(64)'
   AND IS_NULLABLE = 'NO'
-  AND COALESCE(COLUMN_DEFAULT, '') = '*'
+  AND COALESCE(COLUMN_DEFAULT, '') = 'iws-a'
 
 UNION ALL
 
