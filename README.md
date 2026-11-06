@@ -88,6 +88,8 @@ admin 监控中心、SnailJob 控制台、SnailAI 控制台与主服务登录统
 | MinIO | 按实际部署覆盖环境变量 | [SnailAI application.yml](iws-extend/iws-snailai-server/src/main/resources/application.yml)：55 行（`snail-ai.resource.minio.endpoint` / `MINIO_ENDPOINT`） |
 | 启动项 | 依次启动认证中心、主服务和前端 | `.run/IWS_Auth_Server.run.xml`：13 行（`configuration.name=IWS Auth Server`）；`.run/IWS_Main_Service.run.xml`：2 行（`configuration.name=IWS+ Main Service`） |
 
+刷新恢复默认无需额外配置。主服务核销成功后会写入同源 HttpOnly 恢复 Cookie，刷新时由后端重新核验认证中心根会话和当前应用会话；有效期默认 `8h`，需要调整时只修改 [主服务 application.yml](iws-admin/src/main/resources/application.yml)：151 行（`session-resume-ttl` / `IAM_SESSION_RESUME_TTL`）。浏览器必须通过当前 Web 的同源后端代理访问 `/auth/sso/resume`，不能把 API 配成缺少凭据转发或跨站 Cookie 不可用的地址。
+
 纯 APK 没有独立 H5 入口时，PDA 使用应用内 WebView 打开认证中心登录页，并拦截 `iws-pda://sso/callback`；不再依赖外部浏览器。认证中心 `pda-main` 使用 `client-mode: APP`，不配置 `public-base-url`，只登记 `iws-pda://` 的启动、回调和退出地址。回调地址仍必须由认证中心精确登记，不能由客户端动态传入。
 
 ## 本机开发账号与数据源
