@@ -88,7 +88,6 @@ public class IamSsoController {
             frontendId,
             frontend.getTerminal(),
             frontend.getClientMode(),
-            properties.getPublicBaseUrl(),
             frontend.getPublicBaseUrl(),
             frontend.getLaunchUri(),
             frontend.getRedirectUri(),
@@ -654,7 +653,6 @@ public class IamSsoController {
      * @param frontendId 前端标识
      * @param terminal 终端类型
      * @param clientMode 浏览器或应用内模式
-     * @param iamPublicBaseUrl 认证中心浏览器公开基址
      * @param publicBaseUrl 前端公开基址
      * @param launchUri 前端入口地址
      * @param redirectUri 票据回调地址
@@ -664,7 +662,6 @@ public class IamSsoController {
         String frontendId,
         String terminal,
         String clientMode,
-        String iamPublicBaseUrl,
         String publicBaseUrl,
         String launchUri,
         String redirectUri,
