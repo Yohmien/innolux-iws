@@ -41,4 +41,94 @@ public final class IamSsoPages {
             </head>
             """);
     }
+
+    /**
+     * 生成一次性写入本地 Token 的桥接页，避免依赖目标应用的浏览器会话 Cookie。
+     *
+     * @param title 页面标题
+     * @param heading 页面主标题
+     * @param tokenKey 本地 Token 存储键
+     * @param token 目标应用本地 Token
+     * @param returnPath 写入后跳转路径
+     * @param namespaceKey 本地命名空间存储键；为空时不写入
+     * @param namespaceId 本地命名空间值
+     * @return 桥接页
+     */
+    public static String bootstrapPage(
+        String title,
+        String heading,
+        String tokenKey,
+        String token,
+        String returnPath,
+        String namespaceKey,
+        String namespaceId
+    ) {
+        return """
+            <!doctype html>
+            <html lang="zh-CN">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width,initial-scale=1">
+              <title>%s</title>
+            </head>
+            <body>
+              <main>
+                <h1>%s</h1>
+                <p id="iam-status">正在写入本地登录状态...</p>
+                <div hidden>
+                  <input id="iam-token-key" value="%s">
+                  <input id="iam-token" value="%s">
+                  <input id="iam-return-path" value="%s">
+                  <input id="iam-namespace-key" value="%s">
+                  <input id="iam-namespace" value="%s">
+                </div>
+                <noscript><p>当前浏览器已禁用脚本，无法建立本地登录状态。</p></noscript>
+              </main>
+              <script>
+              (function () {
+                const value = function (id) {
+                  return document.getElementById(id).value;
+                };
+                try {
+                  const token = value('iam-token');
+                  const returnPath = value('iam-return-path');
+                  if (!token || !returnPath) throw new Error('统一身份桥接结果不完整');
+                  localStorage.setItem(value('iam-token-key'), JSON.stringify(token));
+                  const namespaceKey = value('iam-namespace-key');
+                  const namespaceId = value('iam-namespace');
+                  if (namespaceKey && namespaceId) {
+                    localStorage.setItem(namespaceKey, JSON.stringify(namespaceId));
+                  }
+                  window.location.replace(returnPath);
+                } catch (error) {
+                  document.getElementById('iam-status').textContent =
+                    error.message || '本地登录状态写入失败';
+                }
+              })();
+              </script>
+            </body>
+            </html>
+            """.formatted(
+            escapeHtml(title),
+            escapeHtml(heading),
+            escapeAttribute(tokenKey),
+            escapeAttribute(token),
+            escapeAttribute(returnPath),
+            escapeAttribute(namespaceKey),
+            escapeAttribute(namespaceId)
+        );
+    }
+
+    private static String escapeHtml(String value) {
+        return value == null ? "" : value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;");
+    }
+
+    private static String escapeAttribute(String value) {
+        return escapeHtml(value)
+            .replace("\"", "&quot;")
+            .replace("'", "&#39;");
+    }
 }
