@@ -14,6 +14,7 @@ package com.innolux.iws.monitor.admin.web;
 import com.innolux.iws.common.auth.utils.IamSsoPages;
 
 import com.innolux.iws.common.auth.domain.IamTicketExchangeResponse;
+import com.innolux.iws.common.auth.utils.IamBrowserUrls;
 import com.innolux.iws.monitor.admin.config.IamMonitorProperties;
 import com.innolux.iws.monitor.admin.security.MonitorPrincipal;
 import com.innolux.iws.monitor.admin.service.IamMonitorCenterClient;
@@ -82,8 +83,10 @@ public class IamMonitorSsoController {
             + "&returnPath=" + encode(safeReturnPath)
             + "&terminal=WEB"
             + "&transactionId=" + encode(transactionId);
-        String centerLogin = properties.getPublicBaseUrl()
-            + "/login?redirect=" + encode(launchPath);
+        String centerLogin = IamBrowserUrls.resolveLoopbackHost(
+            properties.getPublicBaseUrl(),
+            request.getServerName()
+        ) + "/login?redirect=" + encode(launchPath);
         response.sendRedirect(centerLogin);
     }
 

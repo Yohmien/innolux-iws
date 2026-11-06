@@ -25,6 +25,7 @@ import com.innolux.iws.common.auth.domain.IamSessionStatusResponse;
 import com.innolux.iws.common.auth.domain.IamTicketExchangeRequest;
 import com.innolux.iws.common.auth.domain.IamTicketExchangeResponse;
 import com.innolux.iws.common.auth.domain.IamTicketRecord;
+import com.innolux.iws.common.auth.utils.IamBrowserUrls;
 import com.innolux.iws.common.core.constant.SystemConstants;
 import com.innolux.iws.common.core.domain.R;
 import com.innolux.iws.common.core.exception.ServiceException;
@@ -80,17 +81,18 @@ public class IamSsoController {
     @GetMapping("/login/frontend")
     public R<LoginFrontendOption> loginFrontend(
         @RequestParam String frontendId,
-        @RequestParam String terminal
+        @RequestParam String terminal,
+        HttpServletRequest request
     ) {
         IamProperties.Frontend frontend = requireFrontend(frontendId, terminal);
         return R.ok(new LoginFrontendOption(
             frontendId,
             frontend.getTerminal(),
             frontend.getClientMode(),
-            frontend.getPublicBaseUrl(),
-            frontend.getLaunchUri(),
-            frontend.getRedirectUri(),
-            frontend.getLogoutUri()
+            browserUrl(frontend.getPublicBaseUrl(), request),
+            browserUrl(frontend.getLaunchUri(), request),
+            browserUrl(frontend.getRedirectUri(), request),
+            browserUrl(frontend.getLogoutUri(), request)
         ));
     }
 
@@ -104,7 +106,8 @@ public class IamSsoController {
     @GetMapping("/login/apps")
     public R<List<LoginApplicationOption>> loginApplications(
         @RequestParam String frontendId,
-        @RequestParam String terminal
+        @RequestParam String terminal,
+        HttpServletRequest request
     ) {
         IamProperties.Frontend frontend = requireFrontend(frontendId, terminal);
         List<LoginApplicationOption> applications = properties.getApplications().entrySet().stream()
@@ -116,7 +119,7 @@ public class IamSsoController {
                 frontendId,
                 entry.getValue().getName(),
                 entry.getValue().getType(),
-                frontend.getLaunchUri(),
+                browserUrl(frontend.getLaunchUri(), request),
                 entry.getValue().getApiBaseUrl()
             ))
             .toList();
@@ -129,7 +132,7 @@ public class IamSsoController {
      * @return 应用导航
      */
     @GetMapping("/portal/apps")
-    public R<List<IamPortalApplication>> applications() {
+    public R<List<IamPortalApplication>> applications(HttpServletRequest request) {
         Set<String> permissions = currentPermissions();
         List<IamPortalApplication> applications = properties.getApplications().entrySet().stream()
             .filter(entry -> entry.getValue().isEnabled())
@@ -147,7 +150,7 @@ public class IamSsoController {
                     .map(frontend -> new IamPortalApplication.FrontendLaunch(
                         findFrontendId(frontend),
                         frontend.getTerminal(),
-                        frontend.getLaunchUri()
+                        browserUrl(frontend.getLaunchUri(), request)
                     ))
                     .toList(),
                 entry.getValue().getAccessPermission(),
@@ -604,6 +607,23 @@ public class IamSsoController {
             .map(java.util.Map.Entry::getKey)
             .findFirst()
             .orElseThrow();
+    }
+
+    /**
+     * 将配置中的回环地址转换为浏览器实际访问认证中心时使用的主机。
+     *
+     * <p>仅替换 localhost、127.0.0.1 或 ::1，方案、端口和路径保持不变；
+     * 已显式配置的局域网地址不会被改写。</p>
+     *
+     * @param configuredUrl 已登记地址
+     * @param request       当前浏览器请求
+     * @return 浏览器可访问地址
+     */
+    static String browserUrl(String configuredUrl, HttpServletRequest request) {
+        return IamBrowserUrls.resolveLoopbackHost(
+            configuredUrl,
+            request == null ? null : request.getServerName()
+        );
     }
 
     /**

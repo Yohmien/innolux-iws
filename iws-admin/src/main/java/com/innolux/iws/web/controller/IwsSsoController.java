@@ -196,11 +196,15 @@ public class IwsSsoController {
         HttpServletRequest request,
         HttpServletResponse response
     ) {
-        StpUtil.checkLogin();
         String token = StpUtil.getTokenValue();
+        String resumeToken = readResumeCookie(request);
+        if (!StpUtil.isLogin()) {
+            resumeService.revoke(resumeToken);
+            clearResumeCookie(request, response);
+            return R.ok("退出成功", new LogoutResult(true, false, false, true));
+        }
         Long userId = LoginHelper.getUserId();
         Object rootSid = StpUtil.getTokenSession().get(IamProtocolConstants.ROOT_SID_SESSION_KEY);
-        String resumeToken = readResumeCookie(request);
         IamPendingRevocationService.PendingRevocationResult revokeResult;
         try {
             Object frontendId = StpUtil.getTokenSession().get(IamProtocolConstants.FRONTEND_ID_SESSION_KEY);

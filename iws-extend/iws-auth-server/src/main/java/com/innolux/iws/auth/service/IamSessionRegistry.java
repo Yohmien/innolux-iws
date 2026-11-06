@@ -5,12 +5,13 @@
  * @Job          : INNOLUX IWS 标准化重构
  * @Module       : IWS 统一身份认证
  * @Version      : V1.5
- * @Description  : 中心根会话、共享授权指纹与同账号同应用类型唯一应用会话的原子登记；
+ * @Description  : 中心根会话、共享授权指纹与跨设备隔离的应用会话原子登记；
  * @ModifyRecord : V1.0 新建；V1.1 增加应用类型互斥、代次与幂等激活；
  *                  V1.2 根会话绑定凭据指纹，状态复核统一识别密码变更；
  *                  V1.3 根会话绑定完整授权指纹，覆盖角色数据范围与部门范围；
  *                  V1.4 共享指纹排除应用接入权限，改由应用状态接口逐应用校验；
  *                  V1.5 应用会话撤销改为载荷 CAS，避免旧根退出删除并发提交的新会话；
+ *                  V1.6 应用会话按根会话隔离，允许同一账号在不同设备同时登录；
  */
 
 package com.innolux.iws.auth.service;
@@ -116,8 +117,8 @@ public class IamSessionRegistry {
     /**
      * 在身份与准入校验完成后原子激活应用会话。
      *
-     * <p>互斥键为 issuer、userId、applicationType。同一根会话、应用和终端重复进入
-     * 返回现有代次；新的独立登录替换旧代次，旧会话由下游按代次拒绝。</p>
+     * <p>互斥键为 issuer、userId、applicationType、rootSid。同一根会话、应用和终端
+     * 重复进入返回现有代次；不同设备使用不同根会话，可以同时保持登录。</p>
      *
      * @param loginUser     当前原系统登录用户
      * @param applicationId 目标应用标识
@@ -138,7 +139,7 @@ public class IamSessionRegistry {
         String rootSid
     ) {
         String applicationType = application.getType();
-        String scope = loginUser.getUserId() + ":" + applicationType;
+        String scope = sessionScope(loginUser.getUserId(), applicationType, rootSid);
         String lockKey = IamProtocolConstants.APPLICATION_SESSION_LOCK_PREFIX + scope;
         RLock lock = RedisUtils.getClient().getLock(lockKey);
         boolean locked = false;
@@ -231,7 +232,7 @@ public class IamSessionRegistry {
         String transactionId,
         String rootSid
     ) {
-        String scope = loginUser.getUserId() + ":" + application.getType();
+        String scope = sessionScope(loginUser.getUserId(), application.getType(), rootSid);
         RLock lock = RedisUtils.getClient().getLock(
             IamProtocolConstants.APPLICATION_SESSION_LOCK_PREFIX + scope
         );
@@ -318,7 +319,11 @@ public class IamSessionRegistry {
             || !rootSid.equals(preparation.rootSid())) {
             throw new IllegalStateException("应用会话申请不完整");
         }
-        String scope = preparation.userId() + ":" + preparation.applicationType();
+        String scope = sessionScope(
+            preparation.userId(),
+            preparation.applicationType(),
+            preparation.rootSid()
+        );
         RLock lock = RedisUtils.getClient().getLock(
             IamProtocolConstants.APPLICATION_SESSION_LOCK_PREFIX + scope
         );
@@ -456,7 +461,11 @@ public class IamSessionRegistry {
             return;
         }
         IamApplicationSession session = activation.session();
-        String scope = session.userId() + ":" + session.applicationType();
+        String scope = sessionScope(
+            session.userId(),
+            session.applicationType(),
+            session.rootSid()
+        );
         RLock lock = RedisUtils.getClient().getLock(
             IamProtocolConstants.APPLICATION_SESSION_LOCK_PREFIX + scope
         );
@@ -542,7 +551,7 @@ public class IamSessionRegistry {
         if (application == null) {
             return inactive(root, "APPLICATION_NOT_REGISTERED");
         }
-        String scope = root.userId() + ":" + application.getType();
+        String scope = sessionScope(root.userId(), application.getType(), rootSid);
         IamApplicationSession active = readSession(
             RedisUtils.getClient().<String>getBucket(activeSessionKey(scope)).get()
         );
@@ -668,7 +677,7 @@ public class IamSessionRegistry {
         if (!root.active() || application == null || root.userId() == null) {
             return false;
         }
-        String scope = root.userId() + ":" + application.getType();
+        String scope = sessionScope(root.userId(), application.getType(), rootSid);
         RLock lock = RedisUtils.getClient().getLock(
             IamProtocolConstants.APPLICATION_SESSION_LOCK_PREFIX + scope
         );
@@ -936,7 +945,7 @@ public class IamSessionRegistry {
         if (userId == null || applicationType == null) {
             return false;
         }
-        String scope = userId + ":" + applicationType;
+        String scope = sessionScope(userId, applicationType, rootSid);
         String key = activeSessionKey(scope);
         RBucket<String> bucket = RedisUtils.getClient().getBucket(key);
         String payload = bucket.get();
@@ -992,6 +1001,18 @@ public class IamSessionRegistry {
      */
     private String activeSessionKey(String scope) {
         return IamProtocolConstants.APPLICATION_SESSION_KEY_PREFIX + scope;
+    }
+
+    /**
+     * 构造同一账号在同一中心根会话下唯一的应用作用域。
+     *
+     * @param userId          权威账号主键
+     * @param applicationType 应用类型
+     * @param rootSid         中心根会话标识
+     * @return 应用会话作用域
+     */
+    static String sessionScope(Long userId, String applicationType, String rootSid) {
+        return userId + ":" + applicationType + ":" + rootSid;
     }
 
     /**
