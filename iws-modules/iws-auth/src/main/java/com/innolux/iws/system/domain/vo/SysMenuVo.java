@@ -115,6 +115,11 @@ public class SysMenuVo implements Serializable {
     private String ext;
 
     /**
+     * 菜单所属应用；* 表示各应用共享。
+     */
+    private String applicationId;
+
+    /**
      * 创建部门
      */
     private Long createDept;

@@ -413,6 +413,26 @@ create table sys_role_menu (
 ) engine=innodb comment = '角色和菜单关联表';
 
 -- ----------------------------
+-- 7.1、角色应用菜单作用域
+-- ----------------------------
+create table sys_role_menu_scope (
+    role_id        bigint(20)   not null comment '角色ID',
+    application_id varchar(64)  not null comment '统一身份应用标识',
+    primary key(role_id, application_id)
+) engine=innodb comment = '角色应用菜单作用域';
+
+-- ----------------------------
+-- 7.2、角色和应用菜单关联表
+-- ----------------------------
+create table sys_role_menu_application (
+    role_id        bigint(20)  not null comment '角色ID',
+    application_id varchar(64) not null comment '统一身份应用标识',
+    menu_id        bigint(20)  not null comment '菜单ID',
+    primary key(role_id, application_id, menu_id),
+    key idx_role_menu_application_menu(menu_id)
+) engine=innodb comment = '角色应用菜单关联';
+
+-- ----------------------------
 -- 初始化-角色和菜单关联表数据
 -- ----------------------------
 insert into sys_role_menu values (1761300000000000003, 1761400000000000001);
@@ -1862,6 +1882,11 @@ insert into sys_menu VALUES (1761400000000011640, '请假申请新增', 17614000
 insert into sys_menu VALUES (1761400000000011641, '请假申请修改', 1761400000000011638, 3, '#', '', '', 'N', 'Y', 'F', '0', '0', 'workflow:leave:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), NULL, NULL, '');
 insert into sys_menu VALUES (1761400000000011642, '请假申请删除', 1761400000000011638, 4, '#', '', '', 'N', 'Y', 'F', '0', '0', 'workflow:leave:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), NULL, NULL, '');
 insert into sys_menu VALUES (1761400000000011643, '请假申请导出', 1761400000000011638, 5, '#', '', '', 'N', 'Y', 'F', '0', '0', 'workflow:leave:export', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), NULL, NULL, '');
+
+-- 存量标准菜单初始化为共享范围，应用专属菜单由管理端按 IWS 应用创建
+ALTER TABLE sys_menu
+    ADD COLUMN application_id varchar(64) NOT NULL DEFAULT '*' COMMENT '所属应用，* 表示共享' AFTER remark,
+    ADD INDEX idx_sys_menu_application (application_id);
 
 INSERT INTO sys_dict_type VALUES (1761500000000000013, '业务状态', 'wf_business_status', 1761000000000000103, 1761100000000000001, sysdate(), NULL, NULL, '业务状态列表');
 INSERT INTO sys_dict_type VALUES (1761500000000000014, '表单类型', 'wf_form_type', 1761000000000000103, 1761100000000000001, sysdate(), NULL, NULL, '表单类型列表');

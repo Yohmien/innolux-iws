@@ -36,13 +36,17 @@ import com.innolux.iws.system.api.model.LoginUser;
 import com.innolux.iws.system.domain.SysRole;
 import com.innolux.iws.system.domain.SysRoleDept;
 import com.innolux.iws.system.domain.SysRoleMenu;
+import com.innolux.iws.system.domain.SysRoleMenuApplication;
+import com.innolux.iws.system.domain.SysRoleMenuScope;
 import com.innolux.iws.system.domain.SysUserRole;
 import com.innolux.iws.system.domain.bo.SysRoleBo;
 import com.innolux.iws.system.domain.vo.SysRoleVo;
 import com.innolux.iws.system.event.OnlineUserCleanEvent;
 import com.innolux.iws.system.mapper.SysRoleDeptMapper;
 import com.innolux.iws.system.mapper.SysRoleMapper;
+import com.innolux.iws.system.mapper.SysRoleMenuApplicationMapper;
 import com.innolux.iws.system.mapper.SysRoleMenuMapper;
+import com.innolux.iws.system.mapper.SysRoleMenuScopeMapper;
 import com.innolux.iws.system.mapper.SysUserRoleMapper;
 import com.innolux.iws.system.service.ISysRoleService;
 import org.springframework.cache.annotation.CacheEvict;
@@ -63,6 +67,8 @@ public class SysRoleServiceImpl implements ISysRoleService, RoleService {
 
     private final SysRoleMapper roleMapper;
     private final SysRoleMenuMapper roleMenuMapper;
+    private final SysRoleMenuApplicationMapper roleMenuApplicationMapper;
+    private final SysRoleMenuScopeMapper roleMenuScopeMapper;
     private final SysUserRoleMapper userRoleMapper;
     private final SysRoleDeptMapper roleDeptMapper;
 
@@ -351,9 +357,17 @@ public class SysRoleServiceImpl implements ISysRoleService, RoleService {
         SysRole role = MapstructUtils.convert(bo, SysRole.class);
         // 更新权限相关配置字段（数据范围、树联动）。
         roleMapper.updateById(role);
-        // 先清理旧菜单权限，再重建。
-        roleMenuMapper.lambda().eq(SysRoleMenu::getRoleId, role.getRoleId()).delete();
-        insertRoleMenu(bo);
+        if (bo.getApplicationMenuIds() == null) {
+            // 兼容旧调用方：没有应用维度参数时继续维护全局菜单。
+            roleMenuMapper.lambda().eq(SysRoleMenu::getRoleId, role.getRoleId()).delete();
+            insertRoleMenu(bo);
+        } else {
+            // 只为请求中出现的应用重建独立授权，未出现的应用保持不变。
+            bo.getApplicationMenuIds().forEach(
+                (applicationId, menuIds) ->
+                    replaceRoleApplicationMenu(role.getRoleId(), applicationId, menuIds)
+            );
+        }
         // 先清理旧数据权限，再按当前配置重建。
         roleDeptMapper.lambda().eq(SysRoleDept::getRoleId, role.getRoleId()).delete();
         return insertRoleDept(bo);
@@ -400,6 +414,52 @@ public class SysRoleServiceImpl implements ISysRoleService, RoleService {
     }
 
     /**
+     * 重建角色在指定应用中的菜单授权。
+     *
+     * @param roleId        角色ID
+     * @param applicationId 应用标识
+     * @param menuIds       菜单ID
+     * @return 写入的菜单数量；空菜单仍保留 scope 标记
+     */
+    private int replaceRoleApplicationMenu(Long roleId, String applicationId, Long[] menuIds) {
+        if (StringUtils.isBlank(applicationId)) {
+            throw new ServiceException("菜单应用范围不能为空");
+        }
+        roleMenuApplicationMapper.lambda()
+            .eq(SysRoleMenuApplication::getRoleId, roleId)
+            .eq(SysRoleMenuApplication::getApplicationId, applicationId)
+            .delete();
+        roleMenuScopeMapper.lambda()
+            .eq(SysRoleMenuScope::getRoleId, roleId)
+            .eq(SysRoleMenuScope::getApplicationId, applicationId)
+            .delete();
+
+        SysRoleMenuScope scope = new SysRoleMenuScope();
+        scope.setRoleId(roleId);
+        scope.setApplicationId(applicationId);
+        roleMenuScopeMapper.insert(scope);
+
+        if (menuIds == null || menuIds.length == 0) {
+            return 0;
+        }
+        List<SysRoleMenuApplication> list = Arrays.stream(menuIds)
+            .filter(Objects::nonNull)
+            .distinct()
+            .map(menuId -> {
+                SysRoleMenuApplication item = new SysRoleMenuApplication();
+                item.setRoleId(roleId);
+                item.setApplicationId(applicationId);
+                item.setMenuId(menuId);
+                return item;
+            })
+            .toList();
+        return CollUtil.isNotEmpty(list)
+            && roleMenuApplicationMapper.insertBatch(list)
+            ? list.size()
+            : 0;
+    }
+
+    /**
      * 新增角色部门信息(数据权限)
      *
      * @param role 角色对象
@@ -432,6 +492,12 @@ public class SysRoleServiceImpl implements ISysRoleService, RoleService {
     public int deleteRoleById(Long roleId) {
         // 删除角色与菜单关联
         roleMenuMapper.lambda().eq(SysRoleMenu::getRoleId, roleId).delete();
+        roleMenuApplicationMapper.lambda()
+            .eq(SysRoleMenuApplication::getRoleId, roleId)
+            .delete();
+        roleMenuScopeMapper.lambda()
+            .eq(SysRoleMenuScope::getRoleId, roleId)
+            .delete();
         // 删除角色与部门关联
         roleDeptMapper.lambda().eq(SysRoleDept::getRoleId, roleId).delete();
         return roleMapper.deleteById(roleId);
@@ -457,6 +523,12 @@ public class SysRoleServiceImpl implements ISysRoleService, RoleService {
         }
         // 删除角色与菜单关联
         roleMenuMapper.lambda().in(SysRoleMenu::getRoleId, roleIds).delete();
+        roleMenuApplicationMapper.lambda()
+            .in(SysRoleMenuApplication::getRoleId, roleIds)
+            .delete();
+        roleMenuScopeMapper.lambda()
+            .in(SysRoleMenuScope::getRoleId, roleIds)
+            .delete();
         // 删除角色与部门关联
         roleDeptMapper.lambda().in(SysRoleDept::getRoleId, roleIds).delete();
         return roleMapper.deleteByIds(roleIds);

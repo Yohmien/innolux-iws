@@ -132,6 +132,12 @@ public class SysMenuBo implements Serializable {
     private String ext;
 
     /**
+     * 菜单所属应用；* 表示各应用共享。
+     */
+    @Size(min = 0, max = 64, message = "应用标识长度不能超过{max}个字符")
+    private String applicationId;
+
+    /**
      * 备注
      */
     private String remark;

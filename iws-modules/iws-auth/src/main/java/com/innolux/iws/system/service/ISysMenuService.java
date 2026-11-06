@@ -87,6 +87,24 @@ public interface ISysMenuService {
     List<Long> selectMenuListByRoleId(Long roleId);
 
     /**
+     * 根据角色ID和应用标识查询有效菜单。
+     *
+     * @param roleId        角色ID
+     * @param applicationId 应用标识
+     * @return 选中菜单列表
+     */
+    List<Long> selectMenuListByRoleId(Long roleId, String applicationId);
+
+    /**
+     * 判断角色是否显式配置了应用独立菜单。
+     *
+     * @param roleId        角色ID
+     * @param applicationId 应用标识
+     * @return true 已配置 false 未配置
+     */
+    boolean isRoleMenuScopeConfigured(Long roleId, String applicationId);
+
+    /**
      * 构建前端路由所需要的菜单
      *
      * @param menus 菜单列表
