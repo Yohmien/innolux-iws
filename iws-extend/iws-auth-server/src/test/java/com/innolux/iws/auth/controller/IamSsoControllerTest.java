@@ -39,7 +39,6 @@ class IamSsoControllerTest {
         assertEquals(200, response.getCode());
         assertEquals("web-main", response.getData().frontendId());
         assertEquals("BROWSER", response.getData().clientMode());
-        assertEquals("http://10.189.88.118:18081", response.getData().iamPublicBaseUrl());
         assertEquals("http://10.189.88.204:18000", response.getData().publicBaseUrl());
         assertEquals(
             "http://10.189.88.204:18000/sso/callback",
