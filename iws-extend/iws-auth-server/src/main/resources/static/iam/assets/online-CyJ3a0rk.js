@@ -1,0 +1,1 @@
+import{a as e}from"./request-DczvL_zU.js";function t(t){return e({url:`/monitor/online/list`,method:`get`,params:t})}function n(t){return e({url:`/monitor/online/`+t,method:`delete`})}function r(){return e({url:`/monitor/online`,method:`get`})}function i(t){return e({url:`/monitor/online/myself/`+t,method:`delete`})}export{t as i,n,r,i as t};
