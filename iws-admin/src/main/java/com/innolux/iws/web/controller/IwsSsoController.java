@@ -31,17 +31,23 @@ import com.innolux.iws.web.config.IamClientProperties;
 import com.innolux.iws.web.service.IamCenterClient;
 import com.innolux.iws.web.service.IamPendingRevocationService;
 import com.innolux.iws.web.service.IamPushSessionGuard;
+import com.innolux.iws.web.service.IamSessionResumeService;
 import com.innolux.iws.web.service.LoginSessionService;
 import com.innolux.iws.web.service.SysLoginService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Set;
 import java.util.UUID;
 
@@ -63,15 +69,22 @@ public class IwsSsoController {
     private final PermissionService permissionService;
     private final IamPendingRevocationService pendingRevocationService;
     private final IamPushSessionGuard pushSessionGuard;
+    private final IamSessionResumeService resumeService;
 
     /**
      * 核销中心票据并建立 IWS 自己的本地会话。
      *
      * @param request 票据核销请求
+     * @param servletRequest HTTP 请求
+     * @param servletResponse HTTP 响应
      * @return IWS 本地 Token 与返回地址
      */
     @PostMapping("/exchange")
-    public R<ExchangeResult> exchange(@Valid @RequestBody ExchangeRequest request) {
+    public R<ExchangeResult> exchange(
+        @Valid @RequestBody ExchangeRequest request,
+        HttpServletRequest servletRequest,
+        HttpServletResponse servletResponse
+    ) {
         if (!properties.getApplicationId().equals(request.applicationId())) {
             throw new ServiceException("票据目标应用与当前 IWS 应用不匹配");
         }
@@ -135,20 +148,12 @@ public class IwsSsoController {
                 IamProtocolConstants.TERMINAL_SESSION_KEY, identity.terminal()
             );
             StpUtil.getTokenSession().set("iamSessionNamespace", properties.getSessionNamespace());
-            return R.ok(new ExchangeResult(
-                localSession.accessToken(),
-                localSession.expireIn(),
-                localSession.clientId(),
-                identity.returnPath(),
-                identity.issuer(),
-                identity.applicationId(),
-                identity.applicationType(),
-                identity.frontendId(),
-                identity.userId(),
-                identity.sessionId(),
-                identity.sessionGeneration(),
-                identity.terminal()
-            ));
+            writeResumeCookie(
+                servletRequest,
+                servletResponse,
+                resumeService.issue(identity, request.loginClientId())
+            );
+            return R.ok(exchangeResult(localSession, identity));
         } catch (RuntimeException error) {
             loginService.logout();
             throw error;
@@ -156,16 +161,46 @@ public class IwsSsoController {
     }
 
     /**
+     * 使用同源 HttpOnly 恢复凭据静默重建当前应用会话。
+     *
+     * @param request  HTTP 请求
+     * @param response HTTP 响应
+     * @return 新本地会话；没有可用恢复凭据时 data 为空
+     */
+    @PostMapping("/resume")
+    public R<ExchangeResult> resume(
+        HttpServletRequest request,
+        HttpServletResponse response
+    ) {
+        String resumeToken = readResumeCookie(request);
+        if (resumeToken == null) {
+            return R.<ExchangeResult>ok(null);
+        }
+        IamSessionResumeService.ResumeSession resumed = resumeService.resume(resumeToken);
+        if (resumed == null) {
+            clearResumeCookie(request, response);
+            return R.<ExchangeResult>ok(null);
+        }
+        return R.ok(exchangeResult(resumed.localSession(), resumed.identity()));
+    }
+
+    /**
      * 统一退出 IWS 本地会话并撤销中心根会话。
      *
+     * @param request HTTP 请求
+     * @param response HTTP 响应
      * @return 操作结果
      */
     @PostMapping("/logout")
-    public R<LogoutResult> logout() {
+    public R<LogoutResult> logout(
+        HttpServletRequest request,
+        HttpServletResponse response
+    ) {
         StpUtil.checkLogin();
         String token = StpUtil.getTokenValue();
         Long userId = LoginHelper.getUserId();
         Object rootSid = StpUtil.getTokenSession().get(IamProtocolConstants.ROOT_SID_SESSION_KEY);
+        String resumeToken = readResumeCookie(request);
         IamPendingRevocationService.PendingRevocationResult revokeResult;
         try {
             Object frontendId = StpUtil.getTokenSession().get(IamProtocolConstants.FRONTEND_ID_SESSION_KEY);
@@ -187,6 +222,8 @@ public class IwsSsoController {
         } finally {
             pushSessionGuard.close(userId, token);
             loginService.logout();
+            resumeService.revoke(resumeToken);
+            clearResumeCookie(request, response);
         }
         LogoutResult result = new LogoutResult(
             true,
@@ -215,6 +252,79 @@ public class IwsSsoController {
         return required == null || required.isBlank()
             || permissions.contains("*:*:*")
             || permissions.contains(required);
+    }
+
+    private ExchangeResult exchangeResult(
+        LoginSessionService.LocalSession localSession,
+        IamTicketExchangeResponse identity
+    ) {
+        return new ExchangeResult(
+            localSession.accessToken(),
+            localSession.expireIn(),
+            localSession.clientId(),
+            identity.returnPath(),
+            identity.issuer(),
+            identity.applicationId(),
+            identity.applicationType(),
+            identity.frontendId(),
+            identity.userId(),
+            identity.sessionId(),
+            identity.sessionGeneration(),
+            identity.terminal()
+        );
+    }
+
+    private String readResumeCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        String name = resumeService.cookieName();
+        return Arrays.stream(cookies)
+            .filter(cookie -> name.equals(cookie.getName()))
+            .map(Cookie::getValue)
+            .filter(value -> value != null && !value.isBlank())
+            .findFirst()
+            .orElse(null);
+    }
+
+    private void writeResumeCookie(
+        HttpServletRequest request,
+        HttpServletResponse response,
+        String resumeToken
+    ) {
+        response.addHeader(
+            "Set-Cookie",
+            resumeCookie(request, resumeToken)
+                .maxAge(properties.getSessionResumeTtl())
+                .build()
+                .toString()
+        );
+    }
+
+    private void clearResumeCookie(
+        HttpServletRequest request,
+        HttpServletResponse response
+    ) {
+        response.addHeader(
+            "Set-Cookie",
+            resumeCookie(request, "")
+                .maxAge(0)
+                .build()
+                .toString()
+        );
+    }
+
+    private ResponseCookie.ResponseCookieBuilder resumeCookie(
+        HttpServletRequest request,
+        String value
+    ) {
+        return ResponseCookie.from(resumeService.cookieName(), value)
+            .httpOnly(true)
+            .secure(request.isSecure()
+                || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto")))
+            .sameSite("Lax")
+            .path("/");
     }
 
     /**

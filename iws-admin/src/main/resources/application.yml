@@ -148,6 +148,7 @@ iam:
     response-timeout-ms: ${IAM_RESPONSE_TIMEOUT_MS:5000}
     root-validation-interval-seconds: ${IAM_ROOT_VALIDATION_INTERVAL_SECONDS:15}
     root-validation-lease-seconds: ${IAM_ROOT_VALIDATION_LEASE_SECONDS:30}
+    session-resume-ttl: ${IAM_SESSION_RESUME_TTL:8h}
 
 # MyBatisPlus配置
 # https://baomidou.com/config/
