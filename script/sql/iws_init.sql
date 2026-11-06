@@ -717,7 +717,7 @@ create table sys_config (
 insert into sys_config values(1761700000000000001, '用户管理-账号初始密码', 'sys.user.initPassword', '123456', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '初始化密码 123456');
 insert into sys_config values(1761700000000000002, '账号自助-是否开启用户注册功能', 'sys.account.registerUser', 'false', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '是否开启注册用户功能（true开启，false关闭）');
 insert into sys_config values(1761700000000000003, 'OSS预览列表资源开关', 'sys.oss.previewListResource', 'true', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'true:开启, false:关闭');
-insert into sys_config values(1761700000000000004, '登录安全-是否开启验证码', 'sys.login.captchaEnabled', 'true', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'true开启登录验证码，false关闭；未配置时回退到captcha.enable');
+insert into sys_config values(1761700000000000004, '登录安全-是否开启验证码', 'sys.login.captchaEnabled', 'false', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'true开启登录验证码，false关闭；默认关闭');
 insert into sys_config values(1761700000000000005, '登录安全-Token活跃超时秒数', 'sys.login.activeTimeout', '1800', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '指定时间无操作则过期，单位秒；空值时使用客户端配置');
 insert into sys_config values(1761700000000000006, '登录安全-Token固定超时秒数', 'sys.login.timeout', '604800', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'Token固定有效期，单位秒；空值时使用客户端配置');
 insert into sys_config values(1761700000000000007, '界面体验-标准提示自动关闭秒数', 'sys.ui.messageCloseSeconds', '30', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '标准消息提示自动关闭时间，单位秒；默认30秒，可手动关闭');
