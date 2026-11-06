@@ -40,7 +40,6 @@ spring.data:
     host: ${IWS_REDIS_HOST:localhost}
     port: ${IWS_REDIS_PORT:6379}
     database: ${IAM_REDIS_DATABASE:${IWS_REDIS_DATABASE:0}}
-    password: ${IWS_REDIS_PASSWORD:}
     timeout: 10s
     ssl.enabled: false
 
