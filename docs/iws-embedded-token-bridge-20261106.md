@@ -20,7 +20,7 @@
 4. 认证中心校验来源应用签名和来源应用会话，确认根会话、用户、目标应用接入权限及唯一 WEB 目标前端，然后为来源用户准备目标应用会话并签发普通一次性票据。
 5. 中心返回 `ticket`、`state`、目标 `applicationId/frontendId/terminal` 和过期时间。
 6. Web 以 no-referrer iframe 加载目标应用桥接地址。
-7. 目标应用使用既有 `inspect`、`exchange` 和本地会话服务完成票据核销，建立本地 Token 或 Spring Security 会话，再跳转目标应用首页。
+7. 目标应用使用既有 `inspect`、`exchange` 和本地会话服务完成票据核销。AI、Job 在桥接响应中直接写入本地 Token 后跳转首页，不再依赖第二次 `bootstrap` 请求或 `JSESSIONID`；Admin 继续建立 Spring Security 会话。
 
 一次性票据仍由认证中心签发、绑定目标应用和 `state`，且保持单次使用和短有效期。浏览器不会接触任何 client secret。
 
@@ -72,6 +72,7 @@
 - 目标前端必须唯一且为启用 `WEB` 入口；多入口时拒绝自动选择。
 - 票据有效期沿用中心 `iam.ticket-ttl`，保持一次性消费和提交幂等。
 - iframe 使用 `referrerpolicy="no-referrer"`；桥接页和票据接口禁止缓存。
+- AI、Job 的桥接结果只存在于当前无缓存 HTML 响应和浏览器本地存储，不进入 URL，也不依赖代理环境下的 Servlet 会话 Cookie。
 - 目标应用桥接入口只接受中心票据，不接收浏览器直接构造的用户身份。
 
 ## 验收
