@@ -35,6 +35,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class IamSessionRegistryRedisTest {
 
     @Test
+    void applicationScopeIsIsolatedByRootSession() {
+        String first = IamSessionRegistry.sessionScope(1L, "IWS", "root-a");
+        String second = IamSessionRegistry.sessionScope(1L, "IWS", "root-b");
+
+        assertEquals("1:IWS:root-a", first);
+        assertEquals("1:IWS:root-b", second);
+        assertFalse(first.equals(second));
+    }
+
+    @Test
     void stalePayloadCannotDeleteSessionCommittedAfterItWasRead() {
         String port = System.getenv("IWS_TEST_REDIS_PORT");
         Assumptions.assumeTrue(

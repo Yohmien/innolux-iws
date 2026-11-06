@@ -9,6 +9,7 @@ import com.innolux.iws.common.core.service.PermissionService;
 import com.innolux.iws.system.service.ISysUserService;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -34,7 +35,7 @@ class IamSsoControllerTest {
         );
 
         R<IamSsoController.LoginFrontendOption> response =
-            controller.loginFrontend("web-main", "WEB");
+            controller.loginFrontend("web-main", "WEB", new MockHttpServletRequest());
 
         assertEquals(200, response.getCode());
         assertEquals("web-main", response.getData().frontendId());
@@ -43,6 +44,40 @@ class IamSsoControllerTest {
         assertEquals(
             "http://10.189.88.204:18000/sso/callback",
             response.getData().redirectUri()
+        );
+    }
+
+    @Test
+    void replacesLoopbackApplicationUriWithTheRequestHost() {
+        IamProperties properties = new IamProperties();
+        IamProperties.Frontend frontend = new IamProperties.Frontend();
+        frontend.setTerminal("WEB");
+        frontend.setLaunchUri("http://127.0.0.1:18089/snail-ai/iam/sso/start");
+        properties.getFrontends().put("ai-main", frontend);
+        IamProperties.Application application = new IamProperties.Application();
+        application.setName("AI 控制台");
+        application.setType("SNAIL_AI");
+        application.setTerminals(java.util.Set.of("WEB"));
+        application.setAllowedFrontendIds(java.util.Set.of("ai-main"));
+        application.setApiBaseUrl("/snail-ai");
+        properties.getApplications().put("snail-ai", application);
+        IamSsoController controller = new IamSsoController(
+            properties,
+            mock(IamSessionRegistry.class),
+            mock(IamTicketService.class),
+            mock(IamServiceRequestVerifier.class),
+            mock(PermissionService.class),
+            mock(ISysUserService.class)
+        );
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setServerName("10.189.88.118");
+
+        R<java.util.List<IamSsoController.LoginApplicationOption>> response =
+            controller.loginApplications("ai-main", "WEB", request);
+
+        assertEquals(
+            "http://10.189.88.118:18089/snail-ai/iam/sso/start",
+            response.getData().getFirst().launchUri()
         );
     }
 
