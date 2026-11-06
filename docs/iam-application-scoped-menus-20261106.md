@@ -83,6 +83,19 @@
 - 角色权限页切换 A/B 后分别保存，互不覆盖。
 - 角色删除、菜单级联删除后，新关联表无孤儿数据。
 - 现有认证中心登录、门户应用授权、角色数据权限和菜单测试保持通过。
+- 空库初始化直接在 `sys_menu` 建表中包含 `application_id` 和应用索引，种子
+  菜单显式写入 `*`；最终验收同时检查两张角色应用菜单表。
+
+## 空库实测
+
+已使用本机 MySQL 8.0.45 启动临时无密码实例执行完整
+`iws_init_from_empty.ps1`，结果为：
+
+- 表总数 `183`，WMS 表 `77`，系统菜单 `255`。
+- `sys_menu.application_id`、`idx_sys_menu_application` 和 255 条共享菜单
+  数据检查全部通过。
+- `sys_role_menu_scope`、`sys_role_menu_application` 均存在。
+- 非空库再次执行被入口脚本拒绝，不会覆盖已有 schema。
 
 ## 任务
 
