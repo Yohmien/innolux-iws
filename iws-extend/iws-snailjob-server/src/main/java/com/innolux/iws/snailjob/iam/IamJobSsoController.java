@@ -182,32 +182,42 @@ public class IamJobSsoController {
             callbackError(request, response, "嵌入应用桥接目标或受信前端不匹配");
             return;
         }
-        HttpSession session = request.getSession(true);
-        synchronized (session) {
-            try {
-                IamTicketExchangeResponse inspected = centerClient.inspect(ticket, frontendId, state);
-                IamJobLocalSessionService.PreparedSession prepared =
-                    localSessionService.prepare(inspected);
-                IamTicketExchangeResponse identity = centerClient.exchange(
-                    ticket,
-                    frontendId,
-                    state,
-                    UUID.randomUUID().toString().replace("-", "")
-                );
-                IamJobLocalSessionService.IssuedSession issued =
-                    localSessionService.issue(identity, prepared);
-                request.changeSessionId();
-                session.setAttribute(BOOTSTRAP_TOKEN_SESSION_KEY, issued.accessToken());
-                session.setAttribute(BOOTSTRAP_RETURN_PATH_SESSION_KEY, issued.returnPath());
-                session.setAttribute(BOOTSTRAP_NAMESPACE_SESSION_KEY, issued.namespaceId());
-                response.sendRedirect(request.getContextPath() + "/iam/sso/complete");
-            } catch (RuntimeException e) {
-                callbackError(
-                    request,
-                    response,
-                    e.getMessage() == null ? "嵌入应用桥接失败" : e.getMessage()
-                );
-            }
+        try {
+            IamTicketExchangeResponse inspected = centerClient.inspect(ticket, frontendId, state);
+            IamJobLocalSessionService.PreparedSession prepared =
+                localSessionService.prepare(inspected);
+            IamTicketExchangeResponse identity = centerClient.exchange(
+                ticket,
+                frontendId,
+                state,
+                UUID.randomUUID().toString().replace("-", "")
+            );
+            IamJobLocalSessionService.IssuedSession issued =
+                localSessionService.issue(identity, prepared);
+            String returnPath = browserPath(
+                request.getContextPath(),
+                normalizeReturnPath(issued.returnPath())
+            );
+            response.setStatus(200);
+            response.setHeader("Cache-Control", "no-store");
+            response.setHeader("Pragma", "no-cache");
+            response.setContentType(MediaType.TEXT_HTML_VALUE);
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.getWriter().write(IamSsoPages.decorate(IamSsoPages.bootstrapPage(
+                "正在进入 IWS+ 调度中心",
+                "正在建立 Job 本地会话",
+                "token",
+                issued.accessToken(),
+                returnPath,
+                "namespaceId",
+                issued.namespaceId()
+            )));
+        } catch (RuntimeException e) {
+            callbackError(
+                request,
+                response,
+                e.getMessage() == null ? "嵌入应用桥接失败" : e.getMessage()
+            );
         }
     }
 
