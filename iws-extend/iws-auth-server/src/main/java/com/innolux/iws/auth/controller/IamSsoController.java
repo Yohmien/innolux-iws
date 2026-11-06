@@ -71,6 +71,32 @@ public class IamSsoController {
     private final ISysUserService userService;
 
     /**
+     * 返回认证中心已登记的受信前端公开地址，供浏览器在跳转前校验部署配置。
+     *
+     * @param frontendId 受信前端标识
+     * @param terminal WEB 或 PDA
+     * @return 前端入口、回调与退出地址
+     */
+    @SaIgnore
+    @GetMapping("/login/frontend")
+    public R<LoginFrontendOption> loginFrontend(
+        @RequestParam String frontendId,
+        @RequestParam String terminal
+    ) {
+        IamProperties.Frontend frontend = requireFrontend(frontendId, terminal);
+        return R.ok(new LoginFrontendOption(
+            frontendId,
+            frontend.getTerminal(),
+            frontend.getClientMode(),
+            properties.getPublicBaseUrl(),
+            frontend.getPublicBaseUrl(),
+            frontend.getLaunchUri(),
+            frontend.getRedirectUri(),
+            frontend.getLogoutUri()
+        ));
+    }
+
+    /**
      * 登录前返回已启用且支持当前终端的最小系统选项。
      *
      * @param terminal WEB 或 PDA
@@ -619,6 +645,30 @@ public class IamSsoController {
         String applicationType,
         String launchUri,
         String apiBaseUrl
+    ) {
+    }
+
+    /**
+     * 受信前端公开地址配置。
+     *
+     * @param frontendId 前端标识
+     * @param terminal 终端类型
+     * @param clientMode 浏览器或应用内模式
+     * @param iamPublicBaseUrl 认证中心浏览器公开基址
+     * @param publicBaseUrl 前端公开基址
+     * @param launchUri 前端入口地址
+     * @param redirectUri 票据回调地址
+     * @param logoutUri 退出返回地址
+     */
+    public record LoginFrontendOption(
+        String frontendId,
+        String terminal,
+        String clientMode,
+        String iamPublicBaseUrl,
+        String publicBaseUrl,
+        String launchUri,
+        String redirectUri,
+        String logoutUri
     ) {
     }
 }
