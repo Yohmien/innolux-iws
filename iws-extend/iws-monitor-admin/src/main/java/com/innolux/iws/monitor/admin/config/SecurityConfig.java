@@ -15,6 +15,7 @@ import com.innolux.iws.monitor.admin.security.IamMonitorSessionFilter;
 import com.innolux.iws.monitor.admin.security.MonitorPrincipal;
 import com.innolux.iws.monitor.admin.service.IamMonitorPendingRevocationService;
 import com.innolux.iws.common.auth.domain.IamSessionStatusRequest;
+import com.innolux.iws.common.auth.utils.IamBrowserUrls;
 import de.codecentric.boot.admin.server.config.AdminServerProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -126,7 +127,10 @@ public class SecurityConfig {
                 logout.logoutUrl(adminContextPath + "/logout")
                     .addLogoutHandler(centerLogoutHandler())
                     .logoutSuccessHandler((request, response, authentication) ->
-                        response.sendRedirect(iamProperties.getPublicBaseUrl() + "/login"
+                        response.sendRedirect(IamBrowserUrls.resolveLoopbackHost(
+                            iamProperties.getPublicBaseUrl(),
+                            request.getServerName()
+                        ) + "/login"
                             + (Boolean.TRUE.equals(request.getAttribute("iamCenterRevokePending"))
                                 ? "?logoutPending=1"
                                 : Boolean.TRUE.equals(request.getAttribute("iamCenterRevokeStale"))

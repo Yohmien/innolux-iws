@@ -11,11 +11,11 @@
 
 package com.innolux.iws.snailai.iam;
 
-import com.innolux.iws.common.auth.utils.IamSsoPages;
-
 import com.aizuda.snail.ai.admin.interceptor.AuthenticationInterceptor;
 import com.innolux.iws.common.auth.constant.IamProtocolConstants;
 import com.innolux.iws.common.auth.domain.IamTicketExchangeResponse;
+import com.innolux.iws.common.auth.utils.IamBrowserUrls;
+import com.innolux.iws.common.auth.utils.IamSsoPages;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -83,9 +83,11 @@ public class IamAiSsoController {
             + "&returnPath=" + encode(safeReturnPath)
             + "&terminal=WEB"
             + "&transactionId=" + encode(transactionId);
-        response.sendRedirect(
-            properties.getPublicBaseUrl() + "/login?redirect=" + encode(launchPath)
+        String centerBase = IamBrowserUrls.resolveLoopbackHost(
+            properties.getPublicBaseUrl(),
+            request.getServerName()
         );
+        response.sendRedirect(centerBase + "/login?redirect=" + encode(launchPath));
     }
 
     /**
@@ -312,7 +314,10 @@ public class IamAiSsoController {
     @ResponseBody
     public ResponseEntity<String> guard(HttpServletRequest request) {
         String contextPath = request.getContextPath();
-        String centerLogin = properties.getPublicBaseUrl() + "/login";
+        String centerLogin = IamBrowserUrls.resolveLoopbackHost(
+            properties.getPublicBaseUrl(),
+            request.getServerName()
+        ) + "/login";
         String script = """
             (function () {
               const context = '@@IWS_CONTEXT@@';
