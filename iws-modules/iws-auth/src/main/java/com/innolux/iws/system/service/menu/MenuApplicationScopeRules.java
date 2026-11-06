@@ -22,18 +22,23 @@ public final class MenuApplicationScopeRules {
      */
     public static final String SHARED_APPLICATION_ID = "*";
 
+    /**
+     * 未显式指定范围时使用的默认业务应用。
+     */
+    public static final String DEFAULT_APPLICATION_ID = "iws-a";
+
     private MenuApplicationScopeRules() {
     }
 
     /**
-     * 将空白应用标识规范化为共享范围。
+     * 将空白应用标识规范化为默认业务应用；共享菜单必须显式使用 {@code *}。
      *
      * @param applicationId 应用标识
      * @return 非空应用标识
      */
     public static String normalize(String applicationId) {
         return StringUtils.isBlank(applicationId)
-            ? SHARED_APPLICATION_ID
+            ? DEFAULT_APPLICATION_ID
             : applicationId.trim();
     }
 
