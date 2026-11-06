@@ -13,7 +13,6 @@ package com.innolux.iws.web.service;
 
 import cn.dev33.satoken.stp.parameter.SaLoginParameter;
 import com.innolux.iws.common.core.utils.StringUtils;
-import com.innolux.iws.common.web.config.properties.CaptchaProperties;
 import com.innolux.iws.system.service.ISysConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,8 +35,6 @@ public class LoginSecurityConfigService {
 
     public static final String TIMEOUT_KEY = "sys.login.timeout";
 
-    private final CaptchaProperties captchaProperties;
-
     private final ISysConfigService configService;
 
     /**
@@ -46,7 +43,7 @@ public class LoginSecurityConfigService {
      * @return true 表示登录与注册需要校验图形验证码
      */
     public boolean isCaptchaEnabled() {
-        return resolveBoolean(CAPTCHA_ENABLED_KEY, Boolean.TRUE.equals(captchaProperties.getEnable()));
+        return resolveBoolean(CAPTCHA_ENABLED_KEY, false);
     }
 
     /**
