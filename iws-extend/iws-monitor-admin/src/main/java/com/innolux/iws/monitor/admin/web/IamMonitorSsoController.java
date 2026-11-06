@@ -174,6 +174,88 @@ public class IamMonitorSsoController {
         }
     }
 
+    /**
+     * 消费外层 IWS 申请的一次性票据并建立监控本地会话。
+     *
+     * @param ticket 中心票据
+     * @param state 中心绑定状态
+     * @param applicationId 目标应用
+     * @param frontendId 受信前端
+     * @param terminal 终端
+     * @param request HTTP 请求
+     * @return 成功时跳转监控原页面，失败时返回 401
+     */
+    @GetMapping("/admin/sso/bridge")
+    @ResponseBody
+    public ResponseEntity<?> bridge(
+        @RequestParam String ticket,
+        @RequestParam String state,
+        @RequestParam String applicationId,
+        @RequestParam String frontendId,
+        @RequestParam String terminal,
+        HttpServletRequest request
+    ) {
+        if (!properties.getApplicationId().equals(applicationId)
+            || !properties.getFrontendId().equals(frontendId)
+            || !"WEB".equalsIgnoreCase(terminal)) {
+            return error("嵌入应用桥接目标或受信前端不匹配");
+        }
+        HttpSession session = request.getSession(true);
+        synchronized (session) {
+            try {
+                IamTicketExchangeResponse inspected = centerClient.inspect(ticket, frontendId, state);
+                MonitorPrincipal preparedPrincipal = principal(inspected);
+                IamTicketExchangeResponse identity = centerClient.exchange(
+                    ticket,
+                    frontendId,
+                    state,
+                    UUID.randomUUID().toString().replace("-", "")
+                );
+                if (!preparedPrincipal.sessionId().equals(identity.sessionId())
+                    || preparedPrincipal.sessionGeneration() != identity.sessionGeneration()) {
+                    throw new IllegalStateException("统一身份应用会话提交结果不匹配");
+                }
+                request.changeSessionId();
+                SecurityContext context = SecurityContextHolder.createEmptyContext();
+                context.setAuthentication(
+                    UsernamePasswordAuthenticationToken.authenticated(
+                        preparedPrincipal,
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_IAM_MONITOR"))
+                    )
+                );
+                SecurityContextHolder.setContext(context);
+                session.setAttribute(
+                    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                    context
+                );
+                session.setAttribute("iamMonitorValidatedAt", System.currentTimeMillis());
+                return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Cache-Control", "no-store")
+                    .header("Location", normalizeMonitorPath(identity.returnPath()))
+                    .build();
+            } catch (Exception e) {
+                SecurityContextHolder.clearContext();
+                return error(e.getMessage() == null ? "嵌入应用桥接失败" : e.getMessage());
+            }
+        }
+    }
+
+    private MonitorPrincipal principal(IamTicketExchangeResponse inspected) {
+        return new MonitorPrincipal(
+            inspected.userId(),
+            inspected.username(),
+            inspected.rootSid(),
+            inspected.applicationId(),
+            inspected.frontendId(),
+            inspected.sessionId(),
+            inspected.sessionGeneration(),
+            inspected.terminal(),
+            inspected.instanceId(),
+            inspected.expiresAt()
+        );
+    }
+
     private ResponseEntity<String> error(String message) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .contentType(MediaType.TEXT_HTML)
