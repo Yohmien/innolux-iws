@@ -31,7 +31,7 @@
 --   6. APK 发布记录表（1 张表）；菜单只由认证中心初始化脚本创建
 --   7. 在库管理公司最小闭环菜单（7 行）、空间页面菜单（6 行）与业务目录页面（1 行，复用既有根）
 -- 共 181 张表，其中 WMS 77 张。
--- 菜单种子共 254 行。
+-- 菜单种子共 255 行。
 --
 -- 种子只保留系统运行所需的默认模板配置：部门/岗位/角色/菜单/字典/参数、
 -- 默认管理员、SnailJob 初始管理员与默认组、默认客户端、OSS 模板、流程分类和流程表达式、
@@ -4286,6 +4286,7 @@ INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000109,'在线用户',1761400000000000002,1,'online','monitor/online/index','','N','Y','C','1','0','monitor:online:list','online','','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'在线用户菜单');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000113,'缓存监控',1761400000000000002,5,'cache','monitor/cache/index','','N','Y','C','0','0','monitor:cache:list','redis','','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'缓存监控菜单');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000115,'代码生成',1761400000000000003,2,'gen','tool/gen/index','','N','Y','C','0','0','tool:gen:list','code','','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'代码生成菜单');
+INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000132,'接口文档',1761400000000000003,9,'api-doc','monitor/apiDoc/index','','N','Y','C','0','0','monitor:apidoc:list','documentation','','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'接口文档菜单');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000116,'修改生成配置',1761400000000000003,2,'gen-edit/index/:tableId','tool/gen/editTable','','N','N','C','1','0','tool:gen:edit','#','/tool/gen','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000117,'Admin监控',1761400000000000002,5,'Admin','monitor/admin/index','','N','Y','C','0','0','monitor:admin:list','dashboard','','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'Admin监控菜单');
 INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query_param`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `active_menu`, `ext`, `create_dept`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1761400000000000118,'文件管理',1761400000000000001,10,'oss','system/oss/index','','N','Y','C','0','0','system:oss:list','upload','','',1761000000000000103,1761100000000000001,'2026-10-23 21:05:52',NULL,NULL,'文件管理菜单');
@@ -8017,7 +8018,7 @@ SET @init_final_ok = (
     @init_preflight_ok = 1
     AND @init_final_table_count = 181
     AND @init_final_wms_table_count = 77
-    AND @init_final_menu_count = 254
+    AND @init_final_menu_count = 255
     AND @init_final_event_menu_count = 53
     AND @init_final_role_menu_count = 133
     AND @init_final_space_root_ok = 1
