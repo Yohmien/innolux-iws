@@ -12,6 +12,8 @@
 package com.innolux.iws.web.service;
 
 import com.innolux.iws.common.auth.constant.IamProtocolConstants;
+import com.innolux.iws.common.auth.domain.IamBridgeIssueRequest;
+import com.innolux.iws.common.auth.domain.IamBridgeTicketResponse;
 import com.innolux.iws.common.auth.domain.IamSessionStatusRequest;
 import com.innolux.iws.common.auth.domain.IamSessionStatusResponse;
 import com.innolux.iws.common.auth.domain.IamTicketExchangeRequest;
@@ -138,6 +140,36 @@ public class IamCenterClient {
         );
         if (result == null || !IamProtocolConstants.ISSUER.equals(result.issuer())) {
             throw new ServiceException("统一身份中心返回的根会话签发方不匹配", 503);
+        }
+        return result;
+    }
+
+    /**
+     * 为当前 IWS 会话申请嵌入应用一次性桥接票据。
+     *
+     * @param request 来源会话与目标应用
+     * @return 目标应用一次性票据
+     */
+    public IamBridgeTicketResponse issueBridgeTicket(IamBridgeIssueRequest request) {
+        requireConfiguration();
+        JsonNode response = postSigned(
+            "/iam/bridge/issue",
+            JsonUtils.toJsonString(request)
+        );
+        IamBridgeTicketResponse result = JsonUtils.parseObject(
+            response.toString(),
+            IamBridgeTicketResponse.class
+        );
+        if (result == null
+            || result.ticket() == null
+            || result.ticket().isBlank()
+            || result.state() == null
+            || result.state().isBlank()
+            || !request.targetApplicationId().equals(result.applicationId())
+            || result.frontendId() == null
+            || result.frontendId().isBlank()
+            || !IamProtocolConstants.TERMINAL_WEB.equals(result.terminal())) {
+            throw new ServiceException("统一身份中心返回的嵌入应用票据不匹配", 503);
         }
         return result;
     }

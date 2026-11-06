@@ -86,6 +86,14 @@ public class IamClientProperties {
     private List<@NotBlank String> allowedLoginClientIds = new ArrayList<>();
 
     /**
+     * 允许从当前 IWS 发起一次性令牌桥接的嵌入应用。
+     */
+    @NotEmpty
+    private List<@NotBlank String> bridgeApplications = new ArrayList<>(
+        List.of("snail-ai", "snail-job", "admin-monitor")
+    );
+
+    /**
      * 连接中心超时毫秒数。
      */
     @Min(1)

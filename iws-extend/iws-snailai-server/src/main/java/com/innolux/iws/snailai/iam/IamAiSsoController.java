@@ -151,6 +151,62 @@ public class IamAiSsoController {
     }
 
     /**
+     * 消费外层 IWS 申请的一次性票据并建立 AI 本地会话。
+     *
+     * @param ticket 中心票据
+     * @param state 中心绑定状态
+     * @param applicationId 目标应用
+     * @param frontendId 受信前端
+     * @param terminal 终端
+     * @param request HTTP 请求
+     * @param response HTTP 响应
+     * @throws Exception 写出失败
+     */
+    @GetMapping("/iam/sso/bridge")
+    public void bridge(
+        @RequestParam String ticket,
+        @RequestParam String state,
+        @RequestParam String applicationId,
+        @RequestParam String frontendId,
+        @RequestParam String terminal,
+        HttpServletRequest request,
+        HttpServletResponse response
+    ) throws Exception {
+        response.setHeader("Cache-Control", "no-store");
+        if (!properties.getApplicationId().equals(applicationId)
+            || !properties.getFrontendId().equals(frontendId)
+            || !"WEB".equalsIgnoreCase(terminal)) {
+            callbackError(request, response, "嵌入应用桥接目标或受信前端不匹配");
+            return;
+        }
+        HttpSession session = request.getSession(true);
+        synchronized (session) {
+            try {
+                IamTicketExchangeResponse inspected = centerClient.inspect(ticket, frontendId, state);
+                var preparedUser = localSessionService.prepare(inspected);
+                IamTicketExchangeResponse identity = centerClient.exchange(
+                    ticket,
+                    frontendId,
+                    state,
+                    UUID.randomUUID().toString().replace("-", "")
+                );
+                IamAiLocalSessionService.IssuedSession issued =
+                    localSessionService.issue(identity, preparedUser);
+                request.changeSessionId();
+                session.setAttribute(BOOTSTRAP_TOKEN_SESSION_KEY, issued.accessToken());
+                session.setAttribute(BOOTSTRAP_RETURN_PATH_SESSION_KEY, issued.returnPath());
+                response.sendRedirect(request.getContextPath() + "/iam/sso/complete");
+            } catch (RuntimeException e) {
+                callbackError(
+                    request,
+                    response,
+                    e.getMessage() == null ? "嵌入应用桥接失败" : e.getMessage()
+                );
+            }
+        }
+    }
+
+    /**
      * 输出一次性 Token 桥接页，Token 不进入 URL 或服务端日志。
      *
      * @param request HTTP 请求
